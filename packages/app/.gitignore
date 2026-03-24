@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.swc/
+
+# WeChat DevTools local config
+project.private.config.json
+
+# Local env files
+.env
+.env.local
+*.local
