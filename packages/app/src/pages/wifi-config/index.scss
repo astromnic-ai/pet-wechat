@@ -1,66 +1,163 @@
-.wifi-config-page {
-  background: $color-bg;
-  overflow-x: hidden;
-  @include safe-area-bottom($spacing-xl);
+.wifi-guide-page {
+  min-height: 100vh;
+  background: #eaeaea;
+  box-sizing: border-box;
+  padding: 40rpx 0 48rpx;
+}
 
-  .config-mock-badge {
-    display: inline-flex;
-    margin: 0 auto $spacing-md;
-  }
+.brand {
+  display: block;
+  text-align: center;
+  font-size: 36rpx;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #000000;
+  margin-top: 40rpx;
+  margin-bottom: 20rpx;
+}
 
-  .mock-btn {
-    background: $color-error;
-    border: 2px solid $color-error;
-    box-shadow: none;
-  }
+.outline-image {
+  display: block;
+  width: 500rpx;
+  margin: 0 auto 24rpx;
+  opacity: 0.92;
+}
 
-  .step-indicator {
-    margin-bottom: 48px;
-    padding-top: 80px;
-  }
+.guide-card {
+  width: 90%;
+  background: #ffffff;
+  border-radius: 20rpx;
+  margin: 0 auto;
+  padding: 40rpx;
+  box-sizing: border-box;
+  border: 4rpx solid #2f92f4;
+}
 
-  .step-title {
-    display: block;
-    font-size: $font-size-lg;
-    font-weight: $font-weight-bold;
-    text-align: center;
-    margin-bottom: $spacing-sm;
-    color: $color-text-primary;
-  }
+.guide-title {
+  display: block;
+  text-align: center;
+  font-size: 42rpx;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 40rpx;
+}
 
-  .step-desc {
-    display: block;
-    font-size: 26px;
-    color: $color-text-tertiary;
-    text-align: center;
-    margin-bottom: 48px;
-  }
+.device-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 28rpx;
+  margin-bottom: 34rpx;
+}
 
-  .form-section {
-    .form-item {
-      margin-bottom: $spacing-xl;
+.pet-icon {
+  width: 140rpx;
+  height: 140rpx;
+  flex-shrink: 0;
+}
 
-      .label {
-        display: block;
-        font-size: 26px;
-        color: $color-text-tertiary;
-        margin-bottom: $spacing-sm;
-      }
+.link-icon {
+  width: 40rpx;
+  height: 40rpx;
+  flex-shrink: 0;
+}
 
-      .input-field {
-        height: $input-height;
-        padding: 0 $spacing-xl;
-        background: $color-bg-input;
-        border: 2px solid transparent;
-        border-radius: $radius-md;
-        box-sizing: border-box;
-        font-size: $font-size-base;
-        color: $color-text-primary;
+.device-icon {
+  width: 240rpx;
+  height: 160rpx;
+  flex-shrink: 0;
+}
 
-        &::placeholder {
-          color: $color-text-placeholder;
-        }
-      }
-    }
-  }
+.step-block {
+  margin: 20rpx 0 12rpx;
+}
+
+.step-title {
+  display: block;
+  font-size: 32rpx;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #000000;
+}
+
+.step-text {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: #000000;
+}
+
+.network-list-card,
+.selected-network-card {
+  background: #f0f0f0;
+  border-radius: 12rpx;
+  padding: 30rpx;
+  box-sizing: border-box;
+  margin: 20rpx 0;
+}
+
+.network-list-title {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.4;
+  color: #000000;
+  margin-bottom: 18rpx;
+}
+
+.network-placeholder {
+  height: 56rpx;
+  border-radius: 8rpx;
+  background: #dddddd;
+  margin-top: 18rpx;
+}
+
+.selected-network-name {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #000000;
+  margin-bottom: 18rpx;
+}
+
+.password-input {
+  width: 100%;
+  height: 56rpx;
+  background: #ffffff;
+  border-radius: 10rpx;
+  box-sizing: border-box;
+  padding: 0 20rpx;
+  font-size: 24rpx;
+  color: #000000;
+}
+
+.selected-network-tip {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 20rpx;
+  line-height: 1.4;
+  color: #888888;
+}
+
+.progress-track {
+  width: 80%;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background: #cfcfcf;
+  margin: 40rpx auto 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4rpx;
+  background: #ffffff;
+}
+
+.progress-step-2 {
+  width: 52%;
 }

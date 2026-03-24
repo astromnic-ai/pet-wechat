@@ -1,207 +1,167 @@
-.collar-bind-page {
+.device-guide-page {
   min-height: 100vh;
-  background: $color-bg;
+  background: #eaeaea;
+  box-sizing: border-box;
+  padding: 40rpx 0 48rpx;
+}
+
+.brand {
+  display: block;
+  text-align: center;
+  font-size: 36rpx;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #000000;
+  margin-top: 40rpx;
+  margin-bottom: 20rpx;
+}
+
+.outline-image {
+  display: block;
+  width: 500rpx;
+  margin: 0 auto 24rpx;
+  opacity: 0.92;
+}
+
+.guide-card {
+  width: 90%;
+  background: #ffffff;
+  border-radius: 20rpx;
+  margin: 0 auto;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+.guide-title {
+  display: block;
+  text-align: center;
+  font-size: 42rpx;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 40rpx;
+}
+
+.device-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 28rpx;
+  margin-bottom: 34rpx;
+}
+
+.pet-device-icon {
+  flex-shrink: 0;
+}
+
+.pet-icon {
+  width: 140rpx;
+  height: 140rpx;
+}
+
+.link-icon {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.device-icon {
+  width: 240rpx;
+  height: 160rpx;
+}
+
+.step-block {
+  margin: 20rpx 0;
+}
+
+.step-title {
+  display: block;
+  font-size: 32rpx;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #000000;
+}
+
+.step-text {
+  display: block;
+  font-size: 28rpx;
+  line-height: 1.5;
+  color: #000000;
+  margin-bottom: 18rpx;
+}
+
+.step-panel {
+  background: #f0f0f0;
+  border-radius: 12rpx;
+  padding: 30rpx;
+  margin: 20rpx 0;
+  box-sizing: border-box;
+}
+
+.plug-panel {
+  min-height: 160rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.plug-icon {
+  font-size: 112rpx;
+  line-height: 1;
+  color: #ffffff;
+  transform: rotate(90deg);
+}
+
+.device-panel {
+  min-height: 180rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: $spacing-2xl;
-  box-sizing: border-box;
+  justify-content: center;
+
+  &.is-ready {
+    border: 4rpx solid #2f92f4;
+    background: #f6faff;
+  }
+}
+
+.panel-device-image {
+  width: 180rpx;
+  height: 110rpx;
+  margin-bottom: 12rpx;
+}
+
+.panel-device-id {
+  font-size: 20rpx;
+  line-height: 1.4;
+  color: #555555;
+}
+
+.panel-tip {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: #888888;
+}
+
+.progress-track {
+  width: 80%;
+  height: 8rpx;
+  border-radius: 4rpx;
+  background: #cfcfcf;
+  margin: 40rpx auto 0;
   position: relative;
   overflow: hidden;
-  overflow-x: hidden;
-  max-width: 100vw;
-  @include safe-area-bottom($spacing-xl);
+}
 
-  .brand-title {
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Display", sans-serif;
-    font-size: 28px;
-    font-weight: 600;
-    color: $color-text-primary;
-    margin-bottom: $spacing-lg;
-    z-index: 2;
-  }
+.progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 4rpx;
+  background: #ffffff;
+}
 
-  .bg-illustration {
-    position: absolute;
-    top: 120px;
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: 0.08;
-    z-index: 0;
-
-    .bg-illustration-emoji {
-      font-size: 300px;
-    }
-  }
-
-  .main-card {
-    width: calc(100% - 32px);
-    background: $color-bg-card;
-    border-radius: 50px;
-    padding: 48px 40px 40px;
-    box-sizing: border-box;
-    z-index: 1;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-
-    .card-title {
-      display: block;
-      font-size: 37px;
-      font-weight: $font-weight-bold;
-      color: $color-text-primary;
-      text-align: center;
-      margin-bottom: $spacing-lg;
-    }
-
-    .collar-illustration {
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin-bottom: 32px;
-
-      .collar-illustration-emoji {
-        font-size: 80px;
-      }
-    }
-
-    .step-section {
-      width: 100%;
-      margin-bottom: 24px;
-
-      .step-row {
-        display: flex;
-        align-items: flex-start;
-        gap: $spacing-md;
-        margin-bottom: $spacing-md;
-
-        .step-number {
-          width: 40px;
-          height: 40px;
-          min-width: 40px;
-          border-radius: $radius-full;
-          background: $color-primary;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-
-          .step-number-text {
-            font-size: 22px;
-            color: $color-text-inverse;
-            font-weight: $font-weight-semibold;
-          }
-        }
-
-        .step-desc {
-          font-size: $font-size-base;
-          color: $color-text-primary;
-          line-height: 1.5;
-          flex: 1;
-        }
-      }
-
-      .step-illustration-area {
-        width: 100%;
-        min-height: 100px;
-        background: $color-bg-input;
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        box-sizing: border-box;
-
-        .step-illustration-img {
-          width: 80px;
-          height: 80px;
-          opacity: 0.4;
-        }
-      }
-
-      .device-list {
-        max-height: 400px;
-      }
-
-      .device-found-card {
-        width: 100%;
-        background: $color-bg;
-        border-radius: 20px;
-        padding: 20px 24px;
-        box-sizing: border-box;
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        margin-bottom: 12px;
-        border: 3px solid transparent;
-
-        &.selected {
-          background: rgba(123, 168, 132, 0.12);
-          border-color: $color-success;
-        }
-
-        .device-icon-img {
-          width: 40px;
-          height: 40px;
-          min-width: 40px;
-        }
-
-        .device-info {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .device-id {
-          font-size: 26px;
-          font-weight: $font-weight-semibold;
-          color: $color-text-primary;
-        }
-
-        .device-mac {
-          font-size: $font-size-xs;
-          color: $color-text-tertiary;
-        }
-      }
-
-      .empty-text {
-        font-size: $font-size-sm;
-        color: $color-text-tertiary;
-        text-align: center;
-        padding: 40px 0;
-      }
-    }
-
-    .main-mock-badge {
-      margin-top: $spacing-md;
-    }
-
-    .device-mock-tag {
-      margin-left: auto;
-    }
-
-    .btn-primary {
-      @include btn-primary;
-
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: $spacing-lg;
-
-      &.mock-btn {
-        background: $color-error;
-        border: 2px solid $color-error;
-        box-shadow: none;
-      }
-    }
-  }
-
-  .step-indicator {
-    padding: $spacing-xl 0 60px;
-    z-index: 2;
-  }
+.progress-step-1 {
+  width: 26%;
 }

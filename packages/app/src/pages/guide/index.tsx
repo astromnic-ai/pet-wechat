@@ -1,72 +1,85 @@
-import { View, Text, Image } from "@tarojs/components";
-import Taro from "@tarojs/taro";
-import NavBar from "../../components/NavBar";
-import { markGuideCompleted } from "../../utils/storage";
-import { ICON_LINK } from "../../assets/icons";
-import dogImage from "../../assets/images/dog.png";
-import collarImage from "../../assets/images/collar-icon.png";
-import desktopImage from "../../assets/images/desktop-icon.png";
-import "./index.scss";
+import { View, Text, Image } from '@tarojs/components'
+import Taro from '@tarojs/taro'
+import { markGuideCompleted } from '../../utils/storage'
+import './index.scss'
 
 export default function Guide() {
   const handleSkip = () => {
-    markGuideCompleted();
-    Taro.switchTab({ url: "/pages/index/index" });
-  };
+    markGuideCompleted()
+    Taro.switchTab({ url: '/pages/index/index' })
+  }
 
   const handleCollarSetup = () => {
-    markGuideCompleted();
-    Taro.navigateTo({ url: "/pages/collar-bind/index" });
-  };
+    Taro.navigateTo({ url: '/pages/collar-bind/index' })
+  }
 
   const handleDesktopSetup = () => {
-    markGuideCompleted();
-    Taro.navigateTo({ url: "/pages/desktop-bind/index" });
-  };
+    Taro.navigateTo({ url: '/pages/desktop-bind/index' })
+  }
 
   return (
-    <View className="guide-page">
-      <NavBar title="YEHEY" />
+    <View className='guide-page'>
+      <Text className='brand'>YEHEY</Text>
 
-      <View
-        className="section-card"
-        onClick={handleCollarSetup}
-      >
-        <Text className="section-title">项圈配置</Text>
-        <Text className="section-subtitle">
-          连接智能项圈，同步宠物的真实行为
-        </Text>
-        <View className="illustration-area">
-          <View className="illustration-icons">
-            <Image className="illustration-icon" src={dogImage} mode="aspectFit" />
-            <Image className="illustration-link" src={ICON_LINK} mode="aspectFit" />
-            <Image className="illustration-icon" src={collarImage} mode="aspectFit" />
+      <View className='module module-top' onClick={handleCollarSetup}>
+        <View className='module-shell'>
+          <View className='ellipse-card'>
+            <View className='device-row'>
+              <Image
+                src={require('@/assets/images/Group 1.png')}
+                mode='aspectFit'
+                className='device-left'
+              />
+              <Image
+                src={require('@/assets/images/wifi-icon.png')}
+                mode='aspectFit'
+                className='device-link'
+              />
+              <Image
+                src={require('@/assets/images/mirror-icon.png')}
+                mode='aspectFit'
+                className='device-right'
+              />
+            </View>
+            <Text className='device-desc'>优先配置项圈，同步宠物的真实行为</Text>
+          </View>
+        </View>
+
+        <Text className='module-title'>我有宠物陪伴</Text>
+      </View>
+
+      <Text className='middle-text'>欢迎来到宠物新世界</Text>
+
+      <View className='module module-bottom' onClick={handleDesktopSetup}>
+        <Text className='module-title'>开启桌面宠物</Text>
+
+        <View className='module-shell'>
+          <View className='ellipse-card'>
+            <View className='device-row'>
+              <Image
+                src={require('@/assets/images/Group 2.png')}
+                mode='aspectFit'
+                className='device-left'
+              />
+              <Image
+                src={require('@/assets/images/wifi-icon.png')}
+                mode='aspectFit'
+                className='device-link'
+              />
+              <Image
+                src={require('@/assets/images/snow-globe.png')}
+                mode='aspectFit'
+                className='device-right'
+              />
+            </View>
+            <Text className='device-desc'>配置桌面端设备，开启数字宠物体验</Text>
           </View>
         </View>
       </View>
 
-      <Text className="middle-text">欢迎来到宠物新世界</Text>
-
-      <View
-        className="section-card"
-        onClick={handleDesktopSetup}
-      >
-        <Text className="section-title">桌面摆件配置</Text>
-        <Text className="section-subtitle">
-          连接桌面设备，开启数字宠物体验
-        </Text>
-        <View className="illustration-area">
-          <View className="illustration-icons">
-            <Image className="illustration-icon" src={dogImage} mode="aspectFit" />
-            <Image className="illustration-link" src={ICON_LINK} mode="aspectFit" />
-            <Image className="illustration-icon" src={desktopImage} mode="aspectFit" />
-          </View>
-        </View>
-      </View>
-
-      <Text className="skip-link" onClick={handleSkip}>
+      <Text className='skip-link' onClick={handleSkip}>
         跳过，稍后再设置
       </Text>
     </View>
-  );
+  )
 }

@@ -1,117 +1,130 @@
-import { View, Text, Input } from "@tarojs/components";
+import { View, Text, Image, Input } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { useState } from "react";
-import NavBar from "../../components/NavBar";
-import StepIndicator from "../../components/StepIndicator";
-import MockBadge from "../../components/MockBadge";
+import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import "./index.scss";
+
+const DEFAULT_SSID = "TFTINGHUATONGFANG-WIFI";
 
 export default function WifiConfig() {
   const router = useRouter();
   const deviceType = router.params.deviceType as "collar" | "desktop" | undefined;
   const deviceId = router.params.deviceId;
-
-  const [ssid, setSsid] = useState("");
+  const [ssid, setSsid] = useState(DEFAULT_SSID);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const isDesktop = deviceType === "desktop";
+  const pageTitle = isDesktop ? "桌面端网络配置" : "配置宠物项圈";
+  const petImage = isDesktop
+    ? require("@/assets/images/Group 2.png")
+    : require("@/assets/images/Group 1.png");
+  const deviceImage = isDesktop
+    ? require("@/assets/images/snow-globe.png")
+    : require("@/assets/images/mirror-icon.png");
+
+  const resultUrl = useMemo(() => {
+    if (isDesktop && deviceId) {
+      return `/pages/wifi-result/index?success=true&stage=config&deviceType=desktop&desktopId=${deviceId}`;
+    }
+    if (deviceId) {
+      return `/pages/wifi-result/index?success=true&stage=config&deviceType=collar&collarId=${deviceId}`;
+    }
+    return "/pages/wifi-result/index?success=true&stage=config&deviceType=collar";
+  }, [deviceId, isDesktop]);
 
   const handleConfigure = async () => {
     if (loading) return;
     if (!ssid) {
-      Taro.showToast({ title: "请输入 WiFi 名称", icon: "none" });
+      Taro.showToast({ title: "请选择网络", icon: "none" });
       return;
     }
+
     setLoading(true);
+    Taro.showLoading({ title: "配置中..." });
 
     try {
-      Taro.showLoading({ title: "配置中..." });
-
-      let resultUrl: string;
-
-      if (deviceType === "collar" && deviceId) {
-        await request<{ collar: { id: string } }>({
-          url: `/api/devices/collars/${deviceId}/claim`,
-          method: "POST",
-          data: { name: "YEHEY Collar" },
-        });
-        resultUrl = `/pages/wifi-result/index?success=true&deviceType=collar&collarId=${deviceId}`;
-      } else if (deviceType === "desktop" && deviceId) {
-        await request<{ desktop: { id: string } }>({
-          url: `/api/devices/desktops/${deviceId}/claim`,
-          method: "POST",
-          data: { name: "YEHEY Desktop" },
-        });
-        resultUrl = `/pages/wifi-result/index?success=true&deviceType=desktop&desktopId=${deviceId}`;
-      } else {
-        // 兼容旧流程：直接创建设备
-        const { collar } = await request<{ collar: { id: string } }>({
-          url: "/api/devices/collars",
-          method: "POST",
-          data: {
-            name: "YEHEY Collar",
-            macAddress: `mock_${Date.now()}`,
-          },
-        });
-        resultUrl = `/pages/wifi-result/index?success=true&collarId=${collar.id}`;
+      if (!deviceId) {
+        throw new Error("missing device id");
       }
 
-      // 模拟配网延迟，loading 状态保持到跳转，防止重复点击
-      setTimeout(() => {
-        Taro.hideLoading();
-        setLoading(false);
-        Taro.navigateTo({ url: resultUrl });
-      }, 2000);
-    } catch (e: any) {
+      if (isDesktop) {
+        await request({
+          url: `/api/devices/desktops/${deviceId}/claim`,
+          method: "POST",
+          data: { name: "YEHEY Desktop", wifiSsid: ssid },
+        });
+      } else {
+        await request({
+          url: `/api/devices/collars/${deviceId}/claim`,
+          method: "POST",
+          data: { name: "YEHEY Collar", wifiSsid: ssid },
+        });
+      }
+
+      Taro.navigateTo({ url: resultUrl });
+    } catch {
+      Taro.navigateTo({
+        url: `/pages/wifi-result/index?success=false&stage=config&deviceType=${deviceType ?? "collar"}&deviceId=${deviceId ?? ""}`,
+      });
+    } finally {
       Taro.hideLoading();
       setLoading(false);
-      Taro.navigateTo({
-        url: `/pages/wifi-result/index?success=false&deviceType=${deviceType ?? "collar"}`,
-      });
     }
   };
 
   return (
-    <View className="wifi-config-page container">
-      <NavBar title="WiFi 配置" />
-      <StepIndicator
-        steps={["准备设备", "连接设备", "配置网络"]}
-        current={3}
+    <View className="wifi-guide-page">
+      <Text className="brand">YEHEY</Text>
+      <Image
+        className="outline-image"
+        src={require("@/assets/images/pet-outline.png")}
+        mode="widthFix"
       />
 
-      <Text className="step-title">Step 3: WiFi 配置</Text>
-      <Text className="step-desc">
-        {deviceType === "desktop"
-          ? "为桌面摆台配置 WiFi，以便实时同步宠物动态"
-          : "为项圈配置 WiFi，以便实时同步宠物行为数据"}
-      </Text>
+      <View className="guide-card">
+        <Text className="guide-title">{pageTitle}</Text>
 
-      <View className="form-section">
-        <View className="form-item">
-          <Text className="label">WiFi 名称</Text>
-          <Input
-            className="input-field"
-            placeholder="输入 WiFi SSID"
-            value={ssid}
-            onInput={(e) => setSsid(e.detail.value)}
+        <View className="device-hero">
+          <Image className="pet-icon" src={petImage} mode="aspectFit" />
+          <Image
+            className="link-icon"
+            src={require("@/assets/images/link-icon.png")}
+            mode="aspectFit"
           />
+          <Image className="device-icon" src={deviceImage} mode="aspectFit" />
         </View>
 
-        <View className="form-item">
-          <Text className="label">WiFi 密码</Text>
+        <View className="step-block">
+          <Text className="step-title">Step 3：</Text>
+          <Text className="step-text">点击设备配置设备WIFI网络 选择网络名称，输入密码即可</Text>
+        </View>
+
+        <View className="network-list-card">
+          <Text className="network-list-title">附近网络</Text>
+          <View className="network-placeholder" />
+          <View className="network-placeholder" />
+          <View className="network-placeholder" />
+        </View>
+
+        <View className="selected-network-card" onClick={handleConfigure}>
+          <Text className="selected-network-name">{ssid}</Text>
           <Input
-            className="input-field"
+            className="password-input"
             password
-            placeholder="输入 WiFi 密码"
+            placeholder="输入密码"
             value={password}
             onInput={(e) => setPassword(e.detail.value)}
+            onConfirm={handleConfigure}
           />
+          <Text className="selected-network-tip">
+            {loading ? "配置中..." : "输入密码后点击此区域继续"}
+          </Text>
         </View>
       </View>
 
-      <MockBadge className="config-mock-badge" text="⚠ Mock 模式：WiFi 配网使用模拟流程" />
-      <View className="btn-primary mock-btn" onClick={handleConfigure}>
-        {loading ? "Mock 配置中..." : "Mock 完成配置"}
+      <View className="progress-track">
+        <View className="progress-fill progress-step-2" />
       </View>
     </View>
   );

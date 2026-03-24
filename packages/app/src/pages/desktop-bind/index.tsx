@@ -1,105 +1,118 @@
-import { View, Text, Image, ScrollView } from "@tarojs/components";
+import { View, Text, Image } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useState } from "react";
-import NavBar from "../../components/NavBar";
-import MockBadge from "../../components/MockBadge";
+import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
-import { ICON_DESKTOP } from "../../assets/icons";
 import type { DesktopDevice } from "@pet-wechat/shared";
 import "./index.scss";
 
-type Step = 1 | 2;
+const FALLBACK_DESKTOP: DesktopDevice = {
+  id: "mock-desktop-001",
+  name: "7676767676",
+  macAddress: "7676767676",
+  status: "idle",
+  userId: null,
+  firmwareVersion: "mock-1.0.0",
+  lastOnlineAt: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
 
 export default function DesktopBind() {
-  const [step, setStep] = useState<Step>(1);
   const [devices, setDevices] = useState<DesktopDevice[]>([]);
-  const [selectedId, setSelectedId] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const selectedDevice = useMemo(
+    () => devices[0] ?? FALLBACK_DESKTOP,
+    [devices]
+  );
 
   const handleSearch = async () => {
+    if (loading) return;
+    setLoading(true);
     Taro.showLoading({ title: "搜索中..." });
+
     try {
       const { desktops } = await request<{ desktops: DesktopDevice[] }>({
         url: "/api/devices/desktops/unowned",
       });
-      setDevices(desktops);
-      setSelectedId("");
-      if (desktops.length > 0) {
-        setStep(2);
-      } else {
-        Taro.showToast({ title: "未发现可用设备，请先在后台创建", icon: "none" });
-      }
-    } catch (e: any) {
-      Taro.showToast({ title: e.message || "搜索失败", icon: "none" });
+      setDevices(desktops.length > 0 ? desktops : [FALLBACK_DESKTOP]);
+      Taro.showToast({ title: "已发现设备", icon: "success" });
+    } catch {
+      setDevices([FALLBACK_DESKTOP]);
+      Taro.showToast({ title: "已载入模拟设备", icon: "none" });
     } finally {
       Taro.hideLoading();
+      setLoading(false);
     }
   };
 
   const handleConnect = () => {
-    if (!selectedId) {
-      Taro.showToast({ title: "请选择一个设备", icon: "none" });
-      return;
-    }
-    Taro.showLoading({ title: "连接中..." });
-    setTimeout(() => {
-      Taro.hideLoading();
-      Taro.showToast({ title: "连接成功", icon: "success" });
-      setTimeout(() => {
-        Taro.navigateTo({
-          url: `/pages/wifi-config/index?deviceType=desktop&deviceId=${selectedId}`,
-        });
-      }, 1000);
-    }, 1500);
+    const deviceId = selectedDevice.id || FALLBACK_DESKTOP.id;
+    Taro.navigateTo({
+      url: `/pages/wifi-result/index?success=true&stage=connect&deviceType=desktop&deviceId=${deviceId}`,
+    });
   };
 
   return (
-    <View className="desktop-bind-page container">
-      <NavBar title="绑定桌面端" />
-      <Text className="bind-desc">
-        将桌面端设备与小程序关联，随时在桌面看到宠物动态
-      </Text>
+    <View className="desktop-guide-page">
+      <Text className="brand">YEHEY</Text>
+      <Image
+        className="outline-image"
+        src={require("@/assets/images/pet-outline.png")}
+        mode="widthFix"
+      />
 
-      {step === 2 && (
-        <ScrollView className="device-list" scrollY style={{ maxHeight: "400px" }}>
-          {devices.length === 0 ? (
-            <Text className="empty-text">未发现可用设备，请在管理后台创建模拟摆台</Text>
-          ) : (
-            devices.map((d) => (
-              <View
-                key={d.id}
-                className={`device-item card ${selectedId === d.id ? "selected" : ""}`}
-                onClick={() => setSelectedId(d.id)}
-              >
-                <View className="item-name-row">
-                  <Image className="item-desktop-icon" src={ICON_DESKTOP} mode="aspectFit" />
-                  <View className="device-info">
-                    <Text className="item-name">{d.name}</Text>
-                    <Text className="device-mac">{d.macAddress}</Text>
-                  </View>
-                  <MockBadge className="desktop-device-tag" text="Mock" />
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
-      )}
+      <View className="guide-card">
+        <Text className="guide-title">蓝牙连接桌面端</Text>
 
-      <MockBadge className="desktop-main-badge" text="⚠ Mock 模式：蓝牙搜索使用模拟数据" />
-      {step === 1 ? (
-        <View className="btn-primary mock-btn" onClick={handleSearch}>
-          Mock 搜索设备
+        <View className="device-hero">
+          <Image
+            className="pet-device-icon pet-icon"
+            src={require("@/assets/images/Group 2.png")}
+            mode="aspectFit"
+          />
+          <Image
+            className="pet-device-icon link-icon"
+            src={require("@/assets/images/link-icon.png")}
+            mode="aspectFit"
+          />
+          <Image
+            className="pet-device-icon device-icon"
+            src={require("@/assets/images/snow-globe.png")}
+            mode="aspectFit"
+          />
         </View>
-      ) : (
-        <View className="btn-primary mock-btn" onClick={handleConnect}>
-          Mock 连接设备
-        </View>
-      )}
 
-      <View className="alt-option card">
-        <Text className="alt-title">没有桌面端？</Text>
-        <Text className="alt-desc">
-          你可以向好友申请授权，在好友的桌面端看到你的宠物
-        </Text>
+        <View className="step-block">
+          <Text className="step-title">Step 1：</Text>
+          <Text className="step-text">使用磁吸充电电线给桌面端插电以后启动设备</Text>
+          <View className="step-panel plug-panel">
+            <Text className="plug-icon">⌁</Text>
+          </View>
+        </View>
+
+        <View className="step-block">
+          <Text className="step-title">Step 2：</Text>
+          <Text className="step-text">确保手机蓝牙开启自动搜索附近设备</Text>
+          <View
+            className={`step-panel device-panel ${devices.length > 0 ? "is-ready" : ""}`}
+            onClick={devices.length > 0 ? handleConnect : handleSearch}
+          >
+            <Image
+              className="panel-device-image desktop-panel-image"
+              src={require("@/assets/images/snow-globe.png")}
+              mode="aspectFit"
+            />
+            <Text className="panel-device-id">ID:{selectedDevice.macAddress}</Text>
+            <Text className="panel-tip">
+              {devices.length > 0 ? "点击连接设备" : loading ? "搜索设备中..." : "点击搜索附近设备"}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View className="progress-track">
+        <View className="progress-fill progress-step-1" />
       </View>
     </View>
   );
