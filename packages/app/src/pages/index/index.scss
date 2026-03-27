@@ -23,7 +23,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 0;
+  z-index: 5;
 }
 
 .top-card {
@@ -114,10 +114,29 @@
   color: #555555;
 }
 
-.activity-bell {
-  width: 34rpx;
-  height: 34rpx;
+.activity-bell-wrap {
+  position: relative;
+  width: 60rpx;
+  height: 60rpx;
   margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activity-bell {
+  width: 40rpx;
+  height: 40rpx;
+}
+
+.activity-bell-dot {
+  position: absolute;
+  top: -2rpx;
+  right: -4rpx;
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #ff4d4f;
 }
 
 .pet-stage {

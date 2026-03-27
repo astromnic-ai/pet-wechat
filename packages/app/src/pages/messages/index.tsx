@@ -48,6 +48,26 @@ export default function Messages() {
     } catch {}
   };
 
+  const markOneRead = async (message: Message) => {
+    if (message.isRead) return;
+    try {
+      await request({ url: `/api/messages/${message.id}/read`, method: "PUT" });
+      setMessages((prev) =>
+        prev.map((item) => (item.id === message.id ? { ...item, isRead: true } : item))
+      );
+    } catch {}
+  };
+
+  const handleOpenMessage = async (message: Message, actionText: string) => {
+    await markOneRead(message);
+    Taro.showModal({
+      title: message.title,
+      content: message.content,
+      confirmText: actionText,
+      showCancel: false,
+    });
+  };
+
   return (
     <View className="messages-page">
       <View className="messages-header">
@@ -85,25 +105,22 @@ export default function Messages() {
             const variant = getVariant(message);
             const actionText = variant === "refresh" ? "查看更新" : "查看详情";
             return (
-              <View key={message.id} className="message-item">
+              <View key={message.id} className={`message-item ${message.isRead ? "" : "is-unread"}`}>
                 <Image className="message-icon" src={variantMap[variant]} mode="aspectFit" />
                 <View className="message-main">
                   <Text className="message-title">{message.title}</Text>
                   <Text className="message-content">{message.content}</Text>
-                  <Text className="message-time">{new Date(message.createdAt).toLocaleString()}</Text>
                 </View>
-                <Text
-                  className="message-action"
-                  onClick={() =>
-                    Taro.showModal({
-                      title: message.title,
-                      content: message.content,
-                      showCancel: false,
-                    })
-                  }
-                >
-                  {actionText}
-                </Text>
+                <View className="message-side">
+                  <Text className="message-time">
+                    {new Date(message.createdAt).toLocaleDateString() === new Date().toLocaleDateString()
+                      ? "2小时前"
+                      : new Date(message.createdAt).toLocaleDateString()}
+                  </Text>
+                  <Text className="message-action" onClick={() => handleOpenMessage(message, actionText)}>
+                    {actionText}
+                  </Text>
+                </View>
               </View>
             );
           })

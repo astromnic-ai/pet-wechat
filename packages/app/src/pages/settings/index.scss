@@ -1,7 +1,7 @@
 .settings-page {
   min-height: 100vh;
   background: #eaeaea;
-  padding: calc(env(safe-area-inset-top) + 30rpx) 0 calc(env(safe-area-inset-bottom) + 36rpx);
+  padding: calc(env(safe-area-inset-top) + 56rpx) 0 calc(env(safe-area-inset-bottom) + 44rpx);
   box-sizing: border-box;
 }
 
@@ -11,12 +11,12 @@
   font-size: 42rpx;
   font-weight: 700;
   color: #000000;
-  margin-bottom: 20rpx;
+  margin-bottom: 32rpx;
 }
 
 .settings-card {
   width: 90%;
-  margin: 20rpx auto;
+  margin: 24rpx auto;
   padding: 30rpx;
   box-sizing: border-box;
   background: #ffffff;
@@ -67,7 +67,7 @@
 .collect-btn {
   width: 90%;
   height: 80rpx;
-  margin: 20rpx auto 0;
+  margin: 28rpx auto 0;
   background: #ffffff;
   border-radius: 20rpx;
   display: flex;
@@ -78,8 +78,4 @@
 .collect-btn-text {
   font-size: 32rpx;
   color: #000000;
-}
-
-.quick-nav-wrap {
-  margin-top: 26rpx;
 }

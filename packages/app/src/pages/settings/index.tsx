@@ -1,7 +1,6 @@
 import { View, Text, Image } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import PageBack from "../../components/PageBack";
-import QuickNav from "../../components/QuickNav";
 import "./index.scss";
 
 const SETTING_ITEMS = [
@@ -47,9 +46,6 @@ export default function Settings() {
 
       <View className="collect-btn" onClick={() => showComingSoon("采集对照")}>
         <Text className="collect-btn-text">采集对照</Text>
-      </View>
-      <View className="quick-nav-wrap">
-        <QuickNav active="settings" />
       </View>
     </View>
   );

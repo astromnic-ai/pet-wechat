@@ -2,7 +2,6 @@ import { View, Text, Image } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
-import QuickNav from "../../components/QuickNav";
 import "./index.scss";
 
 const weekBars = [
@@ -159,10 +158,6 @@ export default function DataPage() {
 
       <View className="safe-btn">
         <Text className="safe-btn-text">暂无异常 安心陪伴</Text>
-      </View>
-
-      <View className="quick-nav-wrap">
-        <QuickNav active="data" />
       </View>
     </View>
   );

@@ -11,6 +11,7 @@ export default function Index() {
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useDidShow(() => {
     Taro.hideTabBar();
@@ -29,19 +30,27 @@ export default function Index() {
 
   const loadData = async () => {
     try {
-      const [{ pets: petList }, { collars: collarList }, { desktops: desktopList }] =
+      const [
+        { pets: petList },
+        { collars: collarList },
+        { desktops: desktopList },
+        { count },
+      ] =
         await Promise.all([
           request<{ pets: Pet[] }>({ url: "/api/pets" }),
           request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }),
           request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops" }),
+          request<{ count: number }>({ url: "/api/messages/unread-count" }),
         ]);
       setPets(petList);
       setCollars(collarList);
       setDesktops(desktopList);
+      setUnreadCount(count);
     } catch {
       setPets([]);
       setCollars([]);
       setDesktops([]);
+      setUnreadCount(0);
     }
   };
 
@@ -64,6 +73,7 @@ export default function Index() {
   const handleConfigCollar = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
   const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/desktop-bind/index" });
   const handleManageDevices = () => Taro.switchTab({ url: "/pages/devices/index" });
+  const handleOpenMessages = () => Taro.switchTab({ url: "/pages/messages/index" });
 
   return (
     <View className="home-page">
@@ -73,11 +83,14 @@ export default function Index() {
           <View className="activity-fill" style={{ height: hasPet ? activityHeight : "0%" }} />
         </View>
         <Text className="activity-label">活跃值</Text>
-        <Image
-          className="activity-bell"
-          src={require("@/assets/images/bell-icon.png")}
-          mode="aspectFit"
-        />
+        <View className="activity-bell-wrap" onClick={handleOpenMessages}>
+          <Image
+            className="activity-bell"
+            src={require("@/assets/images/bell-icon.png")}
+            mode="aspectFit"
+          />
+          {unreadCount > 0 ? <View className="activity-bell-dot" /> : null}
+        </View>
       </View>
 
       <View className="home-content">
