@@ -1,10 +1,9 @@
 import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
-import { isLoggedIn } from "../../utils/storage";
-import NavBar from "../../components/NavBar";
-import { ICON_CAT, ICON_DOG, ICON_CHECK_GREEN, ICON_ERROR_RED } from "../../assets/icons";
+import type { Pet } from "@pet-wechat/shared";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 interface InviteInfo {
@@ -15,48 +14,75 @@ interface InviteInfo {
   petId: string;
 }
 
+const FALLBACK_PET: Pet = {
+  id: "mock-pet-001",
+  userId: "mock-user",
+  name: "小黑",
+  species: "cat",
+  breed: "英短",
+  gender: "unknown",
+  birthday: "2023-01-01",
+  weight: 4,
+  activityScore: 88,
+  latestBehavior: null,
+  avatarImageUrl: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
 export default function Invite() {
   const router = useRouter();
   const code = router.params.code;
+  const mode = router.params.mode ?? "invite";
 
-  const [info, setInfo] = useState<InviteInfo | null>(null);
+  const [pet, setPet] = useState<Pet>(FALLBACK_PET);
   const [loading, setLoading] = useState(false);
+  const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
+  const [acceptDone, setAcceptDone] = useState(false);
   const [error, setError] = useState("");
-  const [done, setDone] = useState(false);
 
   useEffect(() => {
-    if (!code) {
-      setError("邀请链接无效");
+    if (code) {
+      request<InviteInfo>({ url: `/api/invite/${code}`, needAuth: false })
+        .then(setInviteInfo)
+        .catch(() => setError("邀请链接无效或已过期"));
       return;
     }
-    request<InviteInfo>({ url: `/api/invite/${code}`, needAuth: false })
-      .then(setInfo)
-      .catch(() => setError("邀请链接无效或已过期"));
+
+    request<{ pets: Pet[] }>({ url: "/api/pets" })
+      .then((res) => {
+        if (res.pets.length > 0) {
+          setPet(res.pets[0]);
+        }
+      })
+      .catch(() => {
+        setPet(FALLBACK_PET);
+      });
   }, [code]);
+
+  const ageText = useMemo(() => {
+    if (!pet.birthday) return "年龄：2岁";
+    return `年龄：${new Date().getFullYear() - new Date(pet.birthday).getFullYear()}岁`;
+  }, [pet.birthday]);
+
+  const handleGenerateInvite = () => {
+    Taro.showToast({
+      title: mode === "pair" ? "一键连接中" : "已生成分享链接",
+      icon: "none",
+    });
+  };
 
   const handleAccept = async () => {
     if (!code || loading) return;
-    if (!isLoggedIn()) {
-      Taro.showToast({ title: "请先登录", icon: "none" });
-      // TODO: login 页尚未支持 redirect 参数，登录后会跳首页而非回到邀请页
-      Taro.redirectTo({ url: `/pages/login/index?redirect=/pages/invite/index?code=${code}` });
-      return;
-    }
     setLoading(true);
     try {
       await request({
         url: `/api/devices/invite/${code}/accept`,
         method: "POST",
       });
-      setDone(true);
+      setAcceptDone(true);
     } catch (e: any) {
-      if (e.message?.includes("Already")) {
-        setError("您已接受过此邀请");
-      } else if (e.message?.includes("own")) {
-        setError("不能接受自己的邀请");
-      } else {
-        setError(e.message || "接受邀请失败");
-      }
+      setError(e.message || "接受邀请失败");
     } finally {
       setLoading(false);
     }
@@ -66,37 +92,25 @@ export default function Invite() {
     Taro.switchTab({ url: "/pages/index/index" });
   };
 
-  if (error) {
+  if (code) {
     return (
-      <View className="invite-page">
-        <NavBar title="宠物邀请" />
-        <View className="invite-card-wrapper">
-          <View className="invite-card">
-            <Image className="invite-icon-img" src={ICON_ERROR_RED} mode="aspectFit" />
-            <Text className="invite-error">{error}</Text>
-            <View className="btn-primary" onClick={handleGoHome}>
-              <Text className="btn-text">返回首页</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-    );
-  }
-
-  if (done) {
-    return (
-      <View className="invite-page">
-        <NavBar title="宠物邀请" />
-        <View className="invite-card-wrapper">
-          <View className="invite-card">
-            <Image className="invite-icon-img" src={ICON_CHECK_GREEN} mode="aspectFit" />
-            <Text className="invite-title">授权成功！</Text>
-            <Text className="invite-desc">
-              您已成功获得查看【{info?.petName}】的授权
+      <View className="invite-accept-page">
+        <PageBack />
+        <View className="accept-card">
+          <Text className="accept-title">
+            {acceptDone ? "授权成功" : error ? "邀请异常" : "宠物绑定邀请"}
+          </Text>
+          <Text className="accept-desc">
+            {error
+              ? error
+              : acceptDone
+                ? `你已获得查看 ${inviteInfo?.petName ?? "该宠物"} 的权限`
+                : `${inviteInfo?.fromNickname ?? "家人"} 邀请你加入宠物桌面`}
+          </Text>
+          <View className="accept-button" onClick={acceptDone || error ? handleGoHome : handleAccept}>
+            <Text className="accept-button-text">
+              {acceptDone || error ? "进入主页" : loading ? "处理中..." : "接受邀请"}
             </Text>
-            <View className="btn-primary" onClick={handleGoHome}>
-              <Text className="btn-text">进入主页查看</Text>
-            </View>
           </View>
         </View>
       </View>
@@ -104,33 +118,29 @@ export default function Invite() {
   }
 
   return (
-    <View className="invite-page">
-      <NavBar title="宠物邀请" />
-      <View className="invite-card-wrapper">
-        <View className="invite-card">
-          <Image className="invite-icon-img" src={info?.petSpecies === "dog" ? ICON_DOG : ICON_CAT} mode="aspectFit" />
-          <Text className="invite-title">宠物授权邀请</Text>
-          <Text className="invite-desc">
-            {info?.fromNickname ?? "某用户"} 邀请您查看TA的宠物
-          </Text>
-          <View className="pet-name-tag">
-            <Text className="pet-name-text">{info?.petName ?? "加载中..."}</Text>
-          </View>
-          <Text className="invite-hint">
-            接受后您可以在主页查看该宠物的实时状态
-          </Text>
-          <View
-            className={`btn-primary ${loading ? "disabled" : ""}`}
-            onClick={handleAccept}
-          >
-            <Text className="btn-text">
-              {loading ? "处理中..." : "接受邀请"}
-            </Text>
-          </View>
-          <Text className="skip-link" onClick={handleGoHome}>
-            暂不接受
-          </Text>
+    <View className="invite-share-page">
+      <PageBack />
+      <View className="pet-info-card">
+        <Image
+          className="pet-avatar"
+          src={require("@/assets/images/black-cat.png")}
+          mode="aspectFit"
+        />
+        <View className="pet-tags">
+          <Text className="pet-tag">姓名：{pet.name}</Text>
+          <Text className="pet-tag">品种：{pet.breed || "英短"}</Text>
+          <Text className="pet-tag">{ageText}</Text>
         </View>
+      </View>
+
+      <View className="connect-button" onClick={handleGenerateInvite}>
+        <Text className="connect-button-text">一键连接</Text>
+      </View>
+
+      <View className="guide-info-card">
+        <Text className="guide-info-text">
+          生成链接跳转到微信好友列表界面 选择并发送（类比分享）
+        </Text>
       </View>
     </View>
   );

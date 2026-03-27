@@ -1,0 +1,266 @@
+.data-page {
+  min-height: 100vh;
+  background: #eaeaea;
+  padding: calc(env(safe-area-inset-top) + 30rpx) 0 calc(env(safe-area-inset-bottom) + 36rpx);
+  box-sizing: border-box;
+}
+
+.pet-switcher {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24rpx;
+}
+
+.pet-arrow {
+  font-size: 36rpx;
+  color: #666666;
+  margin: 0 12rpx;
+}
+
+.pet-side {
+  width: 100rpx;
+  height: 100rpx;
+}
+
+.pet-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0 20rpx;
+}
+
+.pet-main {
+  width: 180rpx;
+  height: 180rpx;
+}
+
+.pet-name {
+  margin-top: 8rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.mode-tabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24rpx;
+}
+
+.mode-tab {
+  margin: 0 24rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.mode-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #666666;
+}
+
+.mode-line {
+  width: 40rpx;
+  height: 6rpx;
+  border-radius: 3rpx;
+  background: transparent;
+  margin-top: 8rpx;
+}
+
+.mode-tab.active .mode-text {
+  color: #000000;
+}
+
+.mode-tab.active .mode-line {
+  background: #000000;
+}
+
+.date-title {
+  text-align: center;
+  font-size: 28rpx;
+  color: #666666;
+  margin-bottom: 20rpx;
+}
+
+.data-card {
+  width: 90%;
+  margin: 20rpx auto;
+  padding: 30rpx;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.module-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.nav-arrows {
+  font-size: 28rpx;
+  color: #666666;
+}
+
+.highlight-text {
+  display: block;
+  font-size: 32rpx;
+  color: #000000;
+  margin: 20rpx 0;
+}
+
+.helper-text {
+  display: block;
+  font-size: 24rpx;
+  color: #666666;
+  margin-top: 10rpx;
+}
+
+.bar-chart {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 20rpx;
+}
+
+.bar-item {
+  width: 13%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bar-track {
+  width: 32rpx;
+  height: 200rpx;
+  border-radius: 16rpx;
+  background: #efefef;
+  position: relative;
+  overflow: hidden;
+}
+
+.bar-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #9b9b9b;
+  border-radius: 16rpx;
+}
+
+.bar-label,
+.bar-tag {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #666666;
+}
+
+.pie-chart {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20rpx;
+}
+
+.pie-ring {
+  width: 220rpx;
+  height: 220rpx;
+  border-radius: 50%;
+  background: conic-gradient(#8f8f8f 0 53%, #b4b4b4 53% 73%, #d0d0d0 73% 83%, #e2e2e2 83% 100%);
+}
+
+.pie-legend {
+  width: 240rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.legend-item {
+  font-size: 28rpx;
+  color: #000000;
+}
+
+.day-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.day-ring {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background: conic-gradient(#8f8f8f 0 85%, #d8d8d8 85% 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-ring-fill {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.day-ring-text {
+  font-size: 28rpx;
+  color: #000000;
+}
+
+.progress-row {
+  margin-top: 20rpx;
+}
+
+.progress-label {
+  display: block;
+  font-size: 28rpx;
+  color: #000000;
+  margin-bottom: 10rpx;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 18rpx;
+  border-radius: 9rpx;
+  background: #efefef;
+  overflow: hidden;
+}
+
+.progress-inner {
+  height: 100%;
+  border-radius: 9rpx;
+  background: #9b9b9b;
+}
+
+.safe-btn {
+  width: 80%;
+  height: 60rpx;
+  margin: 20rpx auto 0;
+  background: #e0e0e0;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.safe-btn-text {
+  font-size: 28rpx;
+  color: #000000;
+}
+
+.quick-nav-wrap {
+  margin-top: 26rpx;
+}

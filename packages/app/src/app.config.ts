@@ -18,6 +18,7 @@ export default defineAppConfig({
     { root: "pages/avatar-progress", pages: ["index"] },
     { root: "pages/desktop-bind", pages: ["index"] },
     { root: "pages/desktop-pair", pages: ["index"] },
+    { root: "pages/data", pages: ["index"] },
     { root: "pages/invite", pages: ["index"] },
     { root: "pages/settings", pages: ["index"] },
   ],

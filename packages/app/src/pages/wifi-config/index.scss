@@ -2,7 +2,7 @@
   min-height: 100vh;
   background: #eaeaea;
   box-sizing: border-box;
-  padding: 40rpx 0 48rpx;
+  padding: calc(env(safe-area-inset-top) + 40rpx) 0 calc(env(safe-area-inset-bottom) + 48rpx);
 }
 
 .brand {

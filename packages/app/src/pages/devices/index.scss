@@ -1,474 +1,300 @@
 .devices-page {
   min-height: 100vh;
-  background: $color-bg;
+  background: #eaeaea;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
-  max-width: 100vw;
 }
 
-.nav-action {
-  width: $nav-back-size;
-  height: $nav-back-size;
-  border-radius: $radius-full;
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 30rpx) 30rpx 30rpx;
+  position: relative;
+}
+
+.page-title {
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #000000;
+  margin: 0 auto;
+}
+
+.header-placeholder {
+  width: 60rpx;
+}
+
+.content-scroll {
+  width: 100%;
+  white-space: nowrap;
+  min-height: 128rpx;
+}
+
+.pet-tabs {
+  display: inline-flex;
+  padding: 0 30rpx 20rpx;
+  box-sizing: border-box;
+}
+
+.pet-tab {
+  min-width: 260rpx;
+  margin-right: 20rpx;
+  padding: 20rpx;
+  border-radius: 20rpx;
+  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.pet-tab.active {
+  background: #ffffff;
+}
+
+.pet-avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 44rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.pet-tab-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pet-tab-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.pet-tab-status {
+  font-size: 24rpx;
+  color: #666666;
+  margin-top: 6rpx;
+}
+
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+.page-content {
+  padding: 0 30rpx calc(env(safe-area-inset-bottom) + 40rpx);
+  box-sizing: border-box;
+}
+
+.collar-card {
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 30rpx;
+  margin: 20rpx 0;
+}
+
+.collar-top {
+  display: flex;
+  align-items: center;
+}
+
+.collar-icon {
+  width: 90rpx;
+  height: 90rpx;
+  margin-right: 20rpx;
+}
+
+.collar-main {
+  flex: 1;
+}
+
+.collar-name-row {
+  display: flex;
+  align-items: center;
+}
+
+.collar-name {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.edit-icon {
+  margin-left: 12rpx;
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.collar-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 12rpx;
+}
+
+.status-wrap {
+  display: flex;
+  align-items: center;
+  margin-right: 20rpx;
+}
+
+.status-dot {
+  width: 14rpx;
+  height: 14rpx;
+  border-radius: 7rpx;
+  margin-right: 10rpx;
+  background: #999999;
+}
+
+.status-dot.online {
+  background: #07c160;
+}
+
+.status-dot.offline {
+  background: #999999;
+}
+
+.status-text,
+.battery-text,
+.signal-text {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.pet-bind-info {
+  margin-top: 20rpx;
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.action-row {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 24rpx;
+}
+
+.action-btn {
+  min-width: 180rpx;
+  height: 70rpx;
+  padding: 0 24rpx;
+  border-radius: 35rpx;
+  background: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.72);
 }
 
-.nav-action-icon {
-  width: 36px;
-  height: 36px;
+.action-btn-text {
+  font-size: 26rpx;
+  color: #000000;
 }
 
-.device-content {
+.desktop-section-title {
+  font-size: 28rpx;
+  color: #000000;
+  margin: 20rpx 0;
+}
+
+.desktop-card {
+  background: #f0f0f0;
+  border-radius: 12rpx;
+  padding: 20rpx;
+  margin-bottom: 15rpx;
+}
+
+.desktop-top {
+  display: flex;
+  align-items: center;
+}
+
+.desktop-icon {
+  width: 84rpx;
+  height: 84rpx;
+  margin-right: 18rpx;
+}
+
+.desktop-main {
   flex: 1;
-  min-height: 0;
-  padding: $spacing-lg $container-padding;
-  @include safe-area-bottom($spacing-xl);
-
-  .pet-switcher {
-    margin-bottom: 28px;
-
-    .pet-switcher-inner {
-      display: flex;
-      align-items: center;
-      background: $color-bg-card;
-      border-radius: $radius-xl;
-      padding: 14px 28px 14px 14px;
-      max-width: 100%;
-      box-shadow: 0 4px 16px rgba(43, 37, 32, 0.06);
-    }
-
-    .pet-avatar-placeholder {
-      width: 64px;
-      height: 64px;
-      border-radius: $radius-full;
-      background: linear-gradient(145deg, $color-bg-input, $color-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-right: 16px;
-
-      .pet-avatar-text {
-        font-size: 28px;
-        font-weight: $font-weight-bold;
-        color: $color-text-secondary;
-      }
-    }
-
-    .pet-switcher-name {
-      font-size: $font-size-base;
-      font-weight: $font-weight-semibold;
-      color: $color-text-primary;
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .pet-switcher-arrow {
-      font-size: $font-size-sm;
-      color: $color-text-tertiary;
-      margin-left: 12px;
-    }
-  }
-
-  .share-btn {
-    @include wx-button-reset;
-
-    background: none;
-    border: none;
-    padding: 0;
-    margin: 0 0 16px;
-    font-size: 28px;
-    color: $color-text-primary;
-    line-height: 1;
-
-    &::after {
-      display: none;
-    }
-  }
-
-  .section {
-    margin-bottom: 36px;
-  }
-
-  .section-title-bar {
-    display: flex;
-    align-items: baseline;
-    margin-bottom: 20px;
-
-    .section-title {
-      font-size: 30px;
-      font-weight: $font-weight-bold;
-      color: $color-text-primary;
-    }
-
-    .section-subtitle {
-      font-size: $font-size-sm;
-      color: $color-text-tertiary;
-      margin-left: 8px;
-    }
-  }
-
-  .empty-card {
-    background: $color-bg-card;
-    border-radius: 24px;
-    padding: 48px 32px;
-    text-align: center;
-    box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-
-    .empty-text {
-      font-size: 26px;
-      color: $color-text-placeholder;
-    }
-  }
-
-  .device-card {
-    background: $color-bg-card;
-    border-radius: 24px;
-    padding: 28px 32px;
-    margin-bottom: 16px;
-    box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-  }
-
-  .device-name-row {
-    margin-bottom: 16px;
-  }
-
-  .device-name-display {
-    display: flex;
-    align-items: center;
-
-    .device-name-text {
-      font-size: 30px;
-      font-weight: $font-weight-semibold;
-      color: $color-text-primary;
-    }
-
-    .edit-icon-img {
-      width: 28px;
-      height: 28px;
-      margin-left: 12px;
-      opacity: 0.4;
-    }
-  }
-
-  .device-name-input {
-    font-size: 30px;
-    font-weight: $font-weight-semibold;
-    color: $color-text-primary;
-    border-bottom: 2px solid $color-accent;
-    padding: 4px 0;
-    width: 100%;
-  }
-
-  .share-auth-btn {
-    margin-top: 16px;
-    background: linear-gradient(135deg, $color-primary, $color-primary-light);
-    border-radius: 16px;
-    padding: 14px 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-
-    &.mock-share-btn {
-      background: $color-error;
-      border: 2px solid $color-error;
-    }
-
-    .share-icon {
-      width: 28px;
-      height: 28px;
-    }
-
-    .share-auth-text {
-      font-size: 26px;
-      color: $color-text-inverse;
-      font-weight: $font-weight-medium;
-    }
-  }
-
-  .collar-status-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-
-    .status-indicator-wrap {
-      display: flex;
-      align-items: center;
-
-      .status-dot {
-        width: 16px;
-        height: 16px;
-        border-radius: $radius-full;
-        margin-right: 10px;
-        background: $color-status-offline;
-
-        &.online {
-          background: $color-status-online;
-          box-shadow: 0 0 8px rgba(123, 168, 132, 0.4);
-        }
-
-        &.pairing {
-          background: $color-status-pairing;
-          box-shadow: 0 0 8px rgba(232, 168, 73, 0.4);
-        }
-
-        &.offline {
-          background: $color-status-offline;
-        }
-      }
-
-      .status-label {
-        font-size: 26px;
-        color: $color-text-secondary;
-      }
-    }
-
-    .battery-wrap {
-      display: flex;
-      align-items: center;
-
-      .battery-icon {
-        width: 40px;
-        height: 20px;
-        border: 2px solid $color-text-tertiary;
-        border-radius: 4px;
-        padding: 2px;
-        margin-right: 8px;
-        position: relative;
-
-        &::after {
-          content: "";
-          position: absolute;
-          right: -6px;
-          top: 50%;
-          transform: translateY(-50%);
-          width: 4px;
-          height: 10px;
-          background: $color-text-tertiary;
-          border-radius: 0 2px 2px 0;
-        }
-
-        .battery-fill {
-          height: 100%;
-          background: $color-status-online;
-          border-radius: 2px;
-          min-width: 0;
-        }
-      }
-
-      .battery-text {
-        font-size: 24px;
-        color: $color-text-secondary;
-      }
-    }
-  }
-
-  .collar-pet-info {
-    margin-bottom: 12px;
-
-    .collar-pet-label {
-      font-size: 24px;
-      color: $color-text-secondary;
-      line-height: 1.6;
-    }
-  }
-
-  .switch-pet-link {
-    font-size: 24px;
-    color: $color-accent;
-    display: block;
-    margin-top: 8px;
-    font-weight: $font-weight-medium;
-  }
-
-  .desktop-card {
-    .desktop-row {
-      display: flex;
-      align-items: center;
-
-      .desktop-icon-wrap {
-        width: 72px;
-        height: 72px;
-        border-radius: 18px;
-        background: linear-gradient(145deg, $color-bg-input, $color-border);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 20px;
-
-        .desktop-icon-img {
-          width: 48px;
-          height: 48px;
-        }
-      }
-
-      .desktop-info {
-        flex: 1;
-
-        .desktop-name {
-          font-size: 28px;
-          font-weight: $font-weight-semibold;
-          color: $color-text-primary;
-          margin-bottom: 6px;
-        }
-
-        .device-name-display {
-          margin-bottom: 6px;
-        }
-
-        .device-name-input {
-          margin-bottom: 6px;
-        }
-
-        .desktop-status {
-          display: block;
-          font-size: 24px;
-          color: $color-text-tertiary;
-
-          &.online {
-            color: $color-status-online;
-          }
-
-          &.pairing {
-            color: $color-status-pairing;
-          }
-
-          &.offline {
-            color: $color-status-offline;
-          }
-        }
-      }
-    }
-
-    .desktop-auth-details {
-      margin-top: 16px;
-      padding-top: 16px;
-      border-top: 1px solid $color-bg-input;
-
-      .desktop-auth-item {
-        margin-bottom: 12px;
-
-        &:last-child {
-          margin-bottom: 0;
-        }
-      }
-
-      .desktop-auth-info {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-      }
-
-      .desktop-auth-label {
-        font-size: 24px;
-        color: $color-text-tertiary;
-        display: block;
-      }
-    }
-  }
-
-  .auth-card {
-    .auth-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-
-      .auth-title {
-        font-size: 28px;
-        font-weight: $font-weight-semibold;
-        color: $color-text-primary;
-      }
-
-      .auth-status-tag {
-        font-size: 22px;
-        color: $color-text-secondary;
-        background: $color-bg-input;
-        padding: 6px 16px;
-        border-radius: 20px;
-      }
-    }
-
-    .auth-from-label {
-      display: block;
-      font-size: 24px;
-      color: $color-text-secondary;
-      margin-bottom: 8px;
-    }
-
-    .auth-actions {
-      display: flex;
-      gap: 20px;
-      margin-top: 8px;
-
-      &.disabled {
-        opacity: 0.5;
-        pointer-events: none;
-      }
-
-      .auth-btn {
-        flex: 1;
-        text-align: center;
-        padding: 16px 0;
-        border-radius: 16px;
-        font-size: 26px;
-
-        &.accept {
-          background: linear-gradient(135deg, $color-primary, $color-primary-light);
-          color: $color-text-inverse;
-        }
-
-        &.reject {
-          background: $color-bg-input;
-          color: $color-text-secondary;
-        }
-
-        &.revoke {
-          background: $color-mock-bg;
-          color: $color-error;
-        }
-      }
-    }
-  }
-
-  .add-device-btn {
-    background: $color-bg-card;
-    border-radius: $radius-xl;
-    padding: 24px 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    margin-top: 16px;
-    border: 2px dashed $color-border-light;
-  }
-
-  .add-device-text {
-    font-size: 28px;
-    color: $color-text-secondary;
-    font-weight: $font-weight-medium;
-  }
-
-  .add-device-note {
-    display: block;
-    text-align: center;
-    font-size: 22px;
-    color: $color-text-placeholder;
-    margin-top: 12px;
-  }
-
-  .deco-spacer {
-    height: 48px;
-  }
-
-  .bottom-spacer {
-    height: 120px;
-  }
+}
+
+.desktop-name-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.desktop-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.desktop-tag {
+  margin-left: 8rpx;
+  font-size: 22rpx;
+  color: #666666;
+}
+
+.desktop-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 10rpx;
+}
+
+.desktop-action {
+  font-size: 30rpx;
+  color: #666666;
+  margin-left: 16rpx;
+}
+
+.desktop-info-line {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #666666;
+  line-height: 1.5;
+}
+
+.desktop-action-chip {
+  min-width: 92rpx;
+  height: 52rpx;
+  padding: 0 14rpx;
+  border-radius: 26rpx;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 16rpx;
+  flex-shrink: 0;
+}
+
+.desktop-action-text {
+  font-size: 22rpx;
+  color: #555555;
+  line-height: 1;
+}
+
+.desktop-edit-icon {
+  margin-left: 10rpx;
+}
+
+.add-device-btn {
+  width: 90%;
+  height: 100rpx;
+  border-radius: 50rpx;
+  background: #ffffff;
+  margin: 30rpx auto 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.add-device-text {
+  font-size: 36rpx;
+  color: #000000;
+}
+
+.outline-image {
+  display: block;
+  width: 500rpx;
+  margin: 40rpx auto 0;
 }

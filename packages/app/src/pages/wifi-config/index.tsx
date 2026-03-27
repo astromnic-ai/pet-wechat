@@ -2,6 +2,7 @@ import { View, Text, Image, Input } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const DEFAULT_SSID = "TFTINGHUATONGFANG-WIFI";
@@ -16,9 +17,7 @@ export default function WifiConfig() {
 
   const isDesktop = deviceType === "desktop";
   const pageTitle = isDesktop ? "桌面端网络配置" : "配置宠物项圈";
-  const petImage = isDesktop
-    ? require("@/assets/images/Group 2.png")
-    : require("@/assets/images/Group 1.png");
+  const petImage = require("@/assets/images/Group 2.png");
   const deviceImage = isDesktop
     ? require("@/assets/images/snow-globe.png")
     : require("@/assets/images/mirror-icon.png");
@@ -75,6 +74,7 @@ export default function WifiConfig() {
 
   return (
     <View className="wifi-guide-page">
+      <PageBack />
       <Text className="brand">YEHEY</Text>
       <Image
         className="outline-image"

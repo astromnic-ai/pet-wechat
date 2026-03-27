@@ -1,129 +1,54 @@
-import { View, Text, Image, Input, Picker } from "@tarojs/components";
-import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect, useCallback } from "react";
-import NavBar from "../../components/NavBar";
+import { View, Text, Image, Input } from "@tarojs/components";
+import Taro, { useDidShow, useRouter } from "@tarojs/taro";
+import { useState } from "react";
 import { request } from "../../utils/request";
-import {
-  ICON_PAW,
-  ICON_CAT,
-  ICON_DOG,
-  ICON_ARROW_LEFT,
-  ICON_ARROW_RIGHT,
-} from "../../assets/icons";
-import type { Pet, Species, Gender } from "@pet-wechat/shared";
+import type { Gender, Pet, Species } from "@pet-wechat/shared";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
-
-const genderOptions = ["公", "母", "未知"];
-const genderMap: Record<string, Gender> = {
-  公: "male",
-  母: "female",
-  未知: "unknown",
-};
-// Kept for potential future use in display
-const _genderReverseMap: Record<Gender, string> = {
-  male: "公",
-  female: "母",
-  unknown: "未知",
-};
 
 export default function PetInfo() {
   const router = useRouter();
   const petId = router.params.id;
   const collarId = router.params.collarId;
 
-  const [name, setName] = useState("");
   const [species, setSpecies] = useState<Species>("cat");
+  const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
-  const [gender, setGender] = useState<Gender>("unknown");
   const [birthday, setBirthday] = useState("");
   const [weight, setWeight] = useState("");
+  const [gender, setGender] = useState<Gender>("male");
   const [loading, setLoading] = useState(false);
+  const canSubmit = name.trim().length > 0 && breed.trim().length > 0 && !loading;
 
-  // Pet switcher state
-  const [allPets, setAllPets] = useState<Pet[]>([]);
-  const [currentPetIndex, setCurrentPetIndex] = useState(0);
-  const [avatarStatus, setAvatarStatus] = useState<string | null>(null);
+  useDidShow(() => {
+    if (!petId) return;
+    void loadPet();
+  });
 
-  const loadPetData = useCallback((pet: Pet) => {
-    setName(pet.name);
-    setSpecies(pet.species);
-    if (pet.breed) setBreed(pet.breed);
-    else setBreed("");
-    setGender(pet.gender);
-    if (pet.birthday) setBirthday(pet.birthday);
-    else setBirthday("");
-    if (pet.weight) setWeight(String(pet.weight));
-    else setWeight("");
-  }, []);
-
-  useEffect(() => {
-    // Load all pets for the switcher
-    request<{ pets: Pet[] }>({ url: "/api/pets" })
-      .then(({ pets }) => {
-        setAllPets(pets);
-        if (petId) {
-          const idx = pets.findIndex((p) => p.id === petId);
-          if (idx >= 0) {
-            setCurrentPetIndex(idx);
-            loadPetData(pets[idx]);
-          }
-        } else if (pets.length > 0) {
-          loadPetData(pets[0]);
-        }
-      })
-      .catch(() => {});
-  }, [petId, loadPetData]);
-
-  // TODO: 后端暂无按petId查询avatars的接口，此处mock avatar状态用于展示进度环
-  // 待后端新增 GET /api/pets/:petId/avatars 接口后替换
-  useEffect(() => {
-    const currentPet = allPets[currentPetIndex];
-    if (!currentPet) {
-      setAvatarStatus(null);
-      return;
-    }
-    // Mock: 假设第一个宠物的形象正在处理中
-    if (currentPetIndex === 0) {
-      setAvatarStatus("processing");
-    } else {
-      setAvatarStatus("done");
-    }
-  }, [allPets, currentPetIndex]);
-
-  const switchPet = (direction: "prev" | "next") => {
-    if (allPets.length === 0) return;
-    const newIndex =
-      direction === "prev"
-        ? (currentPetIndex - 1 + allPets.length) % allPets.length
-        : (currentPetIndex + 1) % allPets.length;
-    setCurrentPetIndex(newIndex);
-    loadPetData(allPets[newIndex]);
-  };
-
-  const handleImageLongPress = () => {
-    const currentPet = allPets[currentPetIndex];
-    if (!currentPet) return;
-    Taro.showActionSheet({
-      itemList: ["重新定制动态形象"],
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          Taro.navigateTo({
-            url: `/pages/pet-avatar/index?petId=${currentPet.id}`,
-          });
-        }
-      },
-    });
+  const loadPet = async () => {
+    try {
+      const { pet } = await request<{ pet: Pet }>({ url: `/api/pets/${petId}` });
+      setName(pet.name);
+      setSpecies(pet.species);
+      setBreed(pet.breed || "");
+      setBirthday(pet.birthday || "");
+      setWeight(pet.weight ? String(pet.weight) : "");
+      setGender(pet.gender === "female" ? "female" : "male");
+    } catch {}
   };
 
   const handleSubmit = async () => {
+    if (loading) return;
     if (!name.trim()) {
       Taro.showToast({ title: "请输入宠物名字", icon: "none" });
       return;
     }
+
     if (!breed.trim()) {
       Taro.showToast({ title: "请输入宠物品种", icon: "none" });
       return;
     }
+
     setLoading(true);
     try {
       const data = {
@@ -134,178 +59,161 @@ export default function PetInfo() {
         birthday: birthday || null,
         weight: weight ? Number(weight) : null,
       };
+      let pet: Pet;
 
-      const currentPet = allPets[currentPetIndex];
-      if (currentPet) {
+      if (petId) {
         await request({
-          url: `/api/pets/${currentPet.id}`,
+          url: `/api/pets/${petId}`,
           method: "PUT",
           data,
         });
-        Taro.showToast({ title: "更新成功", icon: "success" });
+        pet = {
+          id: petId,
+          userId: "mock-user",
+          name: data.name,
+          species: data.species,
+          breed: data.breed,
+          gender: data.gender,
+          birthday: data.birthday,
+          weight: data.weight,
+          activityScore: 82,
+          latestBehavior: null,
+          avatarImageUrl: null,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
       } else {
-        const { pet } = await request<{ pet: Pet }>({
+        const res = await request<{ pet: Pet }>({
           url: "/api/pets",
           method: "POST",
           data,
         });
-
-        // 如果从项圈绑定流程进来，关联项圈和宠物
-        if (collarId) {
-          await request({
-            url: `/api/devices/collars/${collarId}`,
-            method: "PUT",
-            data: { petId: pet.id },
-          });
-        }
-
-        Taro.showToast({ title: "添加成功", icon: "success" });
-        setTimeout(() => {
-          Taro.navigateTo({
-            url: `/pages/pet-avatar/index?petId=${pet.id}`,
-          });
-        }, 1000);
+        pet = res.pet;
       }
+
+      if (collarId) {
+        await request({
+          url: `/api/devices/collars/${collarId}`,
+          method: "PUT",
+          data: { petId: pet.id },
+        });
+      }
+
+      Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
     } catch (e: any) {
-      Taro.showToast({ title: e.message || "操作失败", icon: "none" });
+      Taro.showToast({ title: e.message || "保存失败", icon: "none" });
     } finally {
       setLoading(false);
     }
   };
 
-  const isProcessing =
-    avatarStatus === "processing" || avatarStatus === "pending";
-
   return (
     <View className="pet-info-page">
-      <NavBar title="宠物信息" />
-
-      {/* Pet switcher top bar */}
-      {allPets.length > 0 && (
-        <View className="pet-switcher">
-          <View className="switcher-arrow" onClick={() => switchPet("prev")}>
-            <Image className="switcher-arrow-img" src={ICON_ARROW_LEFT} mode="aspectFit" />
-          </View>
-          <Text className="switcher-pet-name">
-            {allPets[currentPetIndex]?.name || ""}
-          </Text>
-          <View className="switcher-arrow" onClick={() => switchPet("next")}>
-            <Image className="switcher-arrow-img" src={ICON_ARROW_RIGHT} mode="aspectFit" />
-          </View>
-        </View>
-      )}
-
-      {/* Pet image area with progress ring overlay */}
-      <View
-        className="bg-illustration"
-        onLongPress={handleImageLongPress}
-      >
-        <Image className="bg-illustration-icon" src={ICON_PAW} mode="aspectFit" />
-        {isProcessing && (
-          <View className="progress-ring-overlay">
-            <View className="progress-ring" />
-            {/* TODO: 进度值暂为mock，待后端接口返回真实进度 */}
-            <Text className="progress-text">82%</Text>
-          </View>
-        )}
-      </View>
+      <PageBack />
+      <Text className="brand">YEHEY</Text>
+      <Image
+        className="top-outline"
+        src={require("@/assets/images/pet-outline.png")}
+        mode="widthFix"
+      />
 
       <View className="main-card">
-        <Text className="card-title">录入宠物信息</Text>
+        <Text className="page-title">录入宠物信息</Text>
 
-        <View className="species-selector">
+        <View className="species-showcase">
           <View
-            className={`species-option ${species === "cat" ? "active" : ""}`}
+            className={`species-face ${species === "cat" ? "active" : ""}`}
             onClick={() => setSpecies("cat")}
           >
-            {/* 设计稿: 猫咪图标 (image-import-17.png / Jk3FN) */}
-            <Image className="species-icon-img" src={ICON_CAT} mode="aspectFit" />
-            <Text className="species-label">猫咪</Text>
+            <Image
+              className="species-avatar"
+              src={require("@/assets/images/black cat 3.png")}
+              mode="aspectFit"
+            />
           </View>
           <Text className="species-or">or</Text>
           <View
-            className={`species-option ${species === "dog" ? "active" : ""}`}
+            className={`species-face ${species === "dog" ? "active" : ""}`}
             onClick={() => setSpecies("dog")}
           >
-            {/* 设计稿: 狗狗图标 (image-import-10.png / E0V0d) */}
-            <Image className="species-icon-img" src={ICON_DOG} mode="aspectFit" />
-            <Text className="species-label">狗狗</Text>
-          </View>
-        </View>
-
-        <View className="form-section">
-          <View className="form-item underline">
-            <Text className="label">宠物名字</Text>
-            <Input
-              className="input-field"
-              placeholder="给宠物起个名字"
-              value={name}
-              onInput={(e) => setName(e.detail.value)}
-            />
-          </View>
-
-          <View className="form-item underline">
-            <Text className="label">宠物品种</Text>
-            <Input
-              className="input-field"
-              placeholder={species === "cat" ? "如：布偶猫" : "如：金毛"}
-              value={breed}
-              onInput={(e) => setBreed(e.detail.value)}
-            />
-          </View>
-
-          <View className="form-item underline">
-            <Text className="label">公/母</Text>
-            <View className="gender-selector">
-              {genderOptions.slice(0, 2).map((g) => (
-                <View
-                  key={g}
-                  className={`gender-btn ${gender === genderMap[g] ? "active" : ""}`}
-                  onClick={() => setGender(genderMap[g])}
-                >
-                  <Text className="gender-btn-text">{g}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View className="form-item underline">
-            <Text className="label">出生日期</Text>
-            <Picker
-              mode="date"
-              value={birthday}
-              onChange={(e) => setBirthday(e.detail.value)}
-            >
-              <View className="input-field picker-field">
-                <Text className={birthday ? "" : "placeholder"}>
-                  {birthday || "选择日期"}
-                </Text>
-              </View>
-            </Picker>
-          </View>
-
-          <View className="form-item underline">
-            <Text className="label">体重(kg)</Text>
-            <Input
-              className="input-field"
-              type="digit"
-              placeholder="如：5.5"
-              value={weight}
-              onInput={(e) => setWeight(e.detail.value)}
+            <Image
+              className="species-avatar"
+              src={require("@/assets/images/husky.png")}
+              mode="aspectFit"
             />
           </View>
         </View>
 
-        {collarId && (
-          <View className="collar-info">
-            <Text className="collar-info-label">当前关联设备</Text>
-            <Text className="collar-info-id">Collar ID: {collarId}</Text>
-          </View>
-        )}
+        <Text className="species-tip">选择当前想要添加的宠物类型</Text>
 
-        <View className="btn-primary submit-btn" onClick={handleSubmit}>
-          {loading ? "保存中..." : "保存，下一步"}
+        <View className="required-input">
+          <Input
+            className="single-input single-input--required"
+            placeholder="宠物名字"
+            value={name}
+            onInput={(e) => setName(e.detail.value)}
+          />
+          <Text className="required-text">必填</Text>
         </View>
+        <View className="required-input">
+          <Input
+            className="single-input single-input--required"
+            placeholder="宠物品种"
+            value={breed}
+            onInput={(e) => setBreed(e.detail.value)}
+          />
+          <Text className="required-text">必填</Text>
+        </View>
+
+        <View className="gender-row">
+          <View
+            className={`gender-btn ${gender === "male" ? "active" : ""}`}
+            onClick={() => setGender("male")}
+          >
+            <Text className="gender-text">公</Text>
+          </View>
+          <View
+            className={`gender-btn ${gender === "female" ? "active" : ""}`}
+            onClick={() => setGender("female")}
+          >
+            <Text className="gender-text">母</Text>
+          </View>
+        </View>
+
+        <Input
+          className="single-input"
+          placeholder="出生日期"
+          value={birthday}
+          onInput={(e) => setBirthday(e.detail.value)}
+        />
+        <Input
+          className="single-input"
+          type="number"
+          placeholder="体重（kg）"
+          value={weight}
+          onInput={(e) => setWeight(e.detail.value)}
+        />
+
+        <View className="device-row">
+          <Image
+            className="device-icon"
+            src={require("@/assets/images/collar-icon.png")}
+            mode="aspectFit"
+          />
+          <Text className="device-prefix">当前关联设备：</Text>
+          <Text className="device-value">Collar ID：{collarId || "666777888"}</Text>
+        </View>
+
+        <View className={`submit-btn ${canSubmit ? "" : "submit-btn--disabled"}`} onClick={handleSubmit}>
+          <Text className="submit-btn-text">{loading ? "保存中..." : "保存，下一步"}</Text>
+        </View>
+      </View>
+
+      <View className="progress-track">
+        <View className="progress-segment" />
+        <View className="progress-segment" />
+        <View className="progress-segment active" />
+        <View className="progress-segment" />
       </View>
     </View>
   );

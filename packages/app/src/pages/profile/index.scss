@@ -1,345 +1,191 @@
 .profile-page {
   height: 100vh;
-  background: $color-bg;
-  display: flex;
-  flex-direction: column;
+  background: #eaeaea;
   overflow: hidden;
+}
+
+.profile-scroll {
+  height: 100vh;
+  padding: calc(env(safe-area-inset-top) + 26rpx) 0 calc(env(safe-area-inset-bottom) + 24rpx);
   box-sizing: border-box;
-  max-width: 100vw;
-  @include safe-area-bottom($spacing-xl);
 }
 
-.profile-content {
-  flex: 1;
-  min-height: 0;
-  padding-bottom: 120px;
+.page-title {
+  display: block;
+  text-align: center;
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #000000;
+  margin-top: 18rpx;
+  margin-bottom: 6rpx;
+}
+
+.profile-card {
+  width: 90%;
+  margin: 16rpx auto;
+  padding: 24rpx;
   box-sizing: border-box;
-
-  &.static-content {
-    display: flex;
-    flex-direction: column;
-  }
+  background: #ffffff;
+  border-radius: 20rpx;
 }
 
-.not-logged {
+.user-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.user-main {
+  display: flex;
+  align-items: center;
+}
+
+.user-avatar {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  margin-right: 18rpx;
+}
+
+.user-texts {
   display: flex;
   flex-direction: column;
+}
+
+.user-name {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.user-id {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.vip-btn,
+.mini-btn {
+  background: #e0e0e0;
+  border-radius: 20rpx;
+  padding: 8rpx 18rpx;
+}
+
+.vip-btn-text,
+.mini-btn-text {
+  font-size: 24rpx;
+  color: #000000;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.info-line {
+  display: block;
+  font-size: 26rpx;
+  color: #000000;
+  line-height: 1.65;
+}
+
+.service-pet-card {
+  border: 2rpx solid #efefef;
+  border-radius: 16rpx;
+  padding: 16rpx 18rpx;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.service-pet-avatar {
+  width: 76rpx;
+  height: 76rpx;
+  border-radius: 38rpx;
+  margin-right: 16rpx;
+}
+
+.service-pet-info {
   flex: 1;
-  align-items: center;
-  justify-content: center;
-  padding: 120px 64px;
-
-  .not-logged-text {
-    font-size: 28px;
-    color: $color-text-secondary;
-    margin-bottom: 32px;
-  }
 }
 
-.user-hero {
+.service-pet-name {
+  display: block;
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #000000;
+}
+
+.service-pet-meta {
+  display: block;
+  font-size: 22rpx;
+  color: #666666;
+  margin-top: 4rpx;
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 16rpx;
+  row-gap: 10rpx;
+  margin-top: 10rpx;
+}
+
+.benefit-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  padding: 48px 32px 36px;
-  background: linear-gradient(180deg, $color-bg-card 0%, $color-bg 100%);
-
-  .nickname-trigger {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-bottom: 8px;
-
-    &.is-default {
-      .user-nickname {
-        text-decoration: underline;
-        text-decoration-color: #D4922E;
-        text-decoration-thickness: 3px;
-        text-underline-offset: 10px;
-      }
-    }
-
-    .nickname-hint {
-      margin-top: 10px;
-      font-size: 22px;
-      color: #D4922E;
-      font-weight: 500;
-      letter-spacing: 1px;
-    }
-  }
-
-  .avatar-wrapper {
-    margin-bottom: 20px;
-
-    .avatar-img {
-      width: 160px;
-      height: 160px;
-      border-radius: $radius-full;
-      border: 4px solid $color-bg-input;
-      box-shadow: 0 8px 28px rgba(43, 37, 32, 0.1);
-    }
-
-    .avatar-placeholder {
-      width: 160px;
-      height: 160px;
-      border-radius: $radius-full;
-      background: linear-gradient(145deg, $color-bg-input, $color-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 8px 28px rgba(43, 37, 32, 0.1);
-
-      .avatar-letter {
-        font-size: 60px;
-        font-weight: $font-weight-bold;
-        color: $color-text-secondary;
-      }
-    }
-  }
-
-  .user-nickname {
-    font-size: 36px;
-    font-weight: $font-weight-bold;
-    color: $color-text-primary;
-    margin-bottom: 8px;
-    letter-spacing: 1px;
-  }
-
-  .user-id {
-    font-size: 22px;
-    color: $color-text-tertiary;
-    margin-bottom: 20px;
-    font-family: "SF Mono", "Menlo", monospace;
-  }
-
-  .member-badge {
-    background: linear-gradient(135deg, $color-accent, $color-accent-dark);
-    border-radius: 28px;
-    padding: 10px 32px;
-    box-shadow: 0 4px 16px rgba(232, 168, 73, 0.3);
-
-    .member-badge-text {
-      font-size: 22px;
-      color: $color-text-inverse;
-      font-weight: $font-weight-semibold;
-      letter-spacing: 2px;
-    }
-  }
+  min-width: 0;
 }
 
-.section {
-  padding: 28px 32px 0;
-
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-
-    .section-title {
-      font-size: 28px;
-      font-weight: $font-weight-bold;
-      color: $color-text-primary;
-      margin-bottom: 0;
-    }
-
-    .edit-btn {
-      background: $color-bg-input;
-      border-radius: 24px;
-      padding: 8px 24px;
-
-      .edit-btn-text {
-        font-size: 24px;
-        color: $color-text-secondary;
-      }
-    }
-  }
-
-  .section-title {
-    display: block;
-    font-size: 28px;
-    font-weight: $font-weight-bold;
-    color: $color-text-primary;
-    margin-bottom: 16px;
-  }
+.benefit-check {
+  width: 26rpx;
+  font-size: 22rpx;
+  color: #07c160;
+  flex-shrink: 0;
 }
 
-.info-card {
-  background: $color-bg-card;
-  border-radius: 24px;
-  padding: 0 28px;
-  box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-
-  .info-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 26px 0;
-    border-bottom: 1px solid $color-bg-input;
-
-    &.last {
-      border-bottom: none;
-    }
-
-    .info-label {
-      font-size: 26px;
-      color: $color-text-secondary;
-    }
-
-    .info-value {
-      font-size: 26px;
-      color: $color-text-primary;
-      font-weight: $font-weight-medium;
-    }
-  }
-
-  .empty-pets {
-    display: block;
-    text-align: center;
-    padding: 32px 0;
-    font-size: 26px;
-    color: $color-text-placeholder;
-  }
-}
-
-.pet-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .pet-card {
-    display: flex;
-    align-items: center;
-    background: $color-bg-card;
-    border-radius: 24px;
-    padding: 24px 28px;
-    gap: 20px;
-    box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-
-    .pet-avatar-box {
-      width: 80px;
-      height: 80px;
-      border-radius: 20px;
-      background: linear-gradient(145deg, $color-bg-input, $color-border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-
-      .pet-avatar-icon {
-        width: 48px;
-        height: 48px;
-      }
-    }
-
-    .pet-info {
-      flex: 1;
-
-      .pet-name {
-        display: block;
-        font-size: 28px;
-        font-weight: $font-weight-semibold;
-        color: $color-text-primary;
-        margin-bottom: 6px;
-      }
-
-      .pet-detail {
-        display: block;
-        font-size: 22px;
-        color: $color-text-secondary;
-      }
-    }
-  }
-}
-
-.benefits-list {
-  background: $color-bg-card;
-  border-radius: 24px;
-  padding: 20px 28px;
-  box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-
-  .benefit-check-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 18px 0;
-    border-bottom: 1px solid $color-bg-section;
-
-    &:last-child {
-      border-bottom: none;
-    }
-
-    .benefit-checkbox {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      border: 2px solid $color-border-light;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-
-      &.checked {
-        background: linear-gradient(135deg, $color-accent, $color-accent-dark);
-        border-color: transparent;
-        box-shadow: 0 2px 8px rgba(232, 168, 73, 0.3);
-      }
-
-      .check-mark-img {
-        width: 24px;
-        height: 24px;
-      }
-    }
-
-    .benefit-check-label {
-      font-size: 26px;
-      color: $color-text-tertiary;
-
-      &.checked {
-        color: $color-text-primary;
-        font-weight: $font-weight-medium;
-      }
-    }
-  }
+.benefit-text {
+  font-size: 22rpx;
+  color: #000000;
+  line-height: 1.35;
 }
 
 .detail-btn {
-  margin-top: 24px;
-  background: linear-gradient(135deg, $color-primary, $color-primary-light);
-  border-radius: 44px;
-  height: 84px;
+  width: 80%;
+  height: 60rpx;
+  margin: 18rpx auto 0;
+  background: #e0e0e0;
+  border-radius: 20rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8px 24px rgba(43, 37, 32, 0.15);
-
-  .detail-btn-text {
-    font-size: 28px;
-    color: $color-text-inverse;
-    font-weight: $font-weight-semibold;
-    letter-spacing: 1px;
-  }
 }
 
-.logout-area {
+.detail-btn-text {
+  font-size: 26rpx;
+  color: #000000;
+}
+
+.logout-btn {
+  width: 90%;
+  height: 80rpx;
+  margin: 16rpx auto 8rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 48px 0 24px;
-
-  .logout-text {
-    font-size: 28px;
-    color: $color-error;
-    font-weight: $font-weight-medium;
-  }
 }
 
-.bottom-cat {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 48px 40px;
-
-  .cat-deco-img {
-    width: 100px;
-    height: 100px;
-    opacity: 0.15;
-  }
+.logout-btn-text {
+  font-size: 32rpx;
+  color: #ff4d4f;
 }

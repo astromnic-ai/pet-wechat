@@ -1,6 +1,7 @@
 import { View, Text, Image } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { markGuideCompleted } from '../../utils/storage'
+import PageBack from '../../components/PageBack'
 import './index.scss'
 
 export default function Guide() {
@@ -19,6 +20,7 @@ export default function Guide() {
 
   return (
     <View className='guide-page'>
+      <PageBack />
       <Text className='brand'>YEHEY</Text>
 
       <View className='module module-top' onClick={handleCollarSetup}>

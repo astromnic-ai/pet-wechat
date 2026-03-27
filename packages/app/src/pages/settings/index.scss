@@ -1,171 +1,85 @@
 .settings-page {
   min-height: 100vh;
-  background: $color-bg;
-  overflow-x: hidden;
+  background: #eaeaea;
+  padding: calc(env(safe-area-inset-top) + 30rpx) 0 calc(env(safe-area-inset-bottom) + 36rpx);
+  box-sizing: border-box;
 }
 
-.settings-content {
-  padding: $spacing-lg $container-padding;
-  @include safe-area-bottom($spacing-xl);
+.page-title {
+  display: block;
+  text-align: center;
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 20rpx;
+}
 
-  // My pets section
-  .pets-section {
-    margin-bottom: 32px;
+.settings-card {
+  width: 90%;
+  margin: 20rpx auto;
+  padding: 30rpx;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 20rpx;
+}
 
-    .section-label {
-      display: block;
-      font-size: 28px;
-      font-weight: $font-weight-semibold;
-      color: $color-text-primary;
-      margin-bottom: 20px;
-    }
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 20rpx;
+}
 
-    .pets-row {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
+.pet-row {
+  display: flex;
+  gap: 24rpx;
+}
 
-      .pet-thumb {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
+.pet-thumb {
+  width: 110rpx;
+  height: 110rpx;
+  border-radius: 55rpx;
+}
 
-        .pet-thumb-avatar {
-          width: 96px;
-          height: 96px;
-          border-radius: $radius-full;
-          background: linear-gradient(145deg, $color-bg-input, $color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin-bottom: 8px;
-          box-shadow: 0 4px 12px rgba(43, 37, 32, 0.06);
+.setting-item {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 30rpx;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 12rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
 
-          &.add {
-            background: rgba(255, 255, 255, 0.8);
-            border: 2px dashed $color-border-light;
-            box-shadow: none;
-          }
+.setting-label {
+  font-size: 28rpx;
+  color: #000000;
+}
 
-          .pet-thumb-initial {
-            font-size: 36px;
-            font-weight: $font-weight-bold;
-            color: $color-text-secondary;
-          }
+.setting-arrow {
+  font-size: 28rpx;
+  color: #666666;
+}
 
-          .pet-thumb-plus-img {
-            width: 32px;
-            height: 32px;
-            opacity: 0.35;
-          }
-        }
+.collect-btn {
+  width: 90%;
+  height: 80rpx;
+  margin: 20rpx auto 0;
+  background: #ffffff;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
-        .pet-thumb-name {
-          font-size: 22px;
-          color: $color-text-secondary;
-        }
-      }
-    }
-  }
+.collect-btn-text {
+  font-size: 32rpx;
+  color: #000000;
+}
 
-  // Settings groups
-  .settings-group {
-    margin-bottom: 24px;
-    background: $color-bg-card;
-    border-radius: 24px;
-    overflow: hidden;
-    box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-  }
-
-  .settings-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 30px 32px;
-    background: $color-bg-card;
-    position: relative;
-
-    &::after {
-      content: "";
-      position: absolute;
-      left: 32px;
-      right: 32px;
-      bottom: 0;
-      height: 1px;
-      background: $color-bg-input;
-    }
-
-    &.last::after {
-      display: none;
-    }
-
-    .item-icon-img {
-      width: 36px;
-      height: 36px;
-      margin-right: 16px;
-      flex-shrink: 0;
-    }
-
-    .item-label {
-      font-size: 28px;
-      color: $color-text-primary;
-      flex: 1;
-    }
-
-    .item-value {
-      font-size: 26px;
-      color: $color-text-tertiary;
-    }
-
-    .item-arrow-img {
-      width: 24px;
-      height: 24px;
-      opacity: 0.3;
-    }
-  }
-
-  // 采集对照 large button
-  .collect-data-btn {
-    margin-top: 32px;
-    background: linear-gradient(135deg, $color-accent, $color-accent-dark);
-    border-radius: 24px;
-    height: 96px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 6px 20px rgba(232, 168, 73, 0.25);
-
-    .collect-data-btn-text {
-      font-size: 32px;
-      color: $color-text-inverse;
-      font-weight: $font-weight-bold;
-      letter-spacing: 2px;
-    }
-  }
-
-  // Logout
-  .logout-btn {
-    text-align: center;
-    color: $color-error;
-    font-size: 28px;
-    padding: 28px;
-    margin-top: 24px;
-    background: $color-bg-card;
-    border-radius: 24px;
-    box-shadow: 0 2px 12px rgba(43, 37, 32, 0.04);
-  }
-
-  // Decorative cat
-  .deco-cat-wrap {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 48px;
-    padding-right: 16px;
-
-    .deco-cat-img {
-      width: 100px;
-      height: 100px;
-      opacity: 0.15;
-    }
-  }
+.quick-nav-wrap {
+  margin-top: 26rpx;
 }

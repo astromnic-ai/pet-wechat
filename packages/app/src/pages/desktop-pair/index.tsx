@@ -1,94 +1,85 @@
-import { View, Text, Image, ScrollView } from "@tarojs/components";
-import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect } from "react";
-import NavBar from "../../components/NavBar";
-import { request } from "../../utils/request";
-import { ICON_CAT, ICON_DOG, ICON_DESKTOP } from "../../assets/icons";
-import type { Pet, DesktopDevice } from "@pet-wechat/shared";
+import { View, Text, Image } from "@tarojs/components";
+import Taro from "@tarojs/taro";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 export default function DesktopPair() {
-  const router = useRouter();
-  const preSelectedDesktopId = router.params.desktopId;
+  const handleConnectExisting = () => {
+    Taro.navigateTo({ url: "/pages/invite/index?mode=pair" });
+  };
 
-  const [pets, setPets] = useState<Pet[]>([]);
-  const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
-  const [selectedPet, setSelectedPet] = useState("");
-  const [selectedDesktop, setSelectedDesktop] = useState(preSelectedDesktopId ?? "");
+  const handleGetPermission = () => {
+    Taro.navigateTo({ url: "/pages/invite/index?mode=invite" });
+  };
 
-  useEffect(() => {
-    request<{ pets: Pet[] }>({ url: "/api/pets" }).then((r) => setPets(r.pets));
-    request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops" }).then(
-      (r) => setDesktops(r.desktops)
-    );
-  }, []);
+  const handleStartConfig = () => {
+    Taro.navigateTo({ url: "/pages/collar-bind/index" });
+  };
 
-  const handlePair = async () => {
-    if (!selectedPet || !selectedDesktop) {
-      Taro.showToast({ title: "请选择宠物和桌面端", icon: "none" });
-      return;
-    }
-    try {
-      await request({
-        url: `/api/devices/desktops/${selectedDesktop}/bind`,
-        method: "POST",
-        data: { petId: selectedPet, bindingType: "owner" },
-      });
-      Taro.showToast({ title: "配对成功", icon: "success" });
-      setTimeout(() => {
-        Taro.switchTab({ url: "/pages/index/index" });
-      }, 1000);
-    } catch (e: any) {
-      Taro.showToast({ title: e.message || "配对失败", icon: "none" });
-    }
+  const handleSkip = () => {
+    Taro.switchTab({ url: "/pages/index/index" });
   };
 
   return (
-    <View className="desktop-pair-page container">
-      <NavBar title="项圈配对桌面端" />
+    <View className="desktop-home-page">
+      <PageBack />
+      <Text className="brand">YEHEY</Text>
+      <Image
+        className="outline-image"
+        src={require("@/assets/images/pet-outline.png")}
+        mode="widthFix"
+      />
 
-      <Text className="section-title">选择宠物</Text>
-      <ScrollView className="list-section" scrollY>
-        {pets.length === 0 ? (
-          <Text className="empty-text">暂无宠物，请先添加</Text>
-        ) : (
-          pets.map((pet) => (
-            <View
-              key={pet.id}
-              className={`list-item card ${selectedPet === pet.id ? "selected" : ""}`}
-              onClick={() => setSelectedPet(pet.id)}
-            >
-              <View className="item-name-row">
-                <Image className="item-species-icon" src={pet.species === "dog" ? ICON_DOG : ICON_CAT} mode="aspectFit" />
-                <Text className="item-name">{pet.name}</Text>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+      <View className="action-card">
+        <Text className="page-title">联接宠物桌面的家</Text>
 
-      <Text className="section-title">选择桌面端</Text>
-      <ScrollView className="list-section" scrollY>
-        {desktops.length === 0 ? (
-          <Text className="empty-text">暂无桌面端设备</Text>
-        ) : (
-          desktops.map((d) => (
-            <View
-              key={d.id}
-              className={`list-item card ${selectedDesktop === d.id ? "selected" : ""}`}
-              onClick={() => setSelectedDesktop(d.id)}
-            >
-              <View className="item-name-row">
-                <Image className="item-desktop-icon" src={ICON_DESKTOP} mode="aspectFit" />
-                <Text className="item-name">{d.name}</Text>
-              </View>
-            </View>
-          ))
-        )}
-      </ScrollView>
+        <View className="hero-row">
+          <Image
+            className="hero-pet"
+            src={require("@/assets/images/pet-collar.png")}
+            mode="aspectFit"
+          />
+          <Image
+            className="hero-link"
+            src={require("@/assets/images/link-icon.png")}
+            mode="aspectFit"
+          />
+          <Image
+            className="hero-device"
+            src={require("@/assets/images/snow-globe.png")}
+            mode="aspectFit"
+          />
+        </View>
 
-      <View className="btn-primary" onClick={handlePair}>
-        一键连接
+        <View className="action-button" onClick={handleConnectExisting}>
+          <Image
+            className="action-icon"
+            src={require("@/assets/images/cat-dog-banner.png")}
+            mode="aspectFit"
+          />
+          <Text className="action-text">一键连接已有宠物&amp;项圈</Text>
+        </View>
+
+        <View className="action-button" onClick={handleGetPermission}>
+          <Image
+            className="action-icon"
+            src={require("@/assets/images/btn-user.png")}
+            mode="aspectFit"
+          />
+          <Text className="action-text">向家人/朋友获取绑定权限</Text>
+        </View>
+
+        <View className="action-button action-button-center" onClick={handleStartConfig}>
+          <Text className="action-text">现在开始配置宠物&amp;项圈</Text>
+        </View>
+
+        <Text className="skip-text" onClick={handleSkip}>
+          暂时跳过，进入主页
+        </Text>
+      </View>
+
+      <View className="progress-track">
+        <View className="progress-fill" />
       </View>
     </View>
   );

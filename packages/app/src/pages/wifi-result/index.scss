@@ -6,7 +6,7 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  padding: 80rpx 40rpx;
+  padding: calc(env(safe-area-inset-top) + 80rpx) 40rpx calc(env(safe-area-inset-bottom) + 80rpx);
 }
 
 .result-title {

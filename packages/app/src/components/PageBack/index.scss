@@ -1,0 +1,19 @@
+.page-back {
+  position: fixed;
+  left: 24rpx;
+  top: calc(env(safe-area-inset-top) + 24rpx);
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.page-back-icon {
+  width: 34rpx;
+  height: 34rpx;
+}

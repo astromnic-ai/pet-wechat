@@ -1,39 +1,38 @@
 import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { request, uploadFile } from "../../utils/request";
-import NavBar from "../../components/NavBar";
-import { ICON_PAW, ICON_CAT, ICON_DOG, ICON_PHOTO } from "../../assets/icons";
 import type { Pet, User } from "@pet-wechat/shared";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-const UPLOAD_CONCURRENCY = 3;
+const EXAMPLE_LABELS = [
+  "完整正面露出尾巴",
+  "完整侧面面部清晰",
+  "光线不足面部模糊",
+  "局部遮挡身体缺失",
+];
 
-function chunkArray<T>(list: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let index = 0; index < list.length; index += size) {
-    chunks.push(list.slice(index, index + size));
-  }
-  return chunks;
-}
+const EXAMPLE_IMAGES = [
+  require("@/assets/images/black-cat.png"),
+  require("@/assets/images/black-cat.png"),
+  require("@/assets/images/pet-avatar-default.png"),
+  require("@/assets/images/pet-avatar-default.png"),
+];
 
 export default function PetAvatar() {
   const router = useRouter();
   const petId = router.params.petId;
-
   const [images, setImages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState("上传中...");
   const [pet, setPet] = useState<Pet | null>(null);
   const [quota, setQuota] = useState({ remaining: 2, total: 2 });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!petId) return;
-    // 加载宠物信息
     request<{ pet: Pet }>({ url: `/api/pets/${petId}` })
       .then((res) => setPet(res.pet))
       .catch(() => {});
-    // 加载用户配额
     request<{ user: User }>({ url: "/api/me" })
       .then((res) => setQuota({ remaining: res.user.avatarQuota, total: 2 }))
       .catch(() => {});
@@ -42,55 +41,32 @@ export default function PetAvatar() {
   const handleChooseImage = async () => {
     try {
       const res = await Taro.chooseImage({
-        count: 9 - images.length,
+        count: 1,
         sizeType: ["compressed"],
         sourceType: ["album", "camera"],
       });
-      setImages((prev) => [...prev, ...res.tempFilePaths].slice(0, 9));
-    } catch {
-      // 用户取消选择
-    }
+      setImages(res.tempFilePaths.slice(0, 1));
+    } catch {}
   };
 
   const handleUpload = async () => {
-    if (images.length === 0 || !petId) return;
+    if (!petId || images.length === 0 || loading) return;
     setLoading(true);
     try {
-      const uploadedUrls = new Array<string>(images.length);
-      let uploadedCount = 0;
-      setLoadingText(`上传中 (0/${images.length})...`);
-
-      const imageTasks = images.map((imagePath, index) => ({ imagePath, index }));
-      for (const group of chunkArray(imageTasks, UPLOAD_CONCURRENCY)) {
-        await Promise.all(
-          group.map(async ({ imagePath, index }) => {
-            const uploadData = await uploadFile<{ url: string }>({
-              url: "/api/upload",
-              filePath: imagePath,
-              name: "file",
-            });
-            if (!uploadData.url) {
-              throw new Error("上传结果缺少 URL");
-            }
-            uploadedUrls[index] = uploadData.url;
-            uploadedCount += 1;
-            setLoadingText(`上传中 (${uploadedCount}/${images.length})...`);
-          }),
-        );
-      }
-
+      const uploadData = await uploadFile<{ url: string }>({
+        url: "/api/upload",
+        filePath: images[0],
+        name: "file",
+      });
       const { avatar } = await request<{ avatar: { id: string } }>({
         url: "/api/avatars",
         method: "POST",
         data: {
           petId,
-          sourceImageUrl: uploadedUrls[0],
-          additionalImages: uploadedUrls.slice(1),
+          sourceImageUrl: uploadData.url,
         },
       });
-      Taro.redirectTo({
-        url: `/pages/avatar-progress/index?avatarId=${avatar.id}`,
-      });
+      Taro.redirectTo({ url: `/pages/avatar-progress/index?avatarId=${avatar.id}&status=done` });
     } catch (e: any) {
       Taro.showToast({ title: e.message || "上传失败", icon: "none" });
     } finally {
@@ -104,83 +80,72 @@ export default function PetAvatar() {
 
   return (
     <View className="pet-avatar-page">
-      <NavBar title="定制宠物动态" />
-
-      {/* TODO: 替换为半透明猫狗背景插画 (image-import-24.png) */}
-      <View className="bg-illustration">
-        <Image className="bg-illustration-icon" src={ICON_PAW} mode="aspectFit" />
-      </View>
+      <PageBack />
+      <Text className="brand">YEHEY</Text>
+      <Image
+        className="outline-image"
+        src={require("@/assets/images/pet-outline.png")}
+        mode="widthFix"
+      />
 
       <View className="main-card">
         <Text className="card-title">定制宠物动态</Text>
 
-        <View className="pet-info-brief">
-          <View className="pet-avatar-icon">
-            <Image className="pet-avatar-img" src={pet?.species === "dog" ? ICON_DOG : ICON_CAT} mode="aspectFit" />
-          </View>
-          <View className="pet-meta">
-            <Text className="pet-name">{pet?.name ?? "我的宠物"}</Text>
-            <Text className="pet-detail">
-              {pet?.breed ?? "未知品种"} · {pet?.gender === "male" ? "公" : pet?.gender === "female" ? "母" : ""}
-            </Text>
-          </View>
+        <View className="pet-summary">
+          <Image
+            className="pet-summary-image"
+            src={require("@/assets/images/black-cat.png")}
+            mode="aspectFit"
+          />
+          <Text className="pet-summary-text">
+            {pet ? `${pet.name} ${pet.breed || "英短蓝猫"} 3岁半` : "毛毛 英短蓝猫 3岁半"}
+          </Text>
         </View>
 
-        <View className="example-section">
-          <Text className="example-label">图像上传示例：</Text>
-          <View className="example-grid">
-            {/* TODO: 替换为真实示例图片 */}
-            {[1, 2, 3, 4].map((i) => (
-              <View key={i} className="example-item">
-                <Text className="example-placeholder-text">示例{i}</Text>
-              </View>
-            ))}
-          </View>
+        <Text className="example-title">图像上传示例：</Text>
+        <View className="example-row">
+          {EXAMPLE_LABELS.map((label, index) => (
+            <View key={label} className="example-item">
+              <Image
+                className="example-image"
+                src={EXAMPLE_IMAGES[index]}
+                mode="aspectFit"
+              />
+              <Text className="example-label">{label}</Text>
+            </View>
+          ))}
         </View>
 
-        <Text className="upload-desc">
-          上传宠物照片，专属定制你的宠物动态图像
-        </Text>
+        <Text className="upload-tip">上传宠物照片，专属定制宠物动态图像</Text>
 
-        <View className="upload-area" onClick={handleChooseImage}>
-          {images.length > 0 ? (
-            <View className="image-grid">
-              {images.map((img, idx) => (
-                <Image
-                  key={idx}
-                  className="preview-thumb"
-                  src={img}
-                  mode="aspectFill"
-                />
-              ))}
-              {images.length < 9 && (
-                <View className="add-more">
-                  <Text className="add-more-plus">+</Text>
-                </View>
-              )}
-            </View>
-          ) : (
-            <View className="upload-placeholder">
-              <Image className="upload-icon-img" src={ICON_PHOTO} mode="aspectFit" />
-              <Text className="upload-text">点击上传照片</Text>
-            </View>
+        <View className="upload-box">
+          <Image
+            className="upload-icon"
+            src={require("@/assets/images/upload-icon.png")}
+            mode="aspectFit"
+          />
+          <View className="upload-trigger" onClick={handleChooseImage}>
+            <Text className="upload-trigger-text">点击上传照片</Text>
+          </View>
+          {images.length > 0 && (
+            <Image className="preview-image" src={images[0]} mode="aspectFill" />
           )}
+          <Text className="quota-text">新用户免费定制2次（{quota.remaining}/{quota.total}）</Text>
         </View>
 
-        <Text className="quota-info">
-          新用户免费定制{quota.total}次 ({quota.remaining}/{quota.total})
-        </Text>
-
-        <View
-          className={`btn-primary start-btn ${images.length === 0 ? "disabled" : ""}`}
-          onClick={handleUpload}
-        >
-          {loading ? loadingText : "开始定制！您的宠物动态图像"}
+        <View className={`primary-action ${images.length === 0 ? "disabled" : ""}`} onClick={handleUpload}>
+          <Text className="primary-action-text">
+            {loading ? "上传中..." : "开始定制宠物动态图像"}
+          </Text>
         </View>
 
-        <Text className="skip-link" onClick={handleSkip}>
-          跳过，稍后再完成
-        </Text>
+        <View className="secondary-action" onClick={handleSkip}>
+          <Text className="secondary-action-text">跳过，稍后再完成</Text>
+        </View>
+      </View>
+
+      <View className="progress-track">
+        <View className="progress-fill progress-step-2" />
       </View>
     </View>
   );

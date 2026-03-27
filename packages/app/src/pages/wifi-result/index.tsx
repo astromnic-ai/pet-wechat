@@ -1,6 +1,7 @@
 import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { ICON_CHECK_GREEN, ICON_ERROR_RED } from "../../assets/icons";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 export default function WifiResult() {
@@ -23,9 +24,9 @@ export default function WifiResult() {
   const buttonText = success
     ? stage === "connect"
       ? "下一步"
-      : deviceType === "desktop"
-        ? "下一步"
-        : "进入项圈-宠物匹配"
+      : deviceType === "collar"
+        ? "录入该项圈的宠物信息"
+        : "进入主页"
     : "重新连接";
 
   const handleAction = () => {
@@ -39,6 +40,17 @@ export default function WifiResult() {
       Taro.navigateTo({
         url: `/pages/wifi-config/index?deviceType=${deviceType}&deviceId=${nextDeviceId}`,
       });
+      return;
+    }
+
+    if (stage === "config") {
+      if (deviceType === "collar") {
+        const nextCollarId = collarId || deviceId || "";
+        Taro.navigateTo({ url: `/pages/pet-info/index?collarId=${nextCollarId}` });
+        return;
+      }
+
+      Taro.switchTab({ url: "/pages/index/index" });
       return;
     }
 
@@ -57,6 +69,7 @@ export default function WifiResult() {
 
   return (
     <View className="result-page">
+      <PageBack />
       <Text className="result-title">{title}</Text>
       <Image
         className="result-icon"

@@ -1,102 +1,125 @@
-.invite-page {
+.invite-share-page {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  background: $color-bg;
-  padding: 0 40px;
+  background: #eaeaea;
   box-sizing: border-box;
-  overflow-x: hidden;
-  @include safe-area-bottom($spacing-xl);
+  padding: calc(env(safe-area-inset-top) + 20rpx) 0 calc(env(safe-area-inset-bottom) + 40rpx);
 }
 
-.invite-card-wrapper {
+.pet-info-card {
+  width: 90%;
+  margin: 20rpx auto;
+  padding: 30rpx;
+  box-sizing: border-box;
+  background: #ffffff;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  gap: 30rpx;
+}
+
+.pet-avatar {
+  width: 200rpx;
+  height: 200rpx;
+  flex-shrink: 0;
+}
+
+.pet-tags {
   flex: 1;
-  display: flex;
-  align-items: center;
-  width: 100%;
 }
 
-.invite-card {
-  background: $color-bg-card;
-  border-radius: $radius-lg;
-  padding: 60px 40px;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-  box-shadow: 0 4px 20px rgba(43, 37, 32, 0.08);
+.pet-tag {
+  display: inline-block;
+  background: #e0e0e0;
+  border-radius: 20rpx;
+  padding: 10rpx 20rpx;
+  margin-bottom: 10rpx;
+  font-size: 28rpx;
+  line-height: 1.4;
+  color: #000000;
 }
 
-.invite-icon {
-  font-size: 96px;
-}
-
-.invite-icon-img {
-  width: 96px;
-  height: 96px;
-}
-
-.invite-title {
-  font-size: $font-size-lg;
-  font-weight: $font-weight-semibold;
-  color: $color-text-primary;
-}
-
-.invite-desc {
-  font-size: $font-size-base;
-  color: $color-text-secondary;
-  text-align: center;
-  line-height: 1.5;
-}
-
-.invite-error {
-  font-size: $font-size-base;
-  color: $color-error;
-  text-align: center;
-}
-
-.pet-name-tag {
-  background: $color-bg-input;
-  border-radius: 20px;
-  padding: 16px 40px;
-}
-
-.pet-name-text {
-  font-size: $font-size-md;
-  font-weight: $font-weight-semibold;
-  color: $color-text-primary;
-}
-
-.invite-hint {
-  font-size: $font-size-sm;
-  color: $color-text-tertiary;
-  text-align: center;
-}
-
-.btn-primary {
-  @include btn-primary;
-
-  width: 100%;
+.connect-button {
+  width: 60%;
+  height: 80rpx;
+  margin: 30rpx auto;
+  background: #ffffff;
+  border-radius: 50rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: $spacing-md;
-
-  &.disabled {
-    opacity: 0.4;
-  }
 }
 
-.btn-text {
-  color: $color-text-inverse;
-  font-size: 30px;
-  font-weight: $font-weight-medium;
+.connect-button-text {
+  font-size: 32rpx;
+  color: #000000;
+  line-height: 1.3;
 }
 
-.skip-link {
-  font-size: 26px;
-  color: $color-text-tertiary;
-  margin-top: 8px;
+.guide-info-card {
+  width: 90%;
+  margin: 20rpx auto;
+  padding: 60rpx 30rpx;
+  box-sizing: border-box;
+  background: #f0f0f0;
+  border-radius: 16rpx;
+}
+
+.guide-info-text {
+  display: block;
+  font-size: 32rpx;
+  line-height: 1.5;
+  color: #000000;
+  text-align: center;
+}
+
+.invite-accept-page {
+  min-height: 100vh;
+  background: #eaeaea;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 40rpx) 40rpx calc(env(safe-area-inset-bottom) + 40rpx);
+  box-sizing: border-box;
+}
+
+.accept-card {
+  width: 90%;
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 60rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.accept-title {
+  display: block;
+  text-align: center;
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #000000;
+  margin-bottom: 24rpx;
+}
+
+.accept-desc {
+  display: block;
+  text-align: center;
+  font-size: 30rpx;
+  line-height: 1.5;
+  color: #333333;
+}
+
+.accept-button {
+  width: 60%;
+  height: 80rpx;
+  margin: 40rpx auto 0;
+  background: #ffffff;
+  border: 2rpx solid #dddddd;
+  border-radius: 50rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.accept-button-text {
+  font-size: 32rpx;
+  color: #000000;
 }

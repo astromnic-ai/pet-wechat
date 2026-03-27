@@ -3,6 +3,7 @@ import Taro from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { CollarDevice } from "@pet-wechat/shared";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const FALLBACK_COLLAR: CollarDevice = {
@@ -52,12 +53,13 @@ export default function CollarBind() {
   const handleConnect = () => {
     const deviceId = selectedDevice.id || FALLBACK_COLLAR.id;
     Taro.navigateTo({
-      url: `/pages/wifi-result/index?success=true&stage=connect&deviceType=collar&deviceId=${deviceId}`,
+      url: `/pages/wifi-config/index?deviceType=collar&deviceId=${deviceId}`,
     });
   };
 
   return (
     <View className="device-guide-page">
+      <PageBack />
       <Text className="brand">YEHEY</Text>
       <Image
         className="outline-image"

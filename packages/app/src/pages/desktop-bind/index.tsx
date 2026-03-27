@@ -3,6 +3,7 @@ import Taro from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { DesktopDevice } from "@pet-wechat/shared";
+import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const FALLBACK_DESKTOP: DesktopDevice = {
@@ -49,12 +50,13 @@ export default function DesktopBind() {
   const handleConnect = () => {
     const deviceId = selectedDevice.id || FALLBACK_DESKTOP.id;
     Taro.navigateTo({
-      url: `/pages/wifi-result/index?success=true&stage=connect&deviceType=desktop&deviceId=${deviceId}`,
+      url: `/pages/wifi-config/index?deviceType=desktop&deviceId=${deviceId}`,
     });
   };
 
   return (
     <View className="desktop-guide-page">
+      <PageBack />
       <Text className="brand">YEHEY</Text>
       <Image
         className="outline-image"
