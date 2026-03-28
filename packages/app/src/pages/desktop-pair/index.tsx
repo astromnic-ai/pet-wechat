@@ -1,11 +1,59 @@
 import { View, Text, Image } from "@tarojs/components";
-import Taro from "@tarojs/taro";
+import Taro, { useRouter } from "@tarojs/taro";
+import { useState } from "react";
+import { request } from "../../utils/request";
+import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 export default function DesktopPair() {
-  const handleConnectExisting = () => {
-    Taro.navigateTo({ url: "/pages/invite/index?mode=pair" });
+  const router = useRouter();
+  const desktopId = router.params.desktopId;
+  const [binding, setBinding] = useState(false);
+
+  const handleConnectExisting = async () => {
+    if (!desktopId) {
+      Taro.navigateTo({ url: "/pages/invite/index?mode=pair" });
+      return;
+    }
+
+    if (binding) return;
+
+    setBinding(true);
+
+    try {
+      const { pets } = await request<{ pets: Pet[]; authorizedPets: Pet[] }>({
+        url: "/api/pets",
+      });
+      // TODO: Replace pets[0] with an explicit pet selection flow for multi-pet users.
+      const pet = pets[0];
+
+      if (!pet) {
+        Taro.showToast({ title: "请先创建宠物", icon: "none" });
+        return;
+      }
+
+      await request({
+        url: `/api/devices/desktops/${desktopId}/bind`,
+        method: "POST",
+        data: {
+          petId: pet.id,
+          bindingType: "owner",
+        },
+      });
+
+      Taro.showToast({ title: "关联成功", icon: "success" });
+      setTimeout(() => {
+        Taro.switchTab({ url: "/pages/index/index" });
+      }, 300);
+    } catch (error) {
+      Taro.showToast({
+        title: error instanceof Error ? error.message : "关联失败",
+        icon: "none",
+      });
+    } finally {
+      setBinding(false);
+    }
   };
 
   const handleGetPermission = () => {

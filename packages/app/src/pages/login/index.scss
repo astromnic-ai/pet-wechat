@@ -52,6 +52,24 @@
   margin-bottom: 36rpx;
 }
 
+.dev-login-box {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.dev-login-input {
+  width: 700rpx;
+  height: 88rpx;
+  border-radius: 20rpx;
+  background: #ffffff;
+  border: 2rpx solid #d9d9d9;
+  box-sizing: border-box;
+  padding: 0 28rpx;
+  font-size: 28rpx;
+  color: #111111;
+}
+
 .btn {
   width: 700rpx;
   height: 88rpx;

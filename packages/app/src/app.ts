@@ -1,11 +1,15 @@
 import { PropsWithChildren } from 'react'
 import { useLaunch } from '@tarojs/taro'
-import { ensureMockLoginState } from './mock/mode'
+import { getToken } from './utils/request'
+import { connectWs } from './utils/ws'
 import './app.scss'
 
 function App({ children }: PropsWithChildren) {
   useLaunch(() => {
-    ensureMockLoginState()
+    if (getToken()) {
+      void connectWs()
+    }
+
     console.log('App launched.')
   })
 

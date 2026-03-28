@@ -11,6 +11,7 @@ import petsRoute from "./routes/pets";
 import avatarsRoute from "./routes/avatars";
 import devicesRoute from "./routes/devices";
 import behaviorsRoute from "./routes/behaviors";
+import statsRoute from "./routes/stats";
 import messagesRoute from "./routes/messages";
 import meRoute from "./routes/me";
 import debugRoute from "./routes/debug";
@@ -42,6 +43,7 @@ export function createApp() {
   app.route("/api/avatars", avatarsRoute);
   app.route("/api/devices", devicesRoute);
   app.route("/api/behaviors", behaviorsRoute);
+  app.route("/api/stats", statsRoute);
   app.route("/api/messages", messagesRoute);
   app.route("/api/upload", uploadRoute);
   app.route("/api/debug", debugRoute);

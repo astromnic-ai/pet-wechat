@@ -1,14 +1,12 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
+import { useEffect, useState } from "react";
+import type { Pet, User } from "@pet-wechat/shared";
 import { clearToken } from "../../utils/request";
+import { request } from "../../utils/request";
 import { disconnectWs } from "../../utils/ws";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
-
-const SERVICE_PETS = [
-  { id: "1", name: "毛毛", imageQuota: "定制图像：2/2", deviceQuota: "绑定终端：3/5" },
-  { id: "2", name: "臭臭", imageQuota: "定制图像：1/2", deviceQuota: "绑定终端：1/5" },
-];
 
 const BENEFITS = [
   "升级宠物数量",
@@ -18,10 +16,76 @@ const BENEFITS = [
   "专属主题皮肤",
 ];
 
+const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
+
+function getSpeciesLabel(species: Pet["species"]) {
+  return species === "cat" ? "猫咪" : "狗狗";
+}
+
+function getPetMeta(pet: Pet) {
+  return `品种：${pet.breed || getSpeciesLabel(pet.species)}`;
+}
+
+function getPetBehavior(pet: Pet) {
+  if (!pet.latestBehavior?.actionType) {
+    return `活跃值：${pet.activityScore}`;
+  }
+
+  return `最新行为：${pet.latestBehavior.actionType}`;
+}
+
 export default function Profile() {
+  const [user, setUser] = useState<User | null>(null);
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [authorizedPetsCount, setAuthorizedPetsCount] = useState(0);
+
   useDidShow(() => {
     Taro.hideTabBar();
   });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadUser = async () => {
+      try {
+        const res = await request<{ user: User }>({ url: "/api/me" });
+        if (cancelled) return;
+        setUser(res.user);
+      } catch {
+        if (cancelled) return;
+        setUser(null);
+      }
+    };
+
+    void loadUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPets = async () => {
+      try {
+        const res = await request<{ pets: Pet[]; authorizedPets: Pet[] }>({ url: "/api/pets" });
+        if (cancelled) return;
+        setPets(res.pets);
+        setAuthorizedPetsCount(res.authorizedPets.length);
+      } catch {
+        if (cancelled) return;
+        setPets([]);
+        setAuthorizedPetsCount(0);
+      }
+    };
+
+    void loadPets();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogout = () => {
     disconnectWs();
@@ -40,12 +104,14 @@ export default function Profile() {
             <View className="user-main">
               <Image
                 className="user-avatar"
-                src={require("@/assets/images/black cat 3.png")}
+                src={user?.avatarUrl || DEFAULT_AVATAR}
                 mode="aspectFill"
               />
               <View className="user-texts">
-                <Text className="user-name">烨子（微信用户）</Text>
-                <Text className="user-id">用户ID：6667779898</Text>
+                <Text className="user-name">{user?.nickname || "用户"}</Text>
+                <Text className="user-id">
+                  {user?.phone ? `手机号：${user.phone}` : `形象配额：${user?.avatarQuota ?? 0}`}
+                </Text>
               </View>
             </View>
             <View className="vip-btn">
@@ -61,30 +127,33 @@ export default function Profile() {
               <Text className="mini-btn-text">编辑资料</Text>
             </View>
           </View>
-          <Text className="info-line">手机号：135 **** 8888</Text>
-          <Text className="info-line">邮箱：YEHEY6789@guagua.com</Text>
-          <Text className="info-line">注册日期：2025-02-28</Text>
+          {user?.phone ? <Text className="info-line">手机号：{user.phone}</Text> : null}
+          <Text className="info-line">形象配额：{user?.avatarQuota ?? 0}</Text>
         </View>
 
         <View className="profile-card">
           <Text className="section-title">我的服务</Text>
-          {SERVICE_PETS.map((pet) => (
+          {authorizedPetsCount > 0 ? (
+            <Text className="service-pet-meta">已授权宠物：{authorizedPetsCount}只</Text>
+          ) : null}
+          {pets.map((pet) => (
             <View key={pet.id} className="service-pet-card">
               <Image
                 className="service-pet-avatar"
-                src={require("@/assets/images/black cat 3.png")}
+                src={pet.avatarImageUrl || DEFAULT_AVATAR}
                 mode="aspectFill"
               />
               <View className="service-pet-info">
                 <Text className="service-pet-name">{pet.name}</Text>
-                <Text className="service-pet-meta">{pet.imageQuota}</Text>
-                <Text className="service-pet-meta">{pet.deviceQuota}</Text>
+                <Text className="service-pet-meta">{getPetMeta(pet)}</Text>
+                <Text className="service-pet-meta">{getPetBehavior(pet)}</Text>
               </View>
               <View className="mini-btn">
                 <Text className="mini-btn-text">升级</Text>
               </View>
             </View>
           ))}
+          {pets.length === 0 ? <Text className="info-line">暂无宠物</Text> : null}
         </View>
 
         <View className="profile-card">

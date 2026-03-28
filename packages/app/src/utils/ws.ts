@@ -1,7 +1,8 @@
 import Taro from "@tarojs/taro";
 import type { WsMessage } from "@pet-wechat/shared";
-import { isMockMode } from "../mock/mode";
-import { BASE_URL, getToken } from "./request";
+import { getToken } from "./request";
+
+declare const API_BASE_URL: string;
 
 type WsMessageType = WsMessage["type"];
 type WsMessageHandler<T extends WsMessageType> = (message: Extract<WsMessage, { type: T }>) => void;
@@ -19,7 +20,7 @@ let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function getWsUrl(token: string) {
-  const wsBaseUrl = BASE_URL.replace(/^http/, "ws").replace(/\/$/, "");
+  const wsBaseUrl = API_BASE_URL.replace(/^http/, "ws").replace(/\/$/, "");
   return `${wsBaseUrl}/ws?token=${encodeURIComponent(token)}`;
 }
 
@@ -118,11 +119,6 @@ function bindSocket(task: Taro.SocketTask) {
 }
 
 export async function connectWs() {
-  if (isMockMode()) {
-    disconnectWs();
-    return;
-  }
-
   const token = getToken();
   if (!token || isConnecting || isConnected) return;
 

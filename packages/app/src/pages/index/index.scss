@@ -239,6 +239,13 @@
   box-shadow: 0 10rpx 24rpx rgba(0, 0, 0, 0.05);
   padding: 20rpx;
   box-sizing: border-box;
+  position: relative;
+}
+
+.empty-speech-bubble {
+  position: static;
+  max-width: 420rpx;
+  margin-bottom: 32rpx;
 }
 
 .empty-pet-image {

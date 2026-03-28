@@ -38,6 +38,44 @@ describe("Device Routes", () => {
     });
   });
 
+  describe("POST /api/devices/collars/register", () => {
+    it("creates a collar with normalized mac address", async () => {
+      const collar = fakeCollar({ macAddress: "AABBCCDDEEFF" });
+      mockDb._results.select = [[]];
+      mockDb._results.insert = [[collar]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/devices/collars/register", {
+          headers,
+          body: { macAddress: "aa:bb:cc:dd:ee:ff" },
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.collar.macAddress).toBe("AABBCCDDEEFF");
+    });
+
+    it("returns the existing collar when insert races with another request from the same user", async () => {
+      const collar = fakeCollar({ macAddress: "AABBCCDDEEFF", userId: "user-1" });
+      mockDb._results.select = [[], [collar]];
+      mockDb._results.insert = [[]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/devices/collars/register", {
+          headers,
+          body: { macAddress: "AA-BB-CC-DD-EE-FF" },
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.collar.id).toBe("collar-1");
+    });
+  });
+
   describe("POST /api/devices/collars", () => {
     it("creates a collar", async () => {
       const collar = fakeCollar();
@@ -116,8 +154,21 @@ describe("Device Routes", () => {
   // ===== Desktop devices =====
 
   describe("GET /api/devices/desktops", () => {
-    it("returns user's desktops", async () => {
-      mockDb._results.select = [[fakeDesktop()]];
+    it("returns user's desktops with active bindings", async () => {
+      mockDb._results.select = [[
+        {
+          desktop: fakeDesktop(),
+          bindingId: "binding-1",
+          bindingPetId: "pet-1",
+          bindingType: "owner",
+        },
+        {
+          desktop: fakeDesktop(),
+          bindingId: "binding-2",
+          bindingPetId: "pet-2",
+          bindingType: "authorized",
+        },
+      ]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -126,6 +177,18 @@ describe("Device Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.desktops).toHaveLength(1);
+      expect(json.desktops[0].bindings).toEqual([
+        {
+          id: "binding-1",
+          petId: "pet-1",
+          bindingType: "owner",
+        },
+        {
+          id: "binding-2",
+          petId: "pet-2",
+          bindingType: "authorized",
+        },
+      ]);
     });
   });
 
@@ -143,6 +206,26 @@ describe("Device Routes", () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.desktop.macAddress).toBe("11:22:33:44:55:66");
+    });
+  });
+
+  describe("POST /api/devices/desktops/register", () => {
+    it("creates a desktop with normalized mac address", async () => {
+      const desktop = fakeDesktop({ macAddress: "112233445566" });
+      mockDb._results.select = [[]];
+      mockDb._results.insert = [[desktop]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/devices/desktops/register", {
+          headers,
+          body: { macAddress: "11:22:33:44:55:66" },
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.desktop.macAddress).toBe("112233445566");
     });
   });
 
@@ -172,8 +255,8 @@ describe("Device Routes", () => {
 
   describe("POST /api/devices/desktops/:id/bind", () => {
     it("binds a pet to a desktop", async () => {
-      // select 1: desktop check, select 2: pet ownership check
-      mockDb._results.select = [[fakeDesktop()], [fakePet()]];
+      // select 1: desktop check, select 2: pet ownership check, select 3: no existing binding
+      mockDb._results.select = [[fakeDesktop()], [fakePet()], []];
       mockDb._results.insert = [[fakeBinding()]];
 
       const headers = await authHeader("user-1");
@@ -186,6 +269,23 @@ describe("Device Routes", () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.binding.petId).toBe("pet-1");
+    });
+
+    it("returns the existing active binding instead of creating duplicates", async () => {
+      const binding = fakeBinding();
+      mockDb._results.select = [[fakeDesktop()], [fakePet()], [binding]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/devices/desktops/desktop-1/bind", {
+          headers,
+          body: { petId: "pet-1", bindingType: "owner" },
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.binding.id).toBe("binding-1");
     });
 
     it("returns 404 when desktop not owned by user", async () => {

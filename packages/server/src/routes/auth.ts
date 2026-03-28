@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { users } from "../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { signToken } from "../middleware/auth";
 
 const auth = new Hono();
@@ -72,5 +72,28 @@ auth.post("/phone", async (c) => {
   const token = await signToken(user.id);
   return c.json({ token, user });
 });
+
+if (process.env.ENABLE_DEV_LOGIN === "true") {
+  auth.post("/dev-login", async (c) => {
+    const { phone } = await c.req.json<{ phone: string }>();
+    const normalizedPhone = phone?.trim();
+    if (!normalizedPhone) return c.json({ error: "phone is required" }, 400);
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        phone: normalizedPhone,
+        nickname: "开发用户",
+      })
+      .onConflictDoUpdate({
+        target: users.phone,
+        set: { nickname: sql`${users.nickname}` },
+      })
+      .returning();
+
+    const token = await signToken(user.id);
+    return c.json({ token, user });
+  });
+}
 
 export default auth;

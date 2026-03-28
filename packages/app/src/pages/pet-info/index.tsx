@@ -2,14 +2,14 @@ import { View, Text, Image, Input } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import { request } from "../../utils/request";
-import type { Gender, Pet, Species } from "@pet-wechat/shared";
+import type { CollarDevice, Gender, Pet, Species } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 export default function PetInfo() {
   const router = useRouter();
-  const petId = router.params.id;
-  const collarId = router.params.collarId;
+  const petId = router.params.petId || router.params.id;
+  const routeCollarId = router.params.collarId || router.params.deviceId || "";
 
   const [species, setSpecies] = useState<Species>("cat");
   const [name, setName] = useState("");
@@ -17,23 +17,42 @@ export default function PetInfo() {
   const [birthday, setBirthday] = useState("");
   const [weight, setWeight] = useState("");
   const [gender, setGender] = useState<Gender>("male");
+  const [collarId, setCollarId] = useState(routeCollarId);
   const [loading, setLoading] = useState(false);
   const canSubmit = name.trim().length > 0 && breed.trim().length > 0 && !loading;
 
   useDidShow(() => {
+    if (routeCollarId) {
+      setCollarId(routeCollarId);
+    }
     if (!petId) return;
     void loadPet();
   });
 
+  const applyPetToForm = (pet: Pet) => {
+    setName(pet.name);
+    setSpecies(pet.species);
+    setBreed(pet.breed || "");
+    setBirthday(pet.birthday || "");
+    setWeight(pet.weight ? String(pet.weight) : "");
+    setGender(pet.gender === "female" ? "female" : "male");
+  };
+
   const loadPet = async () => {
     try {
-      const { pet } = await request<{ pet: Pet }>({ url: `/api/pets/${petId}` });
-      setName(pet.name);
-      setSpecies(pet.species);
-      setBreed(pet.breed || "");
-      setBirthday(pet.birthday || "");
-      setWeight(pet.weight ? String(pet.weight) : "");
-      setGender(pet.gender === "female" ? "female" : "male");
+      const [{ pet }, collarsRes] = await Promise.all([
+        request<{ pet: Pet }>({ url: `/api/pets/${petId}` }),
+        routeCollarId
+          ? Promise.resolve(null)
+          : request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }),
+      ]);
+
+      applyPetToForm(pet);
+
+      if (!routeCollarId) {
+        const matchedCollar = collarsRes?.collars.find((collar) => collar.petId === pet.id);
+        setCollarId(matchedCollar?.id || "");
+      }
     } catch {}
   };
 
@@ -62,26 +81,12 @@ export default function PetInfo() {
       let pet: Pet;
 
       if (petId) {
-        await request({
+        const res = await request<{ pet: Pet }>({
           url: `/api/pets/${petId}`,
           method: "PUT",
           data,
         });
-        pet = {
-          id: petId,
-          userId: "mock-user",
-          name: data.name,
-          species: data.species,
-          breed: data.breed,
-          gender: data.gender,
-          birthday: data.birthday,
-          weight: data.weight,
-          activityScore: 82,
-          latestBehavior: null,
-          avatarImageUrl: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
+        pet = res.pet;
       } else {
         const res = await request<{ pet: Pet }>({
           url: "/api/pets",
@@ -91,12 +96,15 @@ export default function PetInfo() {
         pet = res.pet;
       }
 
+      applyPetToForm(pet);
+
       if (collarId) {
-        await request({
+        const { collar } = await request<{ collar: CollarDevice }>({
           url: `/api/devices/collars/${collarId}`,
           method: "PUT",
           data: { petId: pet.id },
         });
+        setCollarId(collar.id);
       }
 
       Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
@@ -201,7 +209,7 @@ export default function PetInfo() {
             mode="aspectFit"
           />
           <Text className="device-prefix">当前关联设备：</Text>
-          <Text className="device-value">Collar ID：{collarId || "666777888"}</Text>
+          <Text className="device-value">Collar ID：{collarId}</Text>
         </View>
 
         <View className={`submit-btn ${canSubmit ? "" : "submit-btn--disabled"}`} onClick={handleSubmit}>

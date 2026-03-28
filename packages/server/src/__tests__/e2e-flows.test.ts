@@ -265,7 +265,7 @@ describe("E2E Flows", () => {
 
       // Step 2: Bind pet to desktop
       mockDb._reset();
-      mockDb._results.select = [[desktop], [pet]]; // desktop check, pet ownership check
+      mockDb._results.select = [[desktop], [pet], []]; // desktop check, pet ownership check, no active binding
       mockDb._results.insert = [[binding]];
 
       const bindRes = await app.request(

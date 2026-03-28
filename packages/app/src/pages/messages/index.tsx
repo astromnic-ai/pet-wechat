@@ -1,6 +1,6 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
 import type { Message, MessageType } from "@pet-wechat/shared";
 import "./index.scss";
@@ -24,27 +24,70 @@ function getVariant(message: Message) {
 export default function Messages() {
   const [tab, setTab] = useState<TabType>("all");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [, setUnreadCount] = useState(0);
+  const [refreshToken, setRefreshToken] = useState<number | null>(null);
 
   useDidShow(() => {
-    void loadMessages("all");
+    setRefreshToken(Date.now());
   });
 
-  const loadMessages = async (nextTab: TabType) => {
-    try {
-      const list = await request<Message[]>({
-        url: nextTab === "all" ? "/api/messages" : `/api/messages?type=${nextTab}`,
-      });
-      setMessages(list);
-      setTab(nextTab);
-    } catch {
-      setMessages([]);
-    }
-  };
+  useEffect(() => {
+    if (refreshToken === null) return;
+
+    let active = true;
+
+    const loadMessages = async () => {
+      try {
+        const list = await request<Message[]>({ url: "/api/messages" });
+        if (active) {
+          setMessages(list);
+        }
+      } catch {
+        if (active) {
+          setMessages([]);
+        }
+      }
+    };
+
+    void loadMessages();
+
+    return () => {
+      active = false;
+    };
+  }, [refreshToken]);
+
+  useEffect(() => {
+    if (refreshToken === null) return;
+
+    let active = true;
+
+    const loadUnreadCount = async () => {
+      try {
+        const { count } = await request<{ count: number }>({
+          url: "/api/messages/unread-count",
+        });
+        if (active) {
+          setUnreadCount(count);
+        }
+      } catch {
+        if (active) {
+          setUnreadCount(0);
+        }
+      }
+    };
+
+    void loadUnreadCount();
+
+    return () => {
+      active = false;
+    };
+  }, [refreshToken]);
 
   const markAllRead = async () => {
     try {
       await request({ url: "/api/messages/read-all", method: "PUT" });
       setMessages((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      setUnreadCount(0);
     } catch {}
   };
 
@@ -55,6 +98,7 @@ export default function Messages() {
       setMessages((prev) =>
         prev.map((item) => (item.id === message.id ? { ...item, isRead: true } : item))
       );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
     } catch {}
   };
 
@@ -67,6 +111,9 @@ export default function Messages() {
       showCancel: false,
     });
   };
+
+  const filteredMessages =
+    tab === "all" ? messages : messages.filter((message) => message.type === tab);
 
   return (
     <View className="messages-page">
@@ -89,7 +136,7 @@ export default function Messages() {
           <View
             key={item.key}
             className={`tab-item ${tab === item.key ? "active" : ""}`}
-            onClick={() => loadMessages(item.key as TabType)}
+            onClick={() => setTab(item.key as TabType)}
           >
             <Text className="tab-text">{item.label}</Text>
             <View className="tab-line" />
@@ -98,10 +145,10 @@ export default function Messages() {
       </View>
 
       <ScrollView className="messages-scroll" scrollY>
-        {messages.length === 0 ? (
+        {filteredMessages.length === 0 ? (
           <Text className="empty-text">暂无消息</Text>
         ) : (
-          messages.map((message) => {
+          filteredMessages.map((message) => {
             const variant = getVariant(message);
             const actionText = variant === "refresh" ? "查看更新" : "查看详情";
             return (

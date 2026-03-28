@@ -1,178 +1,183 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type {
+  BindingType,
+  CollarDevice,
+  DesktopDevice,
+  DeviceStatus as SharedDeviceStatus,
+  Pet,
+} from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import { request } from "../../utils/request";
 import "./index.scss";
 
-type PetTabStatus = "owner" | "authorized" | "pending";
-type DeviceStatus = "online" | "offline";
+type PetTabStatus = "owner" | "authorized";
+type DeviceAction = "share" | "delete" | "unbind";
+
+type DesktopWithBindings = DesktopDevice & {
+  battery?: number | null;
+  signal?: number | null;
+  bindings: Array<{
+    id: string;
+    petId: string;
+    bindingType: BindingType;
+  }>;
+};
 
 interface PetTabItem {
   id: string;
-  name: string;
+  pet: Pet;
   status: PetTabStatus;
-  subtitle: string;
-  collarName: string;
-  collarStatus: DeviceStatus;
-  battery: string;
-  petInfo: string;
-  canShare: boolean;
-  canUnbind: boolean;
-  desktopsTitle: string;
-  desktops: Array<{
-    id: string;
-    name: string;
-    tag?: string;
-    status: DeviceStatus;
-    signal: string;
-    source: string;
-    ownerInfo: string;
-    action: "share" | "delete" | "unbind";
-  }>;
+  collar: CollarDevice | null;
+  desktops: DesktopWithBindings[];
 }
 
-const PET_TABS: PetTabItem[] = [
-  {
-    id: "maomao",
-    name: "毛毛",
-    status: "owner",
-    subtitle: "属于你的宠物",
-    collarName: "毛毛的小圈圈",
-    collarStatus: "online",
-    battery: "85%",
-    petInfo: "毛毛 英短蓝猫 3岁半",
-    canShare: true,
-    canUnbind: true,
-    desktopsTitle: "毛毛&项圈关联的桌面端 (3)",
-    desktops: [
-      {
-        id: "desktop-a",
-        name: "桌面端A",
-        tag: "你的设备",
-        status: "online",
-        signal: "信号良好",
-        source: "关联来源：绑定已有宠物项圈",
-        ownerInfo: "用户昵称：【⭐烨】",
-        action: "share",
-      },
-      {
-        id: "grandma-home",
-        name: "毛毛的姥姥家",
-        status: "online",
-        signal: "信号良好",
-        source: "关联来源：亲友分享获取权限",
-        ownerInfo: "用户昵称：【肿么就这样了】",
-        action: "delete",
-      },
-      {
-        id: "desktop-b",
-        name: "桌面端B",
-        status: "offline",
-        signal: "无信号",
-        source: "关联来源：亲友分享获取权限",
-        ownerInfo: "用户昵称：【一年四季的美好🌹】",
-        action: "delete",
-      },
-    ],
-  },
-  {
-    id: "chouchou",
-    name: "臭臭",
-    status: "owner",
-    subtitle: "属于你的宠物",
-    collarName: "臭臭的小圈圈",
-    collarStatus: "online",
-    battery: "72%",
-    petInfo: "臭臭 柯基犬 2岁",
-    canShare: true,
-    canUnbind: true,
-    desktopsTitle: "臭臭&项圈关联的桌面端 (1)",
-    desktops: [
-      {
-        id: "desktop-c",
-        name: "桌面端C",
-        tag: "你的设备",
-        status: "online",
-        signal: "信号良好",
-        source: "关联来源：绑定已有宠物项圈",
-        ownerInfo: "用户昵称：【⭐烨】",
-        action: "share",
-      },
-    ],
-  },
-  {
-    id: "dudu",
-    name: "嘟嘟",
-    status: "authorized",
-    subtitle: "被授权的宠物",
-    collarName: "毛毛的小圈圈",
-    collarStatus: "online",
-    battery: "85%",
-    petInfo: "毛毛 英短蓝猫 3岁半",
-    canShare: false,
-    canUnbind: false,
-    desktopsTitle: "毛毛&项圈关联的桌面端 (1)",
-    desktops: [
-      {
-        id: "desktop-b-authorized",
-        name: "桌面端B",
-        status: "online",
-        signal: "信号良好",
-        source: "关联来源：获取【⭐烨】的授权",
-        ownerInfo: "授权时间：2026年02月28日",
-        action: "unbind",
-      },
-    ],
-  },
-  {
-    id: "pending",
-    name: "未知",
-    status: "pending",
-    subtitle: "等待授权的宠物",
-    collarName: "暂未获得授权",
-    collarStatus: "offline",
-    battery: "85%",
-    petInfo: "未知",
-    canShare: false,
-    canUnbind: false,
-    desktopsTitle: "未知&项圈关联的桌面端 (1)",
-    desktops: [
-      {
-        id: "desktop-e",
-        name: "桌面端E",
-        status: "online",
-        signal: "信号良好",
-        source: "关联来源：正在等待授权",
-        ownerInfo: "授权时间：xxxx年xx月xx日",
-        action: "unbind",
-      },
-    ],
-  },
-];
+const DEFAULT_PET_AVATAR = require("@/assets/images/black cat 3.png");
+const COLLAR_ICON = require("@/assets/images/collar-icon.png");
+const DESKTOP_ICON = require("@/assets/images/desktop-icon.png");
+const OUTLINE_IMAGE = require("@/assets/images/pet-outline.png");
 
 function getStatusText(status: PetTabStatus) {
   if (status === "owner") return "属于你的宠物";
-  if (status === "authorized") return "被授权的宠物";
-  return "等待授权的宠物";
+  return "被授权的宠物";
 }
 
-function getStatusClass(status: DeviceStatus) {
+function getStatusClass(status?: SharedDeviceStatus) {
   return status === "online" ? "online" : "offline";
 }
 
+function getDeviceStatusText(status?: SharedDeviceStatus) {
+  if (status === "online") return "在线";
+  if (status === "pairing") return "配对中";
+  return "离线";
+}
+
+function formatBattery(battery?: number | null) {
+  return battery == null ? "--" : `${battery}%`;
+}
+
+function formatSignal(signal?: number | null) {
+  if (signal == null) return "信号 --";
+  return signal <= 0 ? `信号 ${signal}dBm` : `信号 ${signal}`;
+}
+
+function formatPetInfo(pet: Pet) {
+  const details = [pet.name, pet.breed].filter(Boolean);
+  return details.join(" ") || pet.name;
+}
+
+function getDesktopBindingTypeLabel(bindingType?: BindingType) {
+  if (bindingType === "authorized") return "授权绑定";
+  if (bindingType === "owner") return "主人绑定";
+  return "--";
+}
+
 export default function Devices() {
-  const [selectedPetId, setSelectedPetId] = useState("maomao");
+  const [selectedPetId, setSelectedPetId] = useState("");
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
+  const [collars, setCollars] = useState<CollarDevice[]>([]);
+  const [desktops, setDesktops] = useState<DesktopWithBindings[]>([]);
+  const mountedRef = useRef(true);
+
+  const loadPets = async () => {
+    try {
+      const res = await request<{
+        pets: Pet[];
+        authorizedPets: Pet[];
+      }>({ url: "/api/pets" });
+      if (!mountedRef.current) return;
+      setPets(res.pets);
+      setAuthorizedPets(res.authorizedPets);
+    } catch {
+      if (!mountedRef.current) return;
+      setPets([]);
+      setAuthorizedPets([]);
+    }
+  };
+
+  const loadCollars = async () => {
+    try {
+      const res = await request<{ collars: CollarDevice[] }>({
+        url: "/api/devices/collars",
+      });
+      if (!mountedRef.current) return;
+      setCollars(res.collars);
+    } catch {
+      if (!mountedRef.current) return;
+      setCollars([]);
+    }
+  };
+
+  const loadDesktops = async () => {
+    try {
+      const res = await request<{ desktops: DesktopWithBindings[] }>({
+        url: "/api/devices/desktops",
+      });
+      if (!mountedRef.current) return;
+      setDesktops(res.desktops);
+    } catch {
+      if (!mountedRef.current) return;
+      setDesktops([]);
+    }
+  };
 
   useDidShow(() => {
     Taro.hideTabBar();
+    void loadPets();
+    void loadCollars();
+    void loadDesktops();
   });
 
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const petTabs = useMemo<PetTabItem[]>(() => {
+    const mergedPets = [
+      ...pets.map((pet) => ({ pet, status: "owner" as const })),
+      ...authorizedPets.map((pet) => ({ pet, status: "authorized" as const })),
+    ];
+
+    return mergedPets.map(({ pet, status }) => ({
+      id: pet.id,
+      pet,
+      status,
+      collar: collars.find((item) => item.petId === pet.id) ?? null,
+      desktops: desktops.filter((desktop) =>
+        desktop.bindings.some((binding) => binding.petId === pet.id)
+      ),
+    }));
+  }, [authorizedPets, collars, desktops, pets]);
+
+  useEffect(() => {
+    if (petTabs.length === 0) {
+      if (selectedPetId) {
+        setSelectedPetId("");
+      }
+      return;
+    }
+
+    if (selectedPetId && petTabs.some((item) => item.id === selectedPetId)) {
+      return;
+    }
+
+    const nextSelectedPet =
+      petTabs.find((item) => item.collar || item.desktops.length > 0) ?? petTabs[0];
+    setSelectedPetId(nextSelectedPet.id);
+  }, [petTabs, selectedPetId]);
+
   const selectedPet = useMemo(
-    () => PET_TABS.find((item) => item.id === selectedPetId) ?? PET_TABS[0],
-    [selectedPetId]
+    () => petTabs.find((item) => item.id === selectedPetId) ?? petTabs[0] ?? null,
+    [petTabs, selectedPetId]
   );
 
-  const handleAction = (type: "share" | "delete" | "unbind") => {
+  const handleAction = (type: DeviceAction) => {
     const text =
       type === "share"
         ? "分享授权"
@@ -181,6 +186,39 @@ export default function Devices() {
           : "解绑设备";
     Taro.showToast({ title: text, icon: "none" });
   };
+
+  if (!selectedPet) {
+    return (
+      <View className="devices-page">
+        <View className="header">
+          <PageBack />
+          <Text className="page-title">我的设备</Text>
+          <View className="header-placeholder" />
+        </View>
+
+        <ScrollView className="content-scroll" scrollX>
+          <View className="pet-tabs" />
+        </ScrollView>
+
+        <ScrollView className="page-scroll" scrollY>
+          <View className="page-content">
+            <View className="collar-card">
+              <Text className="collar-name">暂无宠物</Text>
+              <Text className="pet-bind-info">请先添加宠物后再管理设备</Text>
+            </View>
+
+            <Image className="outline-image" src={OUTLINE_IMAGE} mode="widthFix" />
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
+  const activeCollar = selectedPet.collar;
+  // TODO: Refine what device actions authorized pets should be allowed to see and execute.
+  const canManageCollar = selectedPet.status === "owner" && Boolean(activeCollar);
+  const collarStatusText = activeCollar ? getDeviceStatusText(activeCollar.status) : "未绑定";
+  const desktopsTitle = `${selectedPet.pet.name}&项圈关联的桌面端 (${selectedPet.desktops.length})`;
 
   return (
     <View className="devices-page">
@@ -192,7 +230,7 @@ export default function Devices() {
 
       <ScrollView className="content-scroll" scrollX>
         <View className="pet-tabs">
-          {PET_TABS.map((pet) => (
+          {petTabs.map((pet) => (
             <View
               key={pet.id}
               className={`pet-tab ${selectedPetId === pet.id ? "active" : ""}`}
@@ -200,11 +238,11 @@ export default function Devices() {
             >
               <Image
                 className="pet-avatar"
-                src={require("@/assets/images/black cat 3.png")}
+                src={pet.pet.avatarImageUrl || DEFAULT_PET_AVATAR}
                 mode="aspectFill"
               />
               <View className="pet-tab-info">
-                <Text className="pet-tab-name">{pet.name}</Text>
+                <Text className="pet-tab-name">{pet.pet.name}</Text>
                 <Text className="pet-tab-status">{getStatusText(pet.status)}</Text>
               </View>
             </View>
@@ -216,88 +254,89 @@ export default function Devices() {
         <View className="page-content">
           <View className="collar-card">
             <View className="collar-top">
-              <Image
-                className="collar-icon"
-                src={require("@/assets/images/collar-icon.png")}
-                mode="aspectFit"
-              />
+              <Image className="collar-icon" src={COLLAR_ICON} mode="aspectFit" />
               <View className="collar-main">
                 <View className="collar-name-row">
-                  <Text className="collar-name">{selectedPet.collarName}</Text>
+                  <Text className="collar-name">{activeCollar?.name || "暂无项圈设备"}</Text>
                   {selectedPet.status === "owner" ? <Text className="edit-icon">✎</Text> : null}
                 </View>
                 <View className="collar-meta">
                   <View className="status-wrap">
-                    <View className={`status-dot ${getStatusClass(selectedPet.collarStatus)}`} />
-                    <Text className="status-text">
-                      {selectedPet.collarStatus === "online" ? "在线" : "离线"}
-                    </Text>
+                    <View className={`status-dot ${getStatusClass(activeCollar?.status)}`} />
+                    <Text className="status-text">{collarStatusText}</Text>
                   </View>
-                  <Text className="battery-text">电量 {selectedPet.battery}</Text>
-                  <Text className="signal-text">▂▄▆</Text>
+                  <Text className="battery-text">电量 {formatBattery(activeCollar?.battery)}</Text>
+                  <Text className="signal-text">{formatSignal(activeCollar?.signal)}</Text>
                 </View>
               </View>
             </View>
 
-            <Text className="pet-bind-info">关联宠物：{selectedPet.petInfo}</Text>
+            <Text className="pet-bind-info">
+              关联宠物：{formatPetInfo(selectedPet.pet)} | MAC地址：{activeCollar?.macAddress || "--"}
+            </Text>
 
-            {(selectedPet.canShare || selectedPet.canUnbind) && (
+            {canManageCollar && (
               <View className="action-row">
-                {selectedPet.canShare && (
-                  <View className="action-btn" onClick={() => handleAction("share")}>
-                    <Text className="action-btn-text">分享授权</Text>
-                  </View>
-                )}
-                {selectedPet.canUnbind && (
-                  <View className="action-btn" onClick={() => handleAction("unbind")}>
-                    <Text className="action-btn-text">解除当前绑定</Text>
-                  </View>
-                )}
+                <View className="action-btn" onClick={() => handleAction("share")}>
+                  <Text className="action-btn-text">分享授权</Text>
+                </View>
+                <View className="action-btn" onClick={() => handleAction("unbind")}>
+                  <Text className="action-btn-text">解除当前绑定</Text>
+                </View>
               </View>
             )}
           </View>
 
-          <Text className="desktop-section-title">{selectedPet.desktopsTitle}</Text>
+          <Text className="desktop-section-title">{desktopsTitle}</Text>
 
-          {selectedPet.desktops.map((desktop) => (
-            <View key={desktop.id} className="desktop-card">
-              <View className="desktop-top">
-                <Image
-                  className="desktop-icon"
-                  src={require("@/assets/images/desktop-icon.png")}
-                  mode="aspectFit"
-                />
-                <View className="desktop-main">
-                  <View className="desktop-name-row">
-                    <Text className="desktop-name">{desktop.name}</Text>
-                    {desktop.tag ? <Text className="desktop-tag">({desktop.tag})</Text> : null}
-                    {selectedPet.status === "owner" ? <Text className="edit-icon desktop-edit-icon">✎</Text> : null}
-                  </View>
-                  <View className="desktop-meta">
-                    <View className="status-wrap">
-                      <View className={`status-dot ${getStatusClass(desktop.status)}`} />
-                      <Text className="status-text">
-                        {desktop.status === "online" ? "在线" : "离线"}
-                      </Text>
+          {selectedPet.desktops.map((desktop) => {
+            const binding = desktop.bindings.find((item) => item.petId === selectedPet.pet.id);
+            const action: DeviceAction =
+              selectedPet.status === "owner"
+                ? binding?.bindingType === "authorized"
+                  ? "delete"
+                  : "share"
+                : "unbind";
+
+            return (
+              <View key={desktop.id} className="desktop-card">
+                <View className="desktop-top">
+                  <Image className="desktop-icon" src={DESKTOP_ICON} mode="aspectFit" />
+                  <View className="desktop-main">
+                    <View className="desktop-name-row">
+                      <Text className="desktop-name">{desktop.name}</Text>
+                      {binding ? (
+                        <Text className="desktop-tag">
+                          ({getDesktopBindingTypeLabel(binding.bindingType)})
+                        </Text>
+                      ) : null}
+                      {selectedPet.status === "owner" ? (
+                        <Text className="edit-icon desktop-edit-icon">✎</Text>
+                      ) : null}
                     </View>
-                    <Text className="signal-text">{desktop.signal}</Text>
+                    <View className="desktop-meta">
+                      <View className="status-wrap">
+                        <View className={`status-dot ${getStatusClass(desktop.status)}`} />
+                        <Text className="status-text">{getDeviceStatusText(desktop.status)}</Text>
+                      </View>
+                      <Text className="signal-text">{formatSignal(desktop.signal)}</Text>
+                    </View>
+                  </View>
+                  <View className="desktop-action-chip" onClick={() => handleAction(action)}>
+                    <Text className="desktop-action-text">
+                      {action === "share" ? "分享" : action === "delete" ? "删除权限" : "解绑"}
+                    </Text>
                   </View>
                 </View>
-                <View className="desktop-action-chip" onClick={() => handleAction(desktop.action)}>
-                  <Text className="desktop-action-text">
-                    {desktop.action === "share"
-                      ? "分享"
-                      : desktop.action === "delete"
-                        ? "删除权限"
-                        : "解绑"}
-                  </Text>
-                </View>
-              </View>
 
-              <Text className="desktop-info-line">{desktop.source}</Text>
-              <Text className="desktop-info-line">{desktop.ownerInfo}</Text>
-            </View>
-          ))}
+                <Text className="desktop-info-line">MAC地址：{desktop.macAddress}</Text>
+                <Text className="desktop-info-line">
+                  电量：{formatBattery(desktop.battery)} | 绑定方式：
+                  {getDesktopBindingTypeLabel(binding?.bindingType)}
+                </Text>
+              </View>
+            );
+          })}
 
           <View
             className="add-device-btn"
@@ -317,11 +356,7 @@ export default function Devices() {
             <Text className="add-device-text">+ 添加新设备</Text>
           </View>
 
-          <Image
-            className="outline-image"
-            src={require("@/assets/images/pet-outline.png")}
-            mode="widthFix"
-          />
+          <Image className="outline-image" src={OUTLINE_IMAGE} mode="widthFix" />
         </View>
       </ScrollView>
     </View>

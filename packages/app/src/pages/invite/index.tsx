@@ -14,34 +14,42 @@ interface InviteInfo {
   petId: string;
 }
 
-const FALLBACK_PET: Pet = {
-  id: "mock-pet-001",
-  userId: "mock-user",
-  name: "小黑",
-  species: "cat",
-  breed: "英短",
-  gender: "unknown",
-  birthday: "2023-01-01",
-  weight: 4,
-  activityScore: 88,
-  latestBehavior: null,
-  avatarImageUrl: null,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
+function calculateAge(birthday?: string | null): string {
+  if (!birthday) return "年龄未知";
+
+  const birthDate = new Date(birthday);
+  if (Number.isNaN(birthDate.getTime())) return "年龄未知";
+
+  const today = new Date();
+  if (birthDate.getTime() > today.getTime()) return "年龄未知";
+
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age >= 0 ? `${age}岁` : "年龄未知";
+}
 
 export default function Invite() {
   const router = useRouter();
-  const code = router.params.code;
+  const code = typeof router.params.code === "string" ? router.params.code : "";
   const mode = router.params.mode ?? "invite";
 
-  const [pet, setPet] = useState<Pet>(FALLBACK_PET);
+  const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState(false);
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [acceptDone, setAcceptDone] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    setError("");
+
     if (code) {
       request<InviteInfo>({ url: `/api/invite/${code}`, needAuth: false })
         .then(setInviteInfo)
@@ -56,14 +64,13 @@ export default function Invite() {
         }
       })
       .catch(() => {
-        setPet(FALLBACK_PET);
+        setError("宠物信息加载失败");
       });
   }, [code]);
 
   const ageText = useMemo(() => {
-    if (!pet.birthday) return "年龄：2岁";
-    return `年龄：${new Date().getFullYear() - new Date(pet.birthday).getFullYear()}岁`;
-  }, [pet.birthday]);
+    return `年龄：${calculateAge(pet?.birthday)}`;
+  }, [pet?.birthday]);
 
   const handleGenerateInvite = () => {
     Taro.showToast({
@@ -127,8 +134,8 @@ export default function Invite() {
           mode="aspectFit"
         />
         <View className="pet-tags">
-          <Text className="pet-tag">姓名：{pet.name}</Text>
-          <Text className="pet-tag">品种：{pet.breed || "英短"}</Text>
+          <Text className="pet-tag">姓名：{pet?.name ?? "未知"}</Text>
+          <Text className="pet-tag">品种：{pet?.breed || "未知"}</Text>
           <Text className="pet-tag">{ageText}</Text>
         </View>
       </View>
@@ -139,7 +146,7 @@ export default function Invite() {
 
       <View className="guide-info-card">
         <Text className="guide-info-text">
-          生成链接跳转到微信好友列表界面 选择并发送（类比分享）
+          {error || "生成链接跳转到微信好友列表界面 选择并发送（类比分享）"}
         </Text>
       </View>
     </View>
