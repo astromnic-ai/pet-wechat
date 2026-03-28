@@ -163,6 +163,58 @@
   color: #666666;
 }
 
+.month-scroll {
+  width: 100%;
+  margin-top: 24rpx;
+}
+
+.month-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 18rpx;
+  padding-right: 20rpx;
+}
+
+.month-bar-item {
+  width: 48rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.month-bar-track {
+  width: 28rpx;
+  height: 240rpx;
+  border-radius: 14rpx;
+  background: #efefef;
+  position: relative;
+  overflow: hidden;
+}
+
+.month-bar-fill {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  border-radius: 14rpx;
+  background: #9b9b9b;
+}
+
+.month-bar-count {
+  min-height: 28rpx;
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: #4f4f4f;
+}
+
+.month-bar-label {
+  min-height: 28rpx;
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  color: #666666;
+}
+
 .pie-chart {
   display: flex;
   align-items: center;
