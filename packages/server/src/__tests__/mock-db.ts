@@ -39,8 +39,14 @@ export interface MockDb {
 interface ChainFrom {
   from(table: unknown): ChainSelectWhere;
 }
+interface ChainSelectResult {
+  orderBy(...args: unknown[]): ChainSelectLimit;
+  limit(n: number): Promise<unknown[]>;
+  then(resolve: (value: unknown[]) => unknown, reject?: (reason: unknown) => unknown): unknown;
+}
 interface ChainSelectWhere {
-  where(...args: unknown[]): Promise<unknown[]>;
+  leftJoin(table: unknown, on: unknown): ChainSelectWhere;
+  where(...args: unknown[]): ChainSelectResult;
   orderBy(...args: unknown[]): ChainSelectLimit;
   limit(n: number): Promise<unknown[]>;
 }
@@ -95,7 +101,10 @@ export function createMockDb(): MockDb {
 
       const chain: any = {
         from(_table: unknown) {
-          return {
+          const selectChain: ChainSelectWhere & { then: (resolve: any) => void } = {
+            leftJoin(_table: unknown, _on: unknown) {
+              return selectChain;
+            },
             where(..._args: unknown[]) {
               // where() returns something that supports .orderBy() and .limit()
               // and is also directly thenable (awaitable)
@@ -115,6 +124,7 @@ export function createMockDb(): MockDb {
             // Allow direct await on from() (no where)
             then: (resolve: any) => resolve(result()),
           };
+          return selectChain;
         },
       };
       return chain;

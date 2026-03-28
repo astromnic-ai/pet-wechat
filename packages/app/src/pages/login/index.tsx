@@ -1,14 +1,22 @@
-import { View, Text, Image, Button, Checkbox } from '@tarojs/components'
+import { View, Text, Image, Button, Checkbox, Input } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { useState } from 'react'
-import { setToken } from '../../utils/request'
-import { isFirstLogin, setUserInfo } from '../../utils/storage'
-import { setMockMode } from '../../mock/mode'
+import { request, setToken } from '../../utils/request'
+import { isFirstLogin } from '../../utils/storage'
+import { connectWs } from '../../utils/ws'
 import './index.scss'
+
+declare const ENABLE_DEV_LOGIN: boolean
+
+interface AuthResponse {
+  token: string
+}
 
 export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(true)
   const [agreedPrivacy, setAgreedPrivacy] = useState(true)
+  const [phone, setPhone] = useState('')
+  const [loadingType, setLoadingType] = useState<'wechat' | 'dev' | null>(null)
 
   const navigateAfterLogin = () => {
     if (isFirstLogin()) {
@@ -19,27 +27,23 @@ export default function Login() {
     Taro.switchTab({ url: '/pages/index/index' })
   }
 
-  const handleMockLogin = (loginType: 'phone' | 'wechat') => {
-    if (!agreedTerms || !agreedPrivacy) {
-      Taro.showToast({
-        title: '请先勾选协议',
-        icon: 'none',
-      })
-      return
+  const ensureAgreementsAccepted = () => {
+    if (agreedTerms && agreedPrivacy) {
+      return true
     }
 
-    setMockMode(true)
-    Taro.removeStorageSync('hasCompletedGuide')
-    setToken(`mock-token-${loginType}`)
-    setUserInfo({
-      id: `mock-user-${loginType}`,
-      nickname: loginType === 'phone' ? 'Mock手机号用户' : 'Mock微信用户',
-      avatarUrl: '',
-      loginType,
-    })
-
     Taro.showToast({
-      title: 'Mock登录成功',
+      title: '请先勾选协议',
+      icon: 'none',
+    })
+    return false
+  }
+
+  const finishLogin = async (token: string) => {
+    setToken(token)
+    await connectWs()
+    Taro.showToast({
+      title: '登录成功',
       icon: 'success',
       duration: 800,
     })
@@ -47,6 +51,70 @@ export default function Login() {
     setTimeout(() => {
       navigateAfterLogin()
     }, 300)
+  }
+
+  const handleWechatLogin = async () => {
+    if (!ensureAgreementsAccepted() || loadingType) {
+      return
+    }
+
+    setLoadingType('wechat')
+    try {
+      const loginRes = await Taro.login()
+      if (!loginRes.code) {
+        throw new Error('获取微信登录凭证失败')
+      }
+
+      const { token } = await request<AuthResponse>({
+        url: '/api/auth/wechat',
+        method: 'POST',
+        data: { code: loginRes.code },
+        needAuth: false,
+      })
+
+      await finishLogin(token)
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message ?? '微信登录失败',
+        icon: 'none',
+      })
+    } finally {
+      setLoadingType(null)
+    }
+  }
+
+  const handleDevLogin = async () => {
+    if (!ensureAgreementsAccepted() || loadingType) {
+      return
+    }
+
+    const normalizedPhone = phone.trim()
+    if (!normalizedPhone) {
+      Taro.showToast({
+        title: '请输入手机号',
+        icon: 'none',
+      })
+      return
+    }
+
+    setLoadingType('dev')
+    try {
+      const { token } = await request<AuthResponse>({
+        url: '/api/auth/dev-login',
+        method: 'POST',
+        data: { phone: normalizedPhone },
+        needAuth: false,
+      })
+
+      await finishLogin(token)
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message ?? '开发登录失败',
+        icon: 'none',
+      })
+    } finally {
+      setLoadingType(null)
+    }
   }
 
   return (
@@ -64,10 +132,37 @@ export default function Login() {
       <Text className='title'>欢迎来到宠物新世界</Text>
 
       <View className='btn-box'>
-        <Button className='btn btn-disabled' onClick={() => handleMockLogin('phone')}>
-          本机号码快捷登录
-        </Button>
-        <Button className='btn btn-normal' onClick={() => handleMockLogin('wechat')}>
+        {ENABLE_DEV_LOGIN ? (
+          <View className='dev-login-box'>
+            <Input
+              className='dev-login-input'
+              type='number'
+              maxlength={11}
+              placeholder='请输入开发手机号'
+              value={phone}
+              onInput={(e) => setPhone(e.detail.value)}
+              onConfirm={handleDevLogin}
+            />
+            <Button
+              className='btn btn-normal'
+              loading={loadingType === 'dev'}
+              disabled={loadingType !== null}
+              onClick={handleDevLogin}
+            >
+              开发登录
+            </Button>
+          </View>
+        ) : (
+          <Button className='btn btn-disabled'>
+            本机号码快捷登录
+          </Button>
+        )}
+        <Button
+          className='btn btn-normal'
+          loading={loadingType === 'wechat'}
+          disabled={loadingType !== null}
+          onClick={handleWechatLogin}
+        >
           微信账号登录
         </Button>
       </View>
@@ -80,14 +175,14 @@ export default function Login() {
           className='agreement-item'
           onClick={() => setAgreedTerms((prev) => !prev)}
         >
-          <Checkbox checked={agreedTerms} />
+          <Checkbox value='terms' checked={agreedTerms} />
           <Text>我同意《YEHEY平台个人及宠物信息收集声明》中所述与第三方共享信息</Text>
         </View>
         <View
           className='agreement-item'
           onClick={() => setAgreedPrivacy((prev) => !prev)}
         >
-          <Checkbox checked={agreedPrivacy} />
+          <Checkbox value='privacy' checked={agreedPrivacy} />
           <Text>我已阅读关于七七七八八八九九九六六的《xxxxxx细则》</Text>
         </View>
       </View>

@@ -6,6 +6,12 @@ import prodConfig from './prod'
 
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig(async (merge, { command, mode }) => {
+  const apiBaseUrl =
+    process.env.API_BASE_URL ||
+    (process.env.NODE_ENV === 'production'
+      ? 'https://pet-wechat.yangl.com.cn'
+      : 'http://localhost:9527')
+
   const baseConfig: UserConfigExport = {
     projectName: 'pet-wechat-app',
     date: '2026-3-11',
@@ -22,7 +28,10 @@ export default defineConfig(async (merge, { command, mode }) => {
       '@tarojs/plugin-framework-react',
       '@tarojs/plugin-sass',
     ],
-    defineConstants: {},
+    defineConstants: {
+      API_BASE_URL: JSON.stringify(apiBaseUrl),
+      ENABLE_DEV_LOGIN: JSON.stringify(process.env.NODE_ENV !== 'production'),
+    },
     copy: {
       patterns: [],
       options: {},

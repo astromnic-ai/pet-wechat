@@ -1,19 +1,36 @@
 import { View, Text, Image, Input } from "@tarojs/components";
-import Taro, { useRouter } from "@tarojs/taro";
+import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useMemo, useState } from "react";
-import { request } from "../../utils/request";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-const DEFAULT_SSID = "TFTINGHUATONGFANG-WIFI";
+function getWifiErrorMessage(error: unknown) {
+  const message = String((error as { errMsg?: string; message?: string })?.errMsg ?? (error as { message?: string })?.message ?? "");
+
+  if (/not supported|not implement/i.test(message)) {
+    return "当前设备不支持自动获取 WiFi，请手动输入";
+  }
+
+  if (/(auth deny|auth denied|permission denied|system permission denied)/i.test(message)) {
+    return "缺少 WiFi 权限，请手动输入";
+  }
+
+  if (/not init|not started|startwifi/i.test(message)) {
+    return "无法自动读取当前 WiFi，请手动输入";
+  }
+
+  return "未能自动获取当前 WiFi，请手动输入";
+}
 
 export default function WifiConfig() {
   const router = useRouter();
   const deviceType = router.params.deviceType as "collar" | "desktop" | undefined;
   const deviceId = router.params.deviceId;
-  const [ssid, setSsid] = useState(DEFAULT_SSID);
+  const [ssid, setSsid] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [manualInput, setManualInput] = useState(false);
+  const [detectingWifi, setDetectingWifi] = useState(false);
 
   const isDesktop = deviceType === "desktop";
   const pageTitle = isDesktop ? "桌面端网络配置" : "配置宠物项圈";
@@ -32,10 +49,60 @@ export default function WifiConfig() {
     return "/pages/wifi-result/index?success=true&stage=config&deviceType=collar";
   }, [deviceId, isDesktop]);
 
+  useDidShow(() => {
+    let cancelled = false;
+
+    const initWifi = async () => {
+      setDetectingWifi(true);
+
+      try {
+        await Taro.startWifi();
+        const connectedWifi = (await Taro.getConnectedWifi()) as {
+          wifi?: {
+            SSID?: string;
+            ssid?: string;
+          };
+        };
+        const connectedSsid =
+          connectedWifi.wifi?.SSID ??
+          connectedWifi.wifi?.ssid ??
+          "";
+
+        if (cancelled) return;
+
+        if (connectedSsid) {
+          setSsid(connectedSsid);
+          setManualInput(false);
+          return;
+        }
+
+        setSsid("");
+        setManualInput(true);
+        Taro.showToast({ title: "未获取到当前 WiFi，请手动输入", icon: "none" });
+      } catch (error) {
+        if (cancelled) return;
+
+        setSsid("");
+        setManualInput(true);
+        Taro.showToast({ title: getWifiErrorMessage(error), icon: "none" });
+      } finally {
+        if (!cancelled) {
+          setDetectingWifi(false);
+        }
+      }
+    };
+
+    void initWifi();
+
+    return () => {
+      cancelled = true;
+    };
+  });
+
   const handleConfigure = async () => {
     if (loading) return;
-    if (!ssid) {
-      Taro.showToast({ title: "请选择网络", icon: "none" });
+    if (!ssid.trim()) {
+      Taro.showToast({ title: "请输入网络名称", icon: "none" });
       return;
     }
 
@@ -45,20 +112,6 @@ export default function WifiConfig() {
     try {
       if (!deviceId) {
         throw new Error("missing device id");
-      }
-
-      if (isDesktop) {
-        await request({
-          url: `/api/devices/desktops/${deviceId}/claim`,
-          method: "POST",
-          data: { name: "YEHEY Desktop", wifiSsid: ssid },
-        });
-      } else {
-        await request({
-          url: `/api/devices/collars/${deviceId}/claim`,
-          method: "POST",
-          data: { name: "YEHEY Collar", wifiSsid: ssid },
-        });
       }
 
       Taro.navigateTo({ url: resultUrl });
@@ -108,7 +161,19 @@ export default function WifiConfig() {
         </View>
 
         <View className="selected-network-card" onClick={handleConfigure}>
-          <Text className="selected-network-name">{ssid}</Text>
+          {manualInput ? (
+            <Input
+              className="selected-network-name"
+              placeholder="输入 WiFi 名称"
+              value={ssid}
+              onInput={(e) => setSsid(e.detail.value)}
+              onConfirm={handleConfigure}
+            />
+          ) : (
+            <Text className="selected-network-name">
+              {ssid || (detectingWifi ? "正在获取当前 WiFi..." : "当前 WiFi 未知")}
+            </Text>
+          )}
           <Input
             className="password-input"
             password
@@ -118,7 +183,11 @@ export default function WifiConfig() {
             onConfirm={handleConfigure}
           />
           <Text className="selected-network-tip">
-            {loading ? "配置中..." : "输入密码后点击此区域继续"}
+            {loading
+              ? "配置中..."
+              : manualInput
+                ? "输入网络名称和密码后点击此区域继续"
+                : "输入密码后点击此区域继续"}
           </Text>
         </View>
       </View>

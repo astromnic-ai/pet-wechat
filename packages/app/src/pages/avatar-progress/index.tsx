@@ -1,45 +1,149 @@
 import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { request } from "../../utils/request";
-import type { AvatarStatus, Pet } from "@pet-wechat/shared";
+import { connectWs, subscribe } from "../../utils/ws";
+import type {
+  AvatarStatus,
+  Pet,
+  PetAvatar,
+  PetAvatarAction,
+} from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
+
+const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
+
+function getSpeciesLabel(species: Pet["species"]) {
+  return species === "cat" ? "猫咪" : "狗狗";
+}
+
+function getPetSummary(pet: Pet | null) {
+  if (!pet) return "";
+  return [pet.name, pet.breed || getSpeciesLabel(pet.species)].filter(Boolean).join(" ");
+}
+
+function getProgress(status: AvatarStatus) {
+  if (status === "done") return 100;
+  if (status === "processing") return 72;
+  if (status === "failed") return 72;
+  return 28;
+}
+
+function getStatusText(status: AvatarStatus) {
+  if (status === "done") return "左右滑动查看行为动态";
+  if (status === "failed") return "定制失败请重新上传图像";
+  if (status === "processing") return "正在生成宠物动态图像";
+  return "已收到照片，正在排队处理中";
+}
 
 export default function AvatarProgress() {
   const router = useRouter();
   const avatarId = router.params.avatarId;
-  const petId = router.params.petId;
-  const forcedStatus = router.params.status as "done" | "failed" | undefined;
-
   const [pet, setPet] = useState<Pet | null>(null);
-  const [status, setStatus] = useState<AvatarStatus>(forcedStatus === "failed" ? "failed" : "done");
+  const [avatar, setAvatar] = useState<PetAvatar | null>(null);
+  const [actions, setActions] = useState<PetAvatarAction[]>([]);
+  const [status, setStatus] = useState<AvatarStatus>("pending");
+  const petRequestIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (petId) {
-      request<{ pet: Pet }>({ url: `/api/pets/${petId}` })
-        .then((res) => setPet(res.pet))
-        .catch(() => {});
+  const warnFetchAvatarError = (source: string, error: unknown) => {
+    console.warn(`[avatar-progress] ${source} failed`, error);
+  };
+
+  const fetchAvatar = async (id: string) => {
+    const res = await request<{ avatar: PetAvatar; actions: PetAvatarAction[] }>({
+      url: `/api/avatars/${id}`,
+    });
+
+    setAvatar(res.avatar);
+    setStatus(res.avatar.status);
+    setActions([...res.actions].sort((a, b) => a.sortOrder - b.sortOrder));
+
+    if (petRequestIdRef.current === res.avatar.petId) {
+      return;
     }
-  }, [petId]);
+
+    petRequestIdRef.current = res.avatar.petId;
+
+    try {
+      const petRes = await request<{ pet: Pet }>({ url: `/api/pets/${res.avatar.petId}` });
+      setPet(petRes.pet);
+    } catch {
+      setPet(null);
+    }
+  };
 
   useEffect(() => {
-    if (!avatarId || forcedStatus) return;
-    request<{ avatar: { status: AvatarStatus } }>({ url: `/api/avatars/${avatarId}` })
-      .then((res) => setStatus(res.avatar.status))
-      .catch(() => setStatus("failed"));
-  }, [avatarId, forcedStatus]);
+    if (!avatarId) return;
+
+    let cancelled = false;
+
+    const loadAvatar = async () => {
+      try {
+        await fetchAvatar(avatarId);
+      } catch (error) {
+        if (cancelled) return;
+        warnFetchAvatarError("initial load", error);
+      }
+    };
+
+    void loadAvatar();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [avatarId]);
+
+  useEffect(() => {
+    if (!avatarId || status === "done" || status === "failed") return;
+
+    const timer = setInterval(() => {
+      void fetchAvatar(avatarId).catch((error) => {
+        warnFetchAvatarError("polling refresh", error);
+      });
+    }, 3000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [avatarId, status]);
+
+  useEffect(() => {
+    if (!avatarId) return;
+
+    void connectWs();
+    const unsubscribe = subscribe("avatar:done", (message) => {
+      if (message.data.avatarId !== avatarId) {
+        return;
+      }
+
+      void fetchAvatar(avatarId).catch((error) => {
+        warnFetchAvatarError("ws refresh", error);
+      });
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [avatarId]);
+
+  useEffect(() => {
+    if (avatar?.petId) {
+      return;
+    }
+    petRequestIdRef.current = null;
+  }, [avatar?.petId]);
 
   const isSuccess = status === "done";
-  const progress = isSuccess ? 100 : 82;
-  const statusIcon = isSuccess
-    ? require("@/assets/images/success-icon.png")
-    : require("@/assets/images/fail-icon.png");
+  const isFailed = status === "failed";
+  const previewAction = actions[0] ?? null;
+  const progress = getProgress(status);
+  const statusIcon = isFailed
+    ? require("@/assets/images/fail-icon.png")
+    : require("@/assets/images/success-icon.png");
 
-  const petSummary = useMemo(() => {
-    if (!pet) return "毛毛 英短蓝猫 3岁半";
-    return `${pet.name} ${pet.breed || "英短蓝猫"} 3岁半`;
-  }, [pet]);
+  const ringColor = isFailed ? "#ff4d4f" : "#07c160";
+  const petSummary = getPetSummary(pet);
 
   const handleConfigDesktop = () => {
     Taro.navigateTo({ url: "/pages/desktop-bind/index" });
@@ -50,8 +154,8 @@ export default function AvatarProgress() {
   };
 
   const handleRetryUpload = () => {
-    if (petId) {
-      Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${petId}` });
+    if (avatar?.petId) {
+      Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${avatar.petId}` });
       return;
     }
     Taro.navigateBack();
@@ -74,13 +178,13 @@ export default function AvatarProgress() {
           <View
             className="progress-ring-fill"
             style={{
-              background: `conic-gradient(${isSuccess ? "#07c160" : "#ff4d4f"} ${progress * 3.6}deg, #d8d8d8 ${progress * 3.6}deg)`,
+              background: `conic-gradient(${ringColor} ${progress * 3.6}deg, #d8d8d8 ${progress * 3.6}deg)`,
             }}
           >
             <View className="progress-ring-inner">
               <Image
                 className="ring-cat-image"
-                src={require("@/assets/images/black-cat.png")}
+                src={DEFAULT_PET_IMAGE}
                 mode="aspectFit"
               />
               <Text className="progress-text">{progress}%</Text>
@@ -94,9 +198,7 @@ export default function AvatarProgress() {
             src={statusIcon}
             mode="aspectFit"
           />
-          <Text className="status-text">
-            {isSuccess ? "左右滑动查看行为动态" : "定制失败请重新上传图像"}
-          </Text>
+          <Text className="status-text">{getStatusText(status)}</Text>
         </View>
 
         {isSuccess ? (
@@ -105,14 +207,14 @@ export default function AvatarProgress() {
               <Text className="preview-arrow">〈</Text>
               <Image
                 className="preview-image"
-                src={require("@/assets/images/cat-stand.png")}
+                src={previewAction?.imageUrl || require("@/assets/images/cat-stand.png")}
                 mode="aspectFit"
               />
               <Text className="preview-arrow">〉</Text>
             </View>
-            <Text className="preview-label">原地站立</Text>
+            <Text className="preview-label">{previewAction?.actionType || "定制完成"}</Text>
           </View>
-        ) : (
+        ) : isFailed ? (
           <View className="preview-card">
             <View className="preview-row">
               <Text className="preview-arrow">〈</Text>
@@ -124,9 +226,18 @@ export default function AvatarProgress() {
             </View>
             <Text className="retry-tip">本次不计入免费定制次数</Text>
           </View>
+        ) : (
+          <View className="preview-card">
+            <View className="preview-row">
+              <Text className="preview-arrow">〈</Text>
+              <View className="preview-placeholder" />
+              <Text className="preview-arrow">〉</Text>
+            </View>
+            <Text className="preview-label">结果生成后将在这里展示</Text>
+          </View>
         )}
 
-        <Text className="pet-summary-text">{petSummary}</Text>
+        {petSummary ? <Text className="pet-summary-text">{petSummary}</Text> : null}
 
         <View className="bottom-actions">
           <View className="bottom-btn" onClick={handleConfigDesktop}>

@@ -2,11 +2,13 @@
   "name": "pet-wechat",
   "private": true,
   "scripts": {
-    "dev:server": "pnpm --filter server dev",
+    "dev:server": "ENABLE_DEV_LOGIN=true pnpm --filter server dev",
     "dev:app": "pnpm --filter app dev:weapp",
+    "dev:app:remote": "API_BASE_URL=https://pet-wechat.yangl.com.cn pnpm --filter app dev:weapp",
     "db:generate": "pnpm --filter server db:generate",
     "db:migrate": "pnpm --filter server db:migrate",
     "db:studio": "pnpm --filter server db:studio",
-    "dev:admin": "pnpm --filter admin dev"
+    "dev:admin": "pnpm --filter admin dev",
+    "test:e2e": "pnpm --filter app test:e2e"
   }
 }

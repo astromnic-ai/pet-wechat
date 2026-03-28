@@ -1,8 +1,8 @@
 import Taro from "@tarojs/taro";
-import { handleMockRequest } from "../mock/handler";
-import { isMockMode } from "../mock/mode";
 
-export const BASE_URL = "https://pet-wechat.yangl.com.cn";
+declare const API_BASE_URL: string;
+
+export const BASE_URL = API_BASE_URL;
 
 export function getToken(): string | null {
   return Taro.getStorageSync("token") || null;
@@ -41,10 +41,6 @@ function resolveUrl(url: string): string {
 
 export async function request<T = any>(options: RequestOptions): Promise<T> {
   const { url, method = "GET", data, needAuth = true } = options;
-
-  if (isMockMode()) {
-    return handleMockRequest<T>({ url, method, data });
-  }
 
   const header: Record<string, string> = {
     "Content-Type": "application/json",
@@ -85,18 +81,6 @@ export async function request<T = any>(options: RequestOptions): Promise<T> {
 
 export async function uploadFile<T = any>(options: UploadFileOptions): Promise<T> {
   const { url, filePath, name, formData, needAuth = true } = options;
-
-  if (isMockMode()) {
-    return handleMockRequest<T>({
-      url,
-      method: "POST",
-      data: {
-        filePath,
-        name,
-        formData,
-      },
-    });
-  }
 
   const header: Record<string, string> = {};
 

@@ -1,10 +1,39 @@
 import { View, Text, Image, Swiper, SwiperItem } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
+import { subscribe } from "../../utils/ws";
 import type { CollarDevice, DesktopDevice, Pet } from "@pet-wechat/shared";
 import QuickNav from "../../components/QuickNav";
 import "./index.scss";
+
+const ACTION_LABELS: Record<string, string> = {
+  walking: "散步",
+  running: "奔跑",
+  sleeping: "睡觉",
+  eating: "吃东西",
+  playing: "玩耍",
+  resting: "休息",
+  jumping: "跳跃",
+  idle: "发呆",
+};
+
+function getBehaviorLabel(actionType?: string | null) {
+  if (!actionType) return "暂无行为记录";
+  return ACTION_LABELS[actionType] ?? actionType;
+}
+
+function getBubbleText(pet: Pet | null) {
+  if (!pet) {
+    return "还没有宠物，点击添加一只吧";
+  }
+
+  if (!pet.latestBehavior?.actionType) {
+    return `${pet.name}还没有最新行为`;
+  }
+
+  return `${pet.name}最新行为：${getBehaviorLabel(pet.latestBehavior.actionType)}`;
+}
 
 export default function Index() {
   const [pets, setPets] = useState<Pet[]>([]);
@@ -12,10 +41,18 @@ export default function Index() {
   const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const skipNextDidShowRef = useRef(true);
 
   useDidShow(() => {
     Taro.hideTabBar();
-    void loadData();
+    if (skipNextDidShowRef.current) {
+      skipNextDidShowRef.current = false;
+      return;
+    }
+
+    void loadPets();
+    void loadUnreadCount();
+    void loadDevices();
   });
 
   useEffect(() => {
@@ -28,29 +65,74 @@ export default function Index() {
     }
   }, [pets, currentPetIndex]);
 
-  const loadData = async () => {
+  useEffect(() => {
+    void loadPets();
+  }, []);
+
+  useEffect(() => {
+    void loadUnreadCount();
+  }, []);
+
+  useEffect(() => {
+    void loadDevices();
+
+    return () => {
+      skipNextDidShowRef.current = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return subscribe("behavior:new", ({ data }) => {
+      setPets((prevPets) =>
+        prevPets.map((pet) =>
+          pet.id === data.petId
+            ? {
+                ...pet,
+                latestBehavior: {
+                  actionType: data.actionType,
+                  timestamp: data.timestamp,
+                },
+              }
+            : pet,
+        ),
+      );
+    });
+  }, []);
+
+  const loadPets = async () => {
     try {
-      const [
-        { pets: petList },
-        { collars: collarList },
-        { desktops: desktopList },
-        { count },
-      ] =
-        await Promise.all([
-          request<{ pets: Pet[] }>({ url: "/api/pets" }),
-          request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }),
-          request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops" }),
-          request<{ count: number }>({ url: "/api/messages/unread-count" }),
-        ]);
-      setPets(petList);
-      setCollars(collarList);
-      setDesktops(desktopList);
-      setUnreadCount(count);
+      const { pets: ownPets, authorizedPets } = await request<{
+        pets: Pet[];
+        authorizedPets: Pet[];
+      }>({ url: "/api/pets" });
+      setPets([...ownPets, ...authorizedPets]);
     } catch {
       setPets([]);
+    }
+  };
+
+  const loadUnreadCount = async () => {
+    try {
+      const { count } = await request<{ count: number }>({
+        url: "/api/messages/unread-count",
+      });
+      setUnreadCount(count);
+    } catch {
+      setUnreadCount(0);
+    }
+  };
+
+  const loadDevices = async () => {
+    try {
+      const [{ collars: collarList }, { desktops: desktopList }] = await Promise.all([
+        request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }),
+        request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops" }),
+      ]);
+      setCollars(collarList);
+      setDesktops(desktopList);
+    } catch {
       setCollars([]);
       setDesktops([]);
-      setUnreadCount(0);
     }
   };
 
@@ -66,7 +148,7 @@ export default function Index() {
   const hasManagedDevices = Boolean(activeCollar || activeDesktop);
   const activity = currentPet?.activityScore ?? 0;
   const activityHeight = `${Math.max(18, Math.min(activity, 100))}%`;
-  const bubbleText = "主人，我要戴上项链，住进大House";
+  const bubbleText = getBubbleText(currentPet);
   const petHeroImage = currentPet?.avatarImageUrl || require("@/assets/images/pet-collar.png");
 
   const handleAddPet = () => Taro.navigateTo({ url: "/pages/pet-info/index" });
@@ -99,7 +181,7 @@ export default function Index() {
             {hasPet ? (
               <Image
                 className="avatar-image"
-                src={require("@/assets/images/black cat 3.png")}
+                src={currentPet?.avatarImageUrl || petHeroImage}
                 mode="aspectFill"
               />
             ) : (
@@ -107,8 +189,10 @@ export default function Index() {
             )}
           </View>
           <View className="title-block">
-            <Text className="pet-name">{hasPet ? currentPet?.name || "毛毛" : "宠物的昵称"}</Text>
-            <Text className="pet-subtitle">{hasPet ? "属于你的宠物" : "点击开始创建宠物"}</Text>
+            <Text className="pet-name">{hasPet ? currentPet?.name ?? "" : "宠物的昵称"}</Text>
+            <Text className="pet-subtitle">
+              {hasPet ? currentPet?.breed || "未设置品种" : "点击开始创建宠物"}
+            </Text>
           </View>
         </View>
 
@@ -149,6 +233,9 @@ export default function Index() {
             </View>
           ) : (
             <View className="empty-pet" onClick={handleAddPet}>
+              <View className="speech-bubble empty-speech-bubble">
+                <Text className="speech-text">{bubbleText}</Text>
+              </View>
               <Image
                 className="empty-pet-image"
                 src={require("@/assets/images/pet-hero.png")}
@@ -168,7 +255,7 @@ export default function Index() {
                 mode="aspectFit"
               />
               <Text className="device-name">
-                {activeCollar ? activeCollar.name || `${currentPet?.name || "毛毛"}的小圈圈` : "项圈"}
+                {activeCollar ? activeCollar.name || "项圈" : "项圈"}
               </Text>
               <Text className="device-text">
                 {activeCollar ? `${activeCollar.status === "online" ? "在线" : "离线"}${activeCollar.battery ? ` · ${activeCollar.battery}%` : ""}` : "点击此处配置项圈"}
@@ -181,10 +268,10 @@ export default function Index() {
                 mode="aspectFit"
               />
               <Text className="device-name">
-                {activeDesktop ? activeDesktop.name || `${currentPet?.name || "毛毛"}的秘密基地` : "桌面端"}
+                {activeDesktop ? activeDesktop.name || "桌面端" : "桌面端"}
               </Text>
               <Text className="device-text">
-                {activeDesktop ? `${onlineDesktopCount || desktops.length}个在线设备` : "点击此处配置桌面端"}
+                {activeDesktop ? `${onlineDesktopCount}个在线设备` : "点击此处配置桌面端"}
               </Text>
             </View>
           </View>

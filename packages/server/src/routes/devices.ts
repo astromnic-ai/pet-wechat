@@ -20,6 +20,30 @@ function getInviteCodeHash(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
 
+function normalizeMac(mac: string): string {
+  return mac.replace(/[:\-\s]/g, "").toUpperCase();
+}
+
+const NORMALIZED_MAC_REGEX = /^[0-9A-F]{12}$/;
+
+async function findCollarByMac(macAddress: string) {
+  const [collar] = await db
+    .select()
+    .from(collarDevices)
+    .where(eq(collarDevices.macAddress, macAddress));
+
+  return collar;
+}
+
+async function findDesktopByMac(macAddress: string) {
+  const [desktop] = await db
+    .select()
+    .from(desktopDevices)
+    .where(eq(desktopDevices.macAddress, macAddress));
+
+  return desktop;
+}
+
 // ===== 无主设备（模拟蓝牙搜索） =====
 
 devicesRoute.get("/collars/unowned", async (c) => {
@@ -36,6 +60,142 @@ devicesRoute.get("/desktops/unowned", async (c) => {
     .from(desktopDevices)
     .where(isNull(desktopDevices.userId));
   return c.json({ desktops: result });
+});
+
+devicesRoute.post("/collars/register", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const body =
+    (await c.req
+      .json<{ macAddress?: string; name?: string }>()
+      .catch(() => null)) ?? {};
+  const macAddress = normalizeMac(body.macAddress ?? "");
+
+  if (!macAddress) return c.json({ error: "macAddress is required" }, 400);
+  if (!NORMALIZED_MAC_REGEX.test(macAddress)) {
+    return c.json({ error: "Invalid macAddress format" }, 400);
+  }
+
+  let existing = await findCollarByMac(macAddress);
+
+  if (!existing) {
+    const [collar] = await db
+      .insert(collarDevices)
+      .values({
+        userId,
+        name: body.name ?? "我的项圈",
+        macAddress,
+        status: "online" as const,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (collar) {
+      return c.json({ collar }, 201);
+    }
+
+    existing = await findCollarByMac(macAddress);
+    if (!existing) {
+      return c.json({ error: "Collar registration failed" }, 500);
+    }
+  }
+
+  if (existing.userId === null) {
+    const [collar] = await db
+      .update(collarDevices)
+      .set({
+        userId,
+        name: body.name ?? existing.name,
+        status: "online" as const,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(collarDevices.id, existing.id), isNull(collarDevices.userId)))
+      .returning();
+
+    if (!collar) {
+      const latest = await findCollarByMac(macAddress);
+      if (latest?.userId === userId) {
+        return c.json({ collar: latest });
+      }
+
+      return c.json({ error: "Collar is already registered to another user" }, 409);
+    }
+
+    return c.json({ collar });
+  }
+
+  if (existing.userId === userId) {
+    return c.json({ collar: existing });
+  }
+
+  return c.json({ error: "Collar is already registered to another user" }, 409);
+});
+
+devicesRoute.post("/desktops/register", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const body =
+    (await c.req
+      .json<{ macAddress?: string; name?: string }>()
+      .catch(() => null)) ?? {};
+  const macAddress = normalizeMac(body.macAddress ?? "");
+
+  if (!macAddress) return c.json({ error: "macAddress is required" }, 400);
+  if (!NORMALIZED_MAC_REGEX.test(macAddress)) {
+    return c.json({ error: "Invalid macAddress format" }, 400);
+  }
+
+  let existing = await findDesktopByMac(macAddress);
+
+  if (!existing) {
+    const [desktop] = await db
+      .insert(desktopDevices)
+      .values({
+        userId,
+        name: body.name ?? "我的桌面端",
+        macAddress,
+        status: "online" as const,
+      })
+      .onConflictDoNothing()
+      .returning();
+
+    if (desktop) {
+      return c.json({ desktop }, 201);
+    }
+
+    existing = await findDesktopByMac(macAddress);
+    if (!existing) {
+      return c.json({ error: "Desktop registration failed" }, 500);
+    }
+  }
+
+  if (existing.userId === null) {
+    const [desktop] = await db
+      .update(desktopDevices)
+      .set({
+        userId,
+        name: body.name ?? existing.name,
+        status: "online" as const,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(desktopDevices.id, existing.id), isNull(desktopDevices.userId)))
+      .returning();
+
+    if (!desktop) {
+      const latest = await findDesktopByMac(macAddress);
+      if (latest?.userId === userId) {
+        return c.json({ desktop: latest });
+      }
+
+      return c.json({ error: "Desktop is already registered to another user" }, 409);
+    }
+
+    return c.json({ desktop });
+  }
+
+  if (existing.userId === userId) {
+    return c.json({ desktop: existing });
+  }
+
+  return c.json({ error: "Desktop is already registered to another user" }, 409);
 });
 
 // ===== 设备认领（模拟蓝牙配对绑定） =====
@@ -169,10 +329,62 @@ devicesRoute.delete("/collars/:id", async (c) => {
 devicesRoute.get("/desktops", async (c) => {
   const userId = c.get("userId" as never) as string;
   const result = await db
-    .select()
+    .select({
+      desktop: desktopDevices,
+      bindingId: desktopPetBindings.id,
+      bindingPetId: desktopPetBindings.petId,
+      bindingType: desktopPetBindings.bindingType,
+    })
     .from(desktopDevices)
+    .leftJoin(
+      desktopPetBindings,
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktopDevices.id),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
     .where(eq(desktopDevices.userId, userId));
-  return c.json({ desktops: result });
+
+  const desktops = new Map<
+    string,
+    typeof desktopDevices.$inferSelect & {
+      bindings: Array<{
+        id: string;
+        petId: string;
+        bindingType: (typeof desktopPetBindings.$inferSelect)["bindingType"];
+      }>;
+    }
+  >();
+
+  for (const row of result) {
+    const existing = desktops.get(row.desktop.id);
+    if (existing) {
+      if (row.bindingId && row.bindingPetId && row.bindingType) {
+        existing.bindings.push({
+          id: row.bindingId,
+          petId: row.bindingPetId,
+          bindingType: row.bindingType,
+        });
+      }
+      continue;
+    }
+
+    desktops.set(row.desktop.id, {
+      ...row.desktop,
+      bindings:
+        row.bindingId && row.bindingPetId && row.bindingType
+          ? [
+              {
+                id: row.bindingId,
+                petId: row.bindingPetId,
+                bindingType: row.bindingType,
+              },
+            ]
+          : [],
+    });
+  }
+
+  return c.json({ desktops: Array.from(desktops.values()) });
 });
 
 devicesRoute.post("/desktops", async (c) => {
@@ -226,6 +438,18 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
     .from(pets)
     .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
   if (!pet) return c.json({ error: "Pet not found" }, 404);
+
+  const [existingBinding] = await db
+    .select()
+    .from(desktopPetBindings)
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktopId),
+        eq(desktopPetBindings.petId, body.petId),
+        isNull(desktopPetBindings.unboundAt),
+      )
+    );
+  if (existingBinding) return c.json({ binding: existingBinding });
 
   const [binding] = await db
     .insert(desktopPetBindings)

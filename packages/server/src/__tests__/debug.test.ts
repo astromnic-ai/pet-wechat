@@ -31,17 +31,16 @@ describe("Debug Routes", () => {
       const desktop = fakeDesktop();
       const msg = fakeMessage();
 
-      // select sequence: user, pets, collars, desktops,
-      // then for each pet: bindings, avatars, behaviors,
+      // select sequence: user, pets, collars, desktops, bindings, avatars, behaviors,
       // then sentAuth, recvAuth, messages
       mockDb._results.select = [
         [user],       // user
         [pet],        // pets
         [collar],     // collars
         [desktop],    // desktops
-        [],           // bindings for pet-1
-        [],           // avatars for pet-1
-        [],           // behaviors for pet-1
+        [],           // bindings
+        [],           // avatars
+        [],           // behaviors
         [],           // sentAuth
         [],           // recvAuth
         [msg],        // messages
@@ -70,21 +69,16 @@ describe("Debug Routes", () => {
       const collar = fakeCollar();
       const desktop = fakeDesktop();
 
-      // select sequence: user, pets(2), collars, desktops,
-      // pet-1: bindings, avatars, behaviors
-      // pet-2: bindings, avatars, behaviors
+      // select sequence: user, pets(2), collars, desktops, bindings, avatars, behaviors,
       // sentAuth, recvAuth, messages
       mockDb._results.select = [
         [user],           // user
         [pet1, pet2],     // pets
         [collar],         // collars
         [desktop],        // desktops
-        [{ id: "b1" }],  // bindings for pet-1
-        [],               // avatars for pet-1
-        [{ id: "bh1" }], // behaviors for pet-1
-        [],               // bindings for pet-2
-        [{ id: "av1" }], // avatars for pet-2
-        [],               // behaviors for pet-2
+        [{ id: "b1" }],   // bindings
+        [{ id: "av1" }],  // avatars
+        [{ id: "bh1" }],  // behaviors
         [],               // sentAuth
         [],               // recvAuth
         [],               // messages

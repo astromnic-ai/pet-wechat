@@ -20,7 +20,8 @@
     "dev:rn": "npm run build:rn -- --watch",
     "dev:qq": "npm run build:qq -- --watch",
     "dev:vk-weapp": "npm run build:vk-weapp -- --watch",
-    "dev:jd": "npm run build:jd -- --watch"
+    "dev:jd": "npm run build:jd -- --watch",
+    "test:e2e": "bun test tests/e2e/ --timeout 30000"
   },
   "browserslist": [
     "last 3 versions",
@@ -51,6 +52,7 @@
     "@types/node": "^18.0.0",
     "@types/react": "^18.0.0",
     "babel-preset-taro": "4.1.11",
+    "miniprogram-automator": "^0.12.1",
     "sass": "^1.62.0",
     "tsconfig-paths-webpack-plugin": "^4.2.0",
     "typescript": "^5.0.0",

@@ -11,7 +11,7 @@ import {
   petBehaviors,
   messages,
 } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 const debugRoute = new Hono();
 
@@ -32,27 +32,27 @@ debugRoute.get("/collect-data", async (c) => {
 
   const petIds = userPets.map((p) => p.id);
 
-  let bindings: any[] = [];
-  let avatars: any[] = [];
-  let behaviors: any[] = [];
-
-  for (const pid of petIds) {
-    const b = await db
-      .select()
-      .from(desktopPetBindings)
-      .where(eq(desktopPetBindings.petId, pid));
-    bindings.push(...b);
-    const av = await db
-      .select()
-      .from(petAvatars)
-      .where(eq(petAvatars.petId, pid));
-    avatars.push(...av);
-    const bh = await db
-      .select()
-      .from(petBehaviors)
-      .where(eq(petBehaviors.petId, pid));
-    behaviors.push(...bh);
-  }
+  const bindings =
+    petIds.length > 0
+      ? await db
+          .select()
+          .from(desktopPetBindings)
+          .where(inArray(desktopPetBindings.petId, petIds))
+      : [];
+  const avatars =
+    petIds.length > 0
+      ? await db
+          .select()
+          .from(petAvatars)
+          .where(inArray(petAvatars.petId, petIds))
+      : [];
+  const behaviors =
+    petIds.length > 0
+      ? await db
+          .select()
+          .from(petBehaviors)
+          .where(inArray(petBehaviors.petId, petIds))
+      : [];
 
   const sentAuth = await db
     .select()

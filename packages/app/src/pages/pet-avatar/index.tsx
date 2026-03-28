@@ -20,23 +20,60 @@ const EXAMPLE_IMAGES = [
   require("@/assets/images/pet-avatar-default.png"),
 ];
 
+const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
+
+function parseQuota(value?: string) {
+  const quota = Number(value);
+  return Number.isFinite(quota) && quota >= 0 ? quota : null;
+}
+
+function getSpeciesLabel(species: Pet["species"]) {
+  return species === "cat" ? "猫咪" : "狗狗";
+}
+
+function getPetSummary(pet: Pet | null) {
+  if (!pet) return "";
+  return [pet.name, pet.breed || getSpeciesLabel(pet.species)].filter(Boolean).join(" ");
+}
+
 export default function PetAvatar() {
   const router = useRouter();
   const petId = router.params.petId;
+  const routeQuota = parseQuota(router.params.avatarQuota);
   const [images, setImages] = useState<string[]>([]);
   const [pet, setPet] = useState<Pet | null>(null);
-  const [quota, setQuota] = useState({ remaining: 2, total: 2 });
+  const [quota, setQuota] = useState({
+    remaining: routeQuota ?? 0,
+    total: routeQuota ?? 0,
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!petId) return;
+    if (!petId) {
+      setPet(null);
+      return;
+    }
+
     request<{ pet: Pet }>({ url: `/api/pets/${petId}` })
       .then((res) => setPet(res.pet))
-      .catch(() => {});
-    request<{ user: User }>({ url: "/api/me" })
-      .then((res) => setQuota({ remaining: res.user.avatarQuota, total: 2 }))
-      .catch(() => {});
+      .catch(() => setPet(null));
   }, [petId]);
+
+  useEffect(() => {
+    if (routeQuota !== null) {
+      setQuota({ remaining: routeQuota, total: routeQuota });
+      return;
+    }
+
+    request<{ user: User }>({ url: "/api/me" })
+      .then((res) => {
+        const avatarQuota = res.user.avatarQuota ?? 0;
+        setQuota({ remaining: avatarQuota, total: avatarQuota });
+      })
+      .catch(() => {
+        setQuota({ remaining: 0, total: 0 });
+      });
+  }, [routeQuota]);
 
   const handleChooseImage = async () => {
     try {
@@ -53,7 +90,7 @@ export default function PetAvatar() {
     if (!petId || images.length === 0 || loading) return;
     setLoading(true);
     try {
-      const uploadData = await uploadFile<{ url: string }>({
+      const uploadData = await uploadFile<{ url: string; fileId: string }>({
         url: "/api/upload",
         filePath: images[0],
         name: "file",
@@ -66,7 +103,7 @@ export default function PetAvatar() {
           sourceImageUrl: uploadData.url,
         },
       });
-      Taro.redirectTo({ url: `/pages/avatar-progress/index?avatarId=${avatar.id}&status=done` });
+      Taro.redirectTo({ url: `/pages/avatar-progress/index?avatarId=${avatar.id}` });
     } catch (e: any) {
       Taro.showToast({ title: e.message || "上传失败", icon: "none" });
     } finally {
@@ -94,12 +131,10 @@ export default function PetAvatar() {
         <View className="pet-summary">
           <Image
             className="pet-summary-image"
-            src={require("@/assets/images/black-cat.png")}
+            src={DEFAULT_PET_IMAGE}
             mode="aspectFit"
           />
-          <Text className="pet-summary-text">
-            {pet ? `${pet.name} ${pet.breed || "英短蓝猫"} 3岁半` : "毛毛 英短蓝猫 3岁半"}
-          </Text>
+          {pet ? <Text className="pet-summary-text">{getPetSummary(pet)}</Text> : null}
         </View>
 
         <Text className="example-title">图像上传示例：</Text>
@@ -130,7 +165,7 @@ export default function PetAvatar() {
           {images.length > 0 && (
             <Image className="preview-image" src={images[0]} mode="aspectFill" />
           )}
-          <Text className="quota-text">新用户免费定制2次（{quota.remaining}/{quota.total}）</Text>
+          <Text className="quota-text">当前定制额度（{quota.remaining}/{quota.total}）</Text>
         </View>
 
         <View className={`primary-action ${images.length === 0 ? "disabled" : ""}`} onClick={handleUpload}>
