@@ -2,7 +2,10 @@ import Taro from "@tarojs/taro";
 
 declare const API_BASE_URL: string;
 
-export const BASE_URL = API_BASE_URL;
+export const BASE_URL =
+  typeof API_BASE_URL === "string"
+    ? API_BASE_URL
+    : ((globalThis as { API_BASE_URL?: string }).API_BASE_URL ?? "");
 
 export function getToken(): string | null {
   return Taro.getStorageSync("token") || null;
@@ -37,6 +40,22 @@ function resolveUrl(url: string): string {
   }
 
   return `${BASE_URL}${url}`;
+}
+
+function parseJsonLikeResponse(data: unknown) {
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data) as Record<string, any>;
+    } catch {
+      return null;
+    }
+  }
+
+  if (data && typeof data === "object") {
+    return data as Record<string, any>;
+  }
+
+  return null;
 }
 
 export async function request<T = any>(options: RequestOptions): Promise<T> {
@@ -104,7 +123,7 @@ export async function uploadFile<T = any>(options: UploadFileOptions): Promise<T
     throw new Error(`网络异常: ${err.errMsg ?? "无法连接服务器"}`);
   }
 
-  const parsedData = JSON.parse(res.data ?? "{}");
+  const parsedData = parseJsonLikeResponse(res.data);
 
   if (res.statusCode === 401) {
     clearToken();
@@ -115,6 +134,10 @@ export async function uploadFile<T = any>(options: UploadFileOptions): Promise<T
   if (res.statusCode >= 400) {
     const msg = parsedData?.error ?? `服务器错误 (${res.statusCode})`;
     throw new Error(msg);
+  }
+
+  if (!parsedData) {
+    throw new Error("上传服务响应异常，请稍后重试");
   }
 
   return parsedData as T;

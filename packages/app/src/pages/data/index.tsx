@@ -1,4 +1,4 @@
-import { View, Text, Image } from "@tarojs/components";
+import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import type { Pet } from "@pet-wechat/shared";
@@ -6,7 +6,7 @@ import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
 import "./index.scss";
 
-type Mode = "week" | "day";
+type Mode = "week" | "day" | "month";
 
 interface StatsResponse {
   weekBars: Array<{
@@ -18,6 +18,15 @@ interface StatsResponse {
     count: number;
   }>;
   pieItems: Array<{
+    type: string;
+    count: number;
+    percentage: number;
+  }>;
+  monthBars?: Array<{
+    day: string;
+    count: number;
+  }>;
+  monthPieItems?: Array<{
     type: string;
     count: number;
     percentage: number;
@@ -119,6 +128,13 @@ export default function DataPage() {
     void loadStats();
   });
 
+  function showEmptyPetData() {
+    setPetName("宠物");
+    setStats(null);
+    setErrorMessage("");
+    setEmptyMessage("暂无宠物数据");
+  }
+
   async function loadStats() {
     setLoading(true);
     setErrorMessage("");
@@ -128,31 +144,70 @@ export default function DataPage() {
       const petsRes = await request<{ pets: Pet[]; authorizedPets: Pet[] }>({
         url: "/api/pets",
       });
-      const allPets = [...petsRes.pets, ...petsRes.authorizedPets];
-      const selectedPet = routePetId
+      const allPets = Array.from(
+        new Map(
+          [...petsRes.pets, ...petsRes.authorizedPets].map((item) => [item.id, item]),
+        ).values(),
+      );
+      const fallbackPet = allPets[0] ?? null;
+      let selectedPet = routePetId
         ? allPets.find((item) => item.id === routePetId) ?? null
-        : allPets[0] ?? null;
-      const resolvedPetId = routePetId || selectedPet?.id || "";
+        : fallbackPet;
+      let resolvedPetId = routePetId || selectedPet?.id || "";
 
       if (!resolvedPetId) {
-        setPetName("宠物");
-        setStats(null);
-        setEmptyMessage("暂无宠物数据");
+        showEmptyPetData();
+        return;
+      }
+
+      let statsRes: StatsResponse;
+      try {
+        statsRes = await request<StatsResponse>({
+          url: `/api/stats/${resolvedPetId}?tz=Asia/Shanghai`,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!routePetId || !message.includes("404")) {
+          throw error;
+        }
+
+        if (!fallbackPet || fallbackPet.id === routePetId) {
+          showEmptyPetData();
+          return;
+        }
+
+        selectedPet = fallbackPet;
+        resolvedPetId = fallbackPet.id;
+        try {
+          statsRes = await request<StatsResponse>({
+            url: `/api/stats/${resolvedPetId}?tz=Asia/Shanghai`,
+          });
+        } catch (fallbackError) {
+          const fallbackMessage =
+            fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          if (!fallbackMessage.includes("404")) {
+            throw fallbackError;
+          }
+
+          showEmptyPetData();
+          return;
+        }
+      }
+
+      if (!statsRes) {
+        showEmptyPetData();
         return;
       }
 
       setPetName(selectedPet?.name || "宠物");
-
-      const statsRes = await request<StatsResponse>({
-        url: `/api/stats/${resolvedPetId}?tz=Asia/Shanghai`,
-      });
-
       setStats(statsRes);
 
       const hasStats =
         statsRes.weekBars.some((item) => item.count > 0) ||
         statsRes.dayBars.some((item) => item.count > 0) ||
+        (statsRes.monthBars?.some((item) => item.count > 0) ?? false) ||
         statsRes.pieItems.length > 0 ||
+        (statsRes.monthPieItems?.length ?? 0) > 0 ||
         statsRes.daySummary.totalCount > 0;
 
       if (!hasStats) {
@@ -207,20 +262,41 @@ export default function DataPage() {
         text: formatPercent(item.percentage),
       }))
     : [];
+  const monthBars = (stats?.monthBars ?? []).map((item, index, list) => {
+    const [, , day] = item.day.split("-").map(Number);
+    return {
+      key: item.day,
+      label: `${day}`,
+      count: item.count,
+      value: getActivityScore(item.count),
+      showLabel: index % 5 === 0 || index === list.length - 1,
+    };
+  });
+  const monthChartBars = monthBars;
+  const hasMonthBarData = monthBars.some((item) => item.count > 0);
+  const monthChartWidth = `${monthChartBars.length * 66 + 20}rpx`;
+  const monthTotalCount = monthBars.reduce((sum, item) => sum + item.count, 0);
+  const monthActiveDays = monthBars.filter((item) => item.count > 0).length;
+  const monthPieItems = (stats?.monthPieItems ?? []).map((item) => ({
+    label: getActionLabel(item.type),
+    value: item.percentage,
+    text: formatPercent(item.percentage),
+  }));
 
-  const dayStats = stats
-    ? Object.entries(stats.daySummary.actionCounts)
-        .sort(([, left], [, right]) => right - left)
-        .map(([actionType, count]) => {
-          const percent = stats.daySummary.totalCount > 0 ? (count / stats.daySummary.totalCount) * 100 : 0;
-          return {
-            label: getActionLabel(actionType),
-            time: `${count}次`,
-            percent: formatPercent(percent),
-            width: `${Math.round(percent)}%`,
-          };
-        })
+  const dayActionCounts = stats
+    ? (Object.entries(stats.daySummary.actionCounts) as Array<[string, number]>)
     : [];
+  const dayStats = dayActionCounts
+    .sort(([, left], [, right]) => right - left)
+    .map(([actionType, count]) => {
+      const percent = stats && stats.daySummary.totalCount > 0 ? (count / stats.daySummary.totalCount) * 100 : 0;
+      return {
+        label: getActionLabel(actionType),
+        time: `${count}次`,
+        percent: formatPercent(percent),
+        width: `${Math.round(percent)}%`,
+      };
+    });
 
   const dayScore = stats ? getActivityScore(stats.daySummary.totalCount) : 0;
   const dateTitle = stats ? formatDateText(stats.daySummary.date) : "";
@@ -229,6 +305,9 @@ export default function DataPage() {
     : "今日暂无活动记录";
   const pieRingStyle = {
     background: buildPieGradient(pieItems),
+  };
+  const monthPieRingStyle = {
+    background: buildPieGradient(monthPieItems),
   };
   const dayRingStyle = {
     background: `conic-gradient(#8f8f8f 0 ${dayScore}%, #d8d8d8 ${dayScore}% 100%)`,
@@ -259,7 +338,7 @@ export default function DataPage() {
           <View
             key={item.key}
             className={`mode-tab ${mode === item.key ? "active" : ""}`}
-            onClick={() => item.key !== "month" && setMode(item.key as Mode)}
+            onClick={() => setMode(item.key as Mode)}
           >
             <Text className="mode-text">{item.label}</Text>
             <View className="mode-line" />
@@ -306,6 +385,54 @@ export default function DataPage() {
               </View>
             ) : (
               <Text className="helper-text">暂无活动类型数据</Text>
+            )}
+          </View>
+        </>
+      ) : mode === "month" ? (
+        <>
+          <View className="data-card">
+            <View className="card-head">
+              <Text className="module-title">本月</Text>
+              <Text className="nav-arrows">〈 〉</Text>
+            </View>
+            <Text className="highlight-text">最近30天总活动：{monthTotalCount}次</Text>
+            <Text className="helper-text">
+              {monthActiveDays > 0 ? `共有${monthActiveDays}天记录到活动` : "暂无月度统计数据"}
+            </Text>
+            {hasMonthBarData ? (
+              <ScrollView scrollX className="month-scroll" showScrollbar={false}>
+                <View className="month-chart" style={{ width: monthChartWidth }}>
+                  {monthChartBars.map((bar) => (
+                    <View key={bar.key} className="month-bar-item">
+                      <View className="month-bar-track">
+                        <View className="month-bar-fill" style={{ height: `${bar.value}%` }} />
+                      </View>
+                      <Text className="month-bar-count">{bar.count > 0 ? bar.count : ""}</Text>
+                      <Text className="month-bar-label">{bar.showLabel ? bar.label : ""}</Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            ) : (
+              <Text className="helper-text">暂无月度统计数据</Text>
+            )}
+          </View>
+
+          <View className="data-card">
+            <Text className="module-title">活动类型统计</Text>
+            {monthPieItems.length > 0 ? (
+              <View className="pie-chart">
+                <View className="pie-ring" style={monthPieRingStyle} />
+                <View className="pie-legend">
+                  {monthPieItems.map((item) => (
+                    <Text key={item.label} className="legend-item">
+                      {item.label} {item.text}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            ) : (
+              <Text className="helper-text">暂无月度活动类型数据</Text>
             )}
           </View>
         </>

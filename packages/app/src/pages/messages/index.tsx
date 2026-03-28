@@ -2,6 +2,7 @@ import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
+import PageBack from "../../components/PageBack";
 import type { Message, MessageType } from "@pet-wechat/shared";
 import "./index.scss";
 
@@ -117,10 +118,8 @@ export default function Messages() {
 
   return (
     <View className="messages-page">
+      <PageBack />
       <View className="messages-header">
-        <Text className="header-back" onClick={() => Taro.switchTab({ url: "/pages/index/index" })}>
-          ←
-        </Text>
         <Text className="header-title">消息中心</Text>
         <Text className="header-action" onClick={markAllRead}>
           全部已读

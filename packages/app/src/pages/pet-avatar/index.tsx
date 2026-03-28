@@ -21,6 +21,7 @@ const EXAMPLE_IMAGES = [
 ];
 
 const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 function parseQuota(value?: string) {
   const quota = Number(value);
@@ -41,6 +42,7 @@ export default function PetAvatar() {
   const petId = router.params.petId;
   const routeQuota = parseQuota(router.params.avatarQuota);
   const [images, setImages] = useState<string[]>([]);
+  const [selectedImageSize, setSelectedImageSize] = useState<number | null>(null);
   const [pet, setPet] = useState<Pet | null>(null);
   const [quota, setQuota] = useState({
     remaining: routeQuota ?? 0,
@@ -82,30 +84,56 @@ export default function PetAvatar() {
         sizeType: ["compressed"],
         sourceType: ["album", "camera"],
       });
+      const selectedFile = res.tempFiles?.[0];
+      const nextImageSize = selectedFile?.size ?? null;
+      if (nextImageSize !== null && nextImageSize > MAX_UPLOAD_SIZE) {
+        setImages([]);
+        setSelectedImageSize(null);
+        Taro.showToast({ title: "文件过大，请上传 10MB 以内的图片", icon: "none" });
+        return;
+      }
+      setSelectedImageSize(nextImageSize);
       setImages(res.tempFilePaths.slice(0, 1));
     } catch {}
   };
 
   const handleUpload = async () => {
     if (!petId || images.length === 0 || loading) return;
+    if (selectedImageSize !== null && selectedImageSize > MAX_UPLOAD_SIZE) {
+      Taro.showToast({ title: "文件过大，请上传 10MB 以内的图片", icon: "none" });
+      return;
+    }
     setLoading(true);
     try {
-      const uploadData = await uploadFile<{ url: string; fileId: string }>({
-        url: "/api/upload",
-        filePath: images[0],
-        name: "file",
-      });
-      const { avatar } = await request<{ avatar: { id: string } }>({
-        url: "/api/avatars",
-        method: "POST",
-        data: {
-          petId,
-          sourceImageUrl: uploadData.url,
-        },
-      });
+      let uploadData: { url: string; fileId: string };
+      try {
+        uploadData = await uploadFile<{ url: string; fileId: string }>({
+          url: "/api/upload",
+          filePath: images[0],
+          name: "file",
+        });
+      } catch (e: any) {
+        Taro.showToast({ title: e.message || "文件上传失败", icon: "none" });
+        return;
+      }
+
+      let avatar: { id: string };
+      try {
+        const res = await request<{ avatar: { id: string } }>({
+          url: "/api/avatars",
+          method: "POST",
+          data: {
+            petId,
+            sourceImageUrl: uploadData.url,
+          },
+        });
+        avatar = res.avatar;
+      } catch (e: any) {
+        Taro.showToast({ title: e.message || "创建定制任务失败", icon: "none" });
+        return;
+      }
+
       Taro.redirectTo({ url: `/pages/avatar-progress/index?avatarId=${avatar.id}` });
-    } catch (e: any) {
-      Taro.showToast({ title: e.message || "上传失败", icon: "none" });
     } finally {
       setLoading(false);
     }

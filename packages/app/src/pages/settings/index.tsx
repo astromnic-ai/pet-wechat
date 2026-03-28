@@ -53,8 +53,8 @@ export default function Settings() {
     };
   }, []);
 
-  const showComingSoon = (label: string) => {
-    Taro.showToast({ title: label, icon: "none" });
+  const showComingSoon = () => {
+    Taro.showToast({ title: "即将上线，敬请期待", icon: "none" });
   };
 
   const handleLogout = () => {
@@ -69,7 +69,7 @@ export default function Settings() {
       return;
     }
 
-    showComingSoon(item);
+    showComingSoon();
   };
 
   const handleCollectData = async () => {

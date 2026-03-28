@@ -36,7 +36,18 @@ uploadRoute.post("/", async (c) => {
           : "jpg";
     const key = `${userId}/${fileId}.${ext}`;
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
-    const url = await uploadFile(key, buffer, uploadedFile.type);
+
+    let url: string;
+    try {
+      url = await uploadFile(key, buffer, uploadedFile.type);
+    } catch (e) {
+      console.error("Storage upload failed:", e);
+      const msg = e instanceof Error && e.message.includes("bucket")
+        ? "存储服务不可用，请稍后重试"
+        : "文件上传失败，请稍后重试";
+      return c.json({ error: msg }, 503);
+    }
+
     return c.json({ url, fileId }, 201);
   } catch (e) {
     console.error("Upload failed:", e);

@@ -152,6 +152,19 @@ export default function Index() {
   const petHeroImage = currentPet?.avatarImageUrl || require("@/assets/images/pet-collar.png");
 
   const handleAddPet = () => Taro.navigateTo({ url: "/pages/pet-info/index" });
+  const handleOpenPetInfo = () => {
+    if (hasPet) {
+      if (!currentPet) return;
+      Taro.navigateTo({ url: `/pages/pet-info/index?petId=${currentPet.id}` });
+      return;
+    }
+
+    Taro.navigateTo({ url: "/pages/pet-info/index" });
+  };
+  const handleOpenPetAvatar = (pet: Pet | null) => {
+    if (!pet) return;
+    Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
+  };
   const handleConfigCollar = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
   const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/desktop-bind/index" });
   const handleManageDevices = () => Taro.switchTab({ url: "/pages/devices/index" });
@@ -176,7 +189,7 @@ export default function Index() {
       </View>
 
       <View className="home-content">
-        <View className="top-card">
+        <View className="top-card" onClick={handleOpenPetInfo}>
           <View className="avatar-shell">
             {hasPet ? (
               <Image
@@ -212,7 +225,7 @@ export default function Index() {
                 >
                   {petSlides.map((pet, index) => (
                     <SwiperItem key={pet?.id ?? `pet-${index}`}>
-                      <View className="pet-slide">
+                      <View className="pet-slide" onClick={() => handleOpenPetAvatar(pet)}>
                         <Image
                           className="pet-showcase"
                           src={pet?.avatarImageUrl || petHeroImage}

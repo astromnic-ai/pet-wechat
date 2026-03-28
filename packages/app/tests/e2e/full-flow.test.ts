@@ -87,6 +87,17 @@ async function fetchJson(url: string, init?: RequestInit) {
   return await response.json();
 }
 
+async function getCurrentRouteInfo() {
+  return await mp.evaluate(() => {
+    const pages = getCurrentPages();
+    const currentPage = pages[pages.length - 1];
+    return {
+      route: currentPage?.route ?? "",
+      options: currentPage?.options ?? {},
+    };
+  });
+}
+
 beforeAll(async () => {
   mp = await connect();
   await mp.evaluate(() => {
@@ -276,7 +287,7 @@ describe("完整端到端用户旅程", () => {
     expect(await textOf(page, ".header-title")).toContain("消息中心");
     expect(await getPageText(page)).toContain("全部");
 
-    await tap(page, ".header-back");
+    await tap(page, ".page-back");
     await sleep(2000);
 
     page = await waitForPath("pages/index/index");
@@ -324,6 +335,98 @@ describe("完整端到端用户旅程", () => {
 
     page = await waitForPath("pages/index/index");
     expect(await getPageText(page)).toContain(PET_BREED);
+  }, 20000);
+
+  test("第四阶段：主页导航跳转验证（#40, #41）", async () => {
+    let page = await waitForPath("pages/index/index", 20000);
+
+    await tap(page, ".top-card");
+    await sleep(2000);
+
+    page = await waitForPath("pages/pet-info/index", 20000);
+    let routeInfo = await getCurrentRouteInfo();
+    expect(routeInfo.route).toBe("pages/pet-info/index");
+    expect(String(routeInfo.options?.petId ?? "")).toContain(petId);
+
+    await tap(page, ".page-back");
+    await sleep(2000);
+
+    page = await waitForPath("pages/index/index", 20000);
+    await tap(page, ".pet-slide");
+    await sleep(2000);
+
+    page = await waitForPath("pages/pet-avatar/index", 20000);
+    routeInfo = await getCurrentRouteInfo();
+    expect(routeInfo.route).toBe("pages/pet-avatar/index");
+    expect(String(routeInfo.options?.petId ?? "")).toContain(petId);
+
+    await tap(page, ".page-back");
+    await sleep(2000);
+
+    page = await waitForPath("pages/index/index", 20000);
+    expect(await getPageText(page)).toContain(PET_NAME);
+  }, 20000);
+
+  test("第四阶段：设置页交互验证（#46）", async () => {
+    let page = await waitForPath("pages/index/index", 20000);
+
+    await tapAt(page, ".quick-nav-item", 2);
+    await sleep(2000);
+
+    page = await waitForPath("pages/settings/index", 20000);
+    await tapAt(page, ".setting-item", 0);
+    await sleep(1500);
+
+    page = await waitForPath("pages/settings/index", 20000);
+    expect(await getPageText(page)).toContain("退出登录");
+
+    await tap(page, ".page-back");
+    await sleep(2000);
+
+    page = await waitForPath("pages/index/index", 20000);
+    expect(await getPageText(page)).toContain(PET_NAME);
+  }, 20000);
+
+  test("第四阶段：消息中心返回按钮验证（#45）", async () => {
+    let page = await waitForPath("pages/index/index", 20000);
+
+    await tap(page, ".activity-bell-wrap");
+    await sleep(2000);
+
+    page = await waitForPath("pages/messages/index", 20000);
+    const backButton = await page.$(".page-back");
+    expect(backButton).toBeTruthy();
+    await backButton.tap();
+    await sleep(2000);
+
+    page = await waitForPath("pages/index/index", 20000);
+    expect(await getPageText(page)).toContain(PET_NAME);
+  }, 20000);
+
+  test("第四阶段：数据中心月视图切换验证（#44）", async () => {
+    let page = await waitForPath("pages/index/index", 20000);
+
+    await tapAt(page, ".quick-nav-item", 1);
+    await sleep(2000);
+
+    page = await waitForPath("pages/data/index", 20000);
+    await tapAt(page, ".mode-tab", 2);
+    await sleep(2000);
+
+    page = await waitForTextContains("pages/data/index", "page", "本月", 20000);
+    expect(await getPageText(page)).toContain("本月");
+
+    await tapAt(page, ".mode-tab", 0);
+    await sleep(2000);
+
+    page = await waitForTextContains("pages/data/index", "page", "今日", 20000);
+    expect(await getPageText(page)).toContain("今日");
+
+    await tap(page, ".page-back");
+    await sleep(2000);
+
+    page = await waitForPath("pages/index/index", 20000);
+    expect(await getPageText(page)).toContain(PET_NAME);
   }, 20000);
 
   test("最后：设置页退出登录", async () => {

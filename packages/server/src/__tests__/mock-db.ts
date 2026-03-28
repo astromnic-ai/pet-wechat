@@ -16,6 +16,7 @@ export interface MockDb {
     insert: unknown[][];
     update: unknown[][];
     delete: unknown[][];
+    execute: unknown[][];
   };
 
   /** Track calls for assertions */
@@ -24,6 +25,7 @@ export interface MockDb {
     insert: unknown[];
     update: unknown[];
     delete: unknown[];
+    execute: unknown[];
   };
 
   /** Reset results & calls (call in beforeEach) */
@@ -33,6 +35,7 @@ export interface MockDb {
   insert(table: unknown): ChainValues;
   update(table: unknown): ChainSet;
   delete(table: unknown): ChainDeleteWhere;
+  execute<T = unknown>(_sql: unknown): Promise<T[]>;
   transaction<T>(callback: (tx: MockDb) => Promise<T>): Promise<T>;
 }
 
@@ -77,12 +80,12 @@ interface ChainDeleteWhere {
 
 export function createMockDb(): MockDb {
   const db: MockDb = {
-    _results: { select: [], insert: [], update: [], delete: [] },
-    _calls: { select: [], insert: [], update: [], delete: [] },
+    _results: { select: [], insert: [], update: [], delete: [], execute: [] },
+    _calls: { select: [], insert: [], update: [], delete: [], execute: [] },
 
     _reset() {
-      db._results = { select: [], insert: [], update: [], delete: [] };
-      db._calls = { select: [], insert: [], update: [], delete: [] };
+      db._results = { select: [], insert: [], update: [], delete: [], execute: [] };
+      db._calls = { select: [], insert: [], update: [], delete: [], execute: [] };
     },
 
     select() {
@@ -184,6 +187,12 @@ export function createMockDb(): MockDb {
           return Promise.resolve();
         },
       } as any;
+    },
+
+    execute(_sql: unknown) {
+      const idx = db._calls.execute.length;
+      db._calls.execute.push({});
+      return Promise.resolve(db._results.execute[idx] ?? []);
     },
 
     transaction<T>(callback: (tx: MockDb) => Promise<T>) {
