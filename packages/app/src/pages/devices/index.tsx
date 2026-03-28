@@ -1,5 +1,5 @@
-import { View, Text, Image, ScrollView } from "@tarojs/components";
-import Taro, { useDidShow } from "@tarojs/taro";
+import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
+import Taro, { useDidShow, useShareAppMessage } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   BindingType,
@@ -13,7 +13,7 @@ import { request } from "../../utils/request";
 import "./index.scss";
 
 type PetTabStatus = "owner" | "authorized";
-type DeviceAction = "share" | "delete" | "unbind";
+type DeviceAction = "delete" | "unbind";
 
 type DesktopWithBindings = DesktopDevice & {
   battery?: number | null;
@@ -37,6 +37,10 @@ const DEFAULT_PET_AVATAR = require("@/assets/images/black cat 3.png");
 const COLLAR_ICON = require("@/assets/images/collar-icon.png");
 const DESKTOP_ICON = require("@/assets/images/desktop-icon.png");
 const OUTLINE_IMAGE = require("@/assets/images/pet-outline.png");
+const DEFAULT_SHARE_MESSAGE = {
+  title: "YEHEY",
+  path: "/pages/index/index",
+};
 
 function getStatusText(status: PetTabStatus) {
   if (status === "owner") return "属于你的宠物";
@@ -80,6 +84,7 @@ export default function Devices() {
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopWithBindings[]>([]);
   const mountedRef = useRef(true);
+  const sharePetIdRef = useRef("");
 
   const loadPets = async () => {
     try {
@@ -177,13 +182,54 @@ export default function Devices() {
     [petTabs, selectedPetId]
   );
 
-  const handleAction = (type: DeviceAction) => {
-    const text =
-      type === "share"
-        ? "分享授权"
-        : type === "delete"
-          ? "删除设备"
-          : "解绑设备";
+  useEffect(() => {
+    if (selectedPet?.status === "owner") {
+      void Taro.showShareMenu({});
+      return;
+    }
+
+    sharePetIdRef.current = "";
+    Taro.hideShareMenu();
+  }, [selectedPet?.id, selectedPet?.status]);
+
+  useShareAppMessage((res) => {
+    const selectedOwnerPetId = selectedPet?.status === "owner" ? selectedPet.pet.id : "";
+    const petId =
+      res.from === "button"
+        ? sharePetIdRef.current || selectedOwnerPetId
+        : res.from === "menu"
+          ? selectedOwnerPetId
+          : "";
+
+    if (!petId) {
+      return DEFAULT_SHARE_MESSAGE;
+    }
+
+    return new Promise((resolve) => {
+      request<{
+        inviteCode: string;
+        petName: string;
+        fromNickname: string;
+      }>({
+        url: "/api/devices/invite",
+        method: "POST",
+        data: { petId },
+      })
+        .then((shareRes) => {
+          resolve({
+            title: `${shareRes.fromNickname}邀请你一起看${shareRes.petName}`,
+            path: `/pages/invite/index?code=${shareRes.inviteCode}`,
+          });
+        })
+        .catch(() => {
+          Taro.showToast({ title: "生成邀请链接失败", icon: "none" });
+          resolve(DEFAULT_SHARE_MESSAGE);
+        });
+    });
+  });
+
+  const handleAction = (type: "delete" | "unbind") => {
+    const text = type === "delete" ? "删除设备" : "解绑设备";
     Taro.showToast({ title: text, icon: "none" });
   };
 
@@ -277,9 +323,15 @@ export default function Devices() {
 
             {canManageCollar && (
               <View className="action-row">
-                <View className="action-btn" onClick={() => handleAction("share")}>
+                <Button
+                  openType="share"
+                  className="action-btn"
+                  onClick={() => {
+                    sharePetIdRef.current = selectedPet?.pet.id || "";
+                  }}
+                >
                   <Text className="action-btn-text">分享授权</Text>
-                </View>
+                </Button>
                 <View className="action-btn" onClick={() => handleAction("unbind")}>
                   <Text className="action-btn-text">解除当前绑定</Text>
                 </View>
@@ -291,7 +343,7 @@ export default function Devices() {
 
           {selectedPet.desktops.map((desktop) => {
             const binding = desktop.bindings.find((item) => item.petId === selectedPet.pet.id);
-            const action: DeviceAction =
+            const action: "share" | DeviceAction =
               selectedPet.status === "owner"
                 ? binding?.bindingType === "authorized"
                   ? "delete"
@@ -322,11 +374,26 @@ export default function Devices() {
                       <Text className="signal-text">{formatSignal(desktop.signal)}</Text>
                     </View>
                   </View>
-                  <View className="desktop-action-chip" onClick={() => handleAction(action)}>
-                    <Text className="desktop-action-text">
-                      {action === "share" ? "分享" : action === "delete" ? "删除权限" : "解绑"}
-                    </Text>
-                  </View>
+                  {action === "share" ? (
+                    <Button
+                      openType="share"
+                      className="desktop-action-chip"
+                      onClick={() => {
+                        sharePetIdRef.current = selectedPet?.pet.id || "";
+                      }}
+                    >
+                      <Text className="desktop-action-text">分享</Text>
+                    </Button>
+                  ) : (
+                    <View
+                      className="desktop-action-chip"
+                      onClick={() => handleAction(action as "delete" | "unbind")}
+                    >
+                      <Text className="desktop-action-text">
+                        {action === "delete" ? "删除权限" : "解绑"}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <Text className="desktop-info-line">MAC地址：{desktop.macAddress}</Text>
