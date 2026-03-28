@@ -1,10 +1,15 @@
-import { View, Text, Image } from "@tarojs/components";
-import Taro, { useRouter } from "@tarojs/taro";
+import { View, Text, Image, Button } from "@tarojs/components";
+import Taro, { useRouter, useShareAppMessage } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
+
+const DEFAULT_SHARE_MESSAGE = {
+  title: "YEHEY",
+  path: "/pages/index/index",
+};
 
 interface InviteInfo {
   petName: string;
@@ -46,6 +51,7 @@ export default function Invite() {
   const [inviteInfo, setInviteInfo] = useState<InviteInfo | null>(null);
   const [acceptDone, setAcceptDone] = useState(false);
   const [error, setError] = useState("");
+  const canShareInvite = !code && mode !== "pair" && pet !== null && !error;
 
   useEffect(() => {
     setError("");
@@ -72,9 +78,46 @@ export default function Invite() {
     return `年龄：${calculateAge(pet?.birthday)}`;
   }, [pet?.birthday]);
 
+  useEffect(() => {
+    if (canShareInvite) {
+      void Taro.showShareMenu({});
+      return;
+    }
+
+    Taro.hideShareMenu();
+  }, [canShareInvite]);
+
+  useShareAppMessage(() => {
+    if (!canShareInvite || pet === null) {
+      return DEFAULT_SHARE_MESSAGE;
+    }
+
+    return new Promise((resolve) => {
+      request<{
+        inviteCode: string;
+        petName: string;
+        fromNickname: string;
+      }>({
+        url: "/api/devices/invite",
+        method: "POST",
+        data: { petId: pet.id },
+      })
+        .then((res) => {
+          resolve({
+            title: `${res.fromNickname}邀请你一起看${res.petName}`,
+            path: `/pages/invite/index?code=${res.inviteCode}`,
+          });
+        })
+        .catch(() => {
+          Taro.showToast({ title: "生成邀请链接失败", icon: "none" });
+          resolve(DEFAULT_SHARE_MESSAGE);
+        });
+    });
+  });
+
   const handleGenerateInvite = () => {
     Taro.showToast({
-      title: mode === "pair" ? "一键连接中" : "已生成分享链接",
+      title: "一键连接中",
       icon: "none",
     });
   };
@@ -140,9 +183,15 @@ export default function Invite() {
         </View>
       </View>
 
-      <View className="connect-button" onClick={handleGenerateInvite}>
-        <Text className="connect-button-text">一键连接</Text>
-      </View>
+      {mode === "pair" ? (
+        <View className="connect-button" onClick={handleGenerateInvite}>
+          <Text className="connect-button-text">一键连接</Text>
+        </View>
+      ) : (
+        <Button openType="share" className="connect-button" disabled={!canShareInvite}>
+          <Text className="connect-button-text">一键连接</Text>
+        </Button>
+      )}
 
       <View className="guide-info-card">
         <Text className="guide-info-text">

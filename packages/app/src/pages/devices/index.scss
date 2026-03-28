@@ -175,12 +175,21 @@
 .action-btn {
   min-width: 180rpx;
   height: 70rpx;
+  margin: 0;
   padding: 0 24rpx;
+  border: none;
   border-radius: 35rpx;
   background: #f0f0f0;
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: normal;
+  font-size: inherit;
+  color: inherit;
+
+  &::after {
+    display: none;
+  }
 }
 
 .action-btn-text {
@@ -257,14 +266,22 @@
 .desktop-action-chip {
   min-width: 92rpx;
   height: 52rpx;
+  margin: 0 0 0 16rpx;
   padding: 0 14rpx;
+  border: none;
   border-radius: 26rpx;
   background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: 16rpx;
   flex-shrink: 0;
+  line-height: normal;
+  font-size: inherit;
+  color: inherit;
+
+  &::after {
+    display: none;
+  }
 }
 
 .desktop-action-text {
