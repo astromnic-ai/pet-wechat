@@ -217,7 +217,8 @@ statsRoute.get("/:petId", async (c) => {
         actionCounts,
       },
     });
-  } catch {
+  } catch (e) {
+    console.error("Stats query failed:", e);
     return c.json({ error: "统计数据加载失败" }, 500);
   }
 });

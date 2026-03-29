@@ -10,6 +10,7 @@ declare const ENABLE_DEV_LOGIN: boolean
 
 interface AuthResponse {
   token: string
+  user: { id: string }
 }
 
 export default function Login() {
@@ -18,8 +19,8 @@ export default function Login() {
   const [phone, setPhone] = useState('')
   const [loadingType, setLoadingType] = useState<'wechat' | 'dev' | null>(null)
 
-  const navigateAfterLogin = () => {
-    if (isFirstLogin()) {
+  const navigateAfterLogin = (userId: string) => {
+    if (isFirstLogin(userId)) {
       Taro.reLaunch({ url: '/pages/guide/index' })
       return
     }
@@ -39,8 +40,9 @@ export default function Login() {
     return false
   }
 
-  const finishLogin = async (token: string) => {
+  const finishLogin = async (token: string, userId: string) => {
     setToken(token)
+    Taro.setStorageSync('userId', userId)
     await connectWs()
     Taro.showToast({
       title: '登录成功',
@@ -49,7 +51,7 @@ export default function Login() {
     })
 
     setTimeout(() => {
-      navigateAfterLogin()
+      navigateAfterLogin(userId)
     }, 300)
   }
 
@@ -65,14 +67,14 @@ export default function Login() {
         throw new Error('获取微信登录凭证失败')
       }
 
-      const { token } = await request<AuthResponse>({
+      const { token, user } = await request<AuthResponse>({
         url: '/api/auth/wechat',
         method: 'POST',
         data: { code: loginRes.code },
         needAuth: false,
       })
 
-      await finishLogin(token)
+      await finishLogin(token, user.id)
     } catch (error: any) {
       Taro.showToast({
         title: error?.message ?? '微信登录失败',
@@ -99,14 +101,14 @@ export default function Login() {
 
     setLoadingType('dev')
     try {
-      const { token } = await request<AuthResponse>({
+      const { token, user } = await request<AuthResponse>({
         url: '/api/auth/dev-login',
         method: 'POST',
         data: { phone: normalizedPhone },
         needAuth: false,
       })
 
-      await finishLogin(token)
+      await finishLogin(token, user.id)
     } catch (error: any) {
       Taro.showToast({
         title: error?.message ?? '开发登录失败',
