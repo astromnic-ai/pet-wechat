@@ -13,14 +13,23 @@ const EXAMPLE_LABELS = [
   "局部遮挡身体缺失",
 ];
 
-const EXAMPLE_IMAGES = [
-  require("@/assets/images/black-cat.png"),
-  require("@/assets/images/black-cat.png"),
+const CAT_EXAMPLE_IMAGES = [
+  require("@/assets/images/black cat 3.png"),
+  require("@/assets/images/black cat 3.png"),
   require("@/assets/images/pet-avatar-default.png"),
   require("@/assets/images/pet-avatar-default.png"),
 ];
 
-const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
+const DOG_EXAMPLE_IMAGES = [
+  require("@/assets/images/husky.png"),
+  require("@/assets/images/husky.png"),
+  require("@/assets/images/pet-avatar-default.png"),
+  require("@/assets/images/pet-avatar-default.png"),
+];
+
+const DEFAULT_CAT_IMAGE = require("@/assets/images/black cat 3.png");
+const DEFAULT_DOG_IMAGE = require("@/assets/images/husky.png");
+const PHOTO_PLACEHOLDER_IMAGE = require("@/assets/images/pet-avatar-default.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 function parseQuota(value?: string) {
@@ -35,6 +44,14 @@ function getSpeciesLabel(species: Pet["species"]) {
 function getPetSummary(pet: Pet | null) {
   if (!pet) return "";
   return [pet.name, pet.breed || getSpeciesLabel(pet.species)].filter(Boolean).join(" ");
+}
+
+function getSpeciesExamples(species: Pet["species"] | undefined) {
+  return species === "dog" ? DOG_EXAMPLE_IMAGES : CAT_EXAMPLE_IMAGES;
+}
+
+function getSpeciesAvatar(species: Pet["species"] | undefined) {
+  return species === "dog" ? DEFAULT_DOG_IMAGE : DEFAULT_CAT_IMAGE;
 }
 
 export default function PetAvatar() {
@@ -143,6 +160,10 @@ export default function PetAvatar() {
     Taro.switchTab({ url: "/pages/index/index" });
   };
 
+  const exampleImages = getSpeciesExamples(pet?.species);
+  const summaryImage = getSpeciesAvatar(pet?.species);
+  const previewImage = images[0] || "";
+
   return (
     <View className="pet-avatar-page">
       <PageBack />
@@ -159,7 +180,7 @@ export default function PetAvatar() {
         <View className="pet-summary">
           <Image
             className="pet-summary-image"
-            src={DEFAULT_PET_IMAGE}
+            src={summaryImage}
             mode="aspectFit"
           />
           {pet ? <Text className="pet-summary-text">{getPetSummary(pet)}</Text> : null}
@@ -171,7 +192,7 @@ export default function PetAvatar() {
             <View key={label} className="example-item">
               <Image
                 className="example-image"
-                src={EXAMPLE_IMAGES[index]}
+                src={exampleImages[index]}
                 mode="aspectFit"
               />
               <Text className="example-label">{label}</Text>
@@ -183,16 +204,13 @@ export default function PetAvatar() {
 
         <View className="upload-box">
           <Image
-            className="upload-icon"
-            src={require("@/assets/images/upload-icon.png")}
-            mode="aspectFit"
+            className={`upload-preview ${previewImage ? "upload-preview--selected" : ""}`}
+            src={previewImage || PHOTO_PLACEHOLDER_IMAGE}
+            mode={previewImage ? "aspectFill" : "aspectFit"}
           />
           <View className="upload-trigger" onClick={handleChooseImage}>
             <Text className="upload-trigger-text">点击上传照片</Text>
           </View>
-          {images.length > 0 && (
-            <Image className="preview-image" src={images[0]} mode="aspectFill" />
-          )}
           <Text className="quota-text">当前定制额度（{quota.remaining}/{quota.total}）</Text>
         </View>
 

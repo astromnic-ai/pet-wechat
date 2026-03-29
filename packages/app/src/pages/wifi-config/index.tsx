@@ -160,14 +160,13 @@ export default function WifiConfig() {
           <View className="network-placeholder" />
         </View>
 
-        <View className="selected-network-card" onClick={handleConfigure}>
+        <View className="selected-network-card">
           {manualInput ? (
             <Input
               className="selected-network-name"
               placeholder="输入 WiFi 名称"
               value={ssid}
               onInput={(e) => setSsid(e.detail.value)}
-              onConfirm={handleConfigure}
             />
           ) : (
             <Text className="selected-network-name">
@@ -180,15 +179,17 @@ export default function WifiConfig() {
             placeholder="输入密码"
             value={password}
             onInput={(e) => setPassword(e.detail.value)}
-            onConfirm={handleConfigure}
           />
           <Text className="selected-network-tip">
             {loading
               ? "配置中..."
               : manualInput
-                ? "输入网络名称和密码后点击此区域继续"
-                : "输入密码后点击此区域继续"}
+                ? "输入网络名称和密码后，点击确认按钮继续"
+                : "输入密码后，点击确认按钮继续"}
           </Text>
+          <View className="confirm-btn" onClick={handleConfigure}>
+            <Text className="confirm-btn-text">{loading ? "配置中..." : "确认连接"}</Text>
+          </View>
         </View>
       </View>
 

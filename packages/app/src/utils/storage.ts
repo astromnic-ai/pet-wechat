@@ -14,10 +14,20 @@ export function setUserInfo(user: any) {
 }
 
 export function isFirstLogin(userId: string): boolean {
-  return !Taro.getStorageSync(`hasCompletedGuide_${userId}`) && !Taro.getStorageSync("hasCompletedGuide");
+  return !Taro.getStorageSync(`hasCompletedGuide_${userId}`);
+}
+
+export function hasCompletedGuide(): boolean {
+  const userId = Taro.getStorageSync("userId");
+  return Boolean(userId && Taro.getStorageSync(`hasCompletedGuide_${userId}`));
 }
 
 export function markGuideCompleted() {
   const userId = Taro.getStorageSync("userId");
-  if (userId) Taro.setStorageSync(`hasCompletedGuide_${userId}`, "1");
+  if (userId) {
+    Taro.setStorageSync(`hasCompletedGuide_${userId}`, "1");
+  }
+  // Clean up the legacy global flag so different test accounts don't
+  // accidentally skip the first-time device-selection flow.
+  Taro.removeStorageSync("hasCompletedGuide");
 }

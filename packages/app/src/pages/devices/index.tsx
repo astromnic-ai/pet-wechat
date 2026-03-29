@@ -1,4 +1,4 @@
-import { View, Text, Image, ScrollView, Button } from "@tarojs/components";
+import { View, Text, Image, ScrollView, Button, Input } from "@tarojs/components";
 import Taro, { useDidShow, useShareAppMessage } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
@@ -83,6 +83,8 @@ export default function Devices() {
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopWithBindings[]>([]);
+  const [editingCollarName, setEditingCollarName] = useState(false);
+  const [collarNameDraft, setCollarNameDraft] = useState("");
   const mountedRef = useRef(true);
   const sharePetIdRef = useRef("");
 
@@ -154,9 +156,15 @@ export default function Devices() {
       pet,
       status,
       collar: collars.find((item) => item.petId === pet.id) ?? null,
-      desktops: desktops.filter((desktop) =>
-        desktop.bindings.some((binding) => binding.petId === pet.id)
-      ),
+      desktops: desktops.filter((desktop) => {
+        if (desktop.bindings.some((binding) => binding.petId === pet.id)) {
+          return true;
+        }
+
+        // Development fallback: if bindings are missing from API, still show owned desktops
+        // so device management remains visible instead of rendering empty.
+        return status === "owner" && desktop.bindings.length === 0;
+      }),
     }));
   }, [authorizedPets, collars, desktops, pets]);
 
@@ -181,6 +189,11 @@ export default function Devices() {
     () => petTabs.find((item) => item.id === selectedPetId) ?? petTabs[0] ?? null,
     [petTabs, selectedPetId]
   );
+
+  useEffect(() => {
+    setEditingCollarName(false);
+    setCollarNameDraft(selectedPet?.collar?.name || "");
+  }, [selectedPet?.id, selectedPet?.collar?.name]);
 
   useEffect(() => {
     if (selectedPet?.status === "owner") {
@@ -231,6 +244,30 @@ export default function Devices() {
   const handleAction = (type: "delete" | "unbind") => {
     const text = type === "delete" ? "删除设备" : "解绑设备";
     Taro.showToast({ title: text, icon: "none" });
+  };
+
+  const handleSaveCollarName = async () => {
+    const activeCollar = selectedPet?.collar;
+    if (!activeCollar) return;
+
+    const nextName = collarNameDraft.trim();
+    if (!nextName) {
+      Taro.showToast({ title: "请输入项圈名称", icon: "none" });
+      return;
+    }
+
+    try {
+      const { collar } = await request<{ collar: CollarDevice }>({
+        url: `/api/devices/collars/${activeCollar.id}`,
+        method: "PUT",
+        data: { name: nextName },
+      });
+      setCollars((prev) => prev.map((item) => (item.id === collar.id ? collar : item)));
+      setEditingCollarName(false);
+      Taro.showToast({ title: "已更新名称", icon: "success" });
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || "修改失败", icon: "none" });
+    }
   };
 
   if (!selectedPet) {
@@ -303,8 +340,25 @@ export default function Devices() {
               <Image className="collar-icon" src={COLLAR_ICON} mode="aspectFit" />
               <View className="collar-main">
                 <View className="collar-name-row">
-                  <Text className="collar-name">{activeCollar?.name || "暂无项圈设备"}</Text>
-                  {selectedPet.status === "owner" ? <Text className="edit-icon">✎</Text> : null}
+                  {editingCollarName ? (
+                    <>
+                      <Input
+                        className="collar-name-input"
+                        value={collarNameDraft}
+                        placeholder="输入项圈名称"
+                        onInput={(e) => setCollarNameDraft(e.detail.value)}
+                        onConfirm={handleSaveCollarName}
+                      />
+                      <Text className="edit-icon save-icon" onClick={handleSaveCollarName}>保存</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text className="collar-name">{activeCollar?.name || "暂无项圈设备"}</Text>
+                      {selectedPet.status === "owner" ? (
+                        <Text className="edit-icon" onClick={() => setEditingCollarName(true)}>✎</Text>
+                      ) : null}
+                    </>
+                  )}
                 </View>
                 <View className="collar-meta">
                   <View className="status-wrap">

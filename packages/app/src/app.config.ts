@@ -1,5 +1,4 @@
 export default defineAppConfig({
-  lazyCodeLoading: "requiredComponents",
   pages: [
     "pages/splash/index",
     "pages/index/index",

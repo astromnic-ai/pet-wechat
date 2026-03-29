@@ -4,6 +4,10 @@ import {
   HeadBucketCommand,
   CreateBucketCommand,
 } from "@aws-sdk/client-s3";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT ?? "http://localhost:9000",
@@ -16,6 +20,7 @@ const s3 = new S3Client({
 });
 
 export const BUCKET = process.env.S3_BUCKET ?? "pet-uploads";
+const LOCAL_STORAGE_ROOT = path.resolve(process.cwd(), "storage");
 let ensureBucketPromise: Promise<void> | null = null;
 
 export async function ensureBucket(): Promise<void> {
@@ -51,6 +56,14 @@ export async function uploadFile(
   body: Buffer | Uint8Array,
   contentType: string,
 ): Promise<string> {
+  if (process.env.ENABLE_DEV_LOGIN === "true") {
+    const targetPath = path.join(LOCAL_STORAGE_ROOT, key);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, body);
+    const baseUrl = process.env.APP_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 9527}`;
+    return `${baseUrl}/storage/${key}`;
+  }
+
   await ensureBucket();
   await s3.send(
     new PutObjectCommand({

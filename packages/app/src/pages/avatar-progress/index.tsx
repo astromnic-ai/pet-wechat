@@ -14,15 +14,6 @@ import "./index.scss";
 
 const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
 
-function getSpeciesLabel(species: Pet["species"]) {
-  return species === "cat" ? "猫咪" : "狗狗";
-}
-
-function getPetSummary(pet: Pet | null) {
-  if (!pet) return "";
-  return [pet.name, pet.breed || getSpeciesLabel(pet.species)].filter(Boolean).join(" ");
-}
-
 function getProgress(status: AvatarStatus) {
   if (status === "done") return 100;
   if (status === "processing") return 72;
@@ -143,8 +134,6 @@ export default function AvatarProgress() {
     : require("@/assets/images/success-icon.png");
 
   const ringColor = isFailed ? "#ff4d4f" : "#07c160";
-  const petSummary = getPetSummary(pet);
-
   const handleConfigDesktop = () => {
     Taro.navigateTo({ url: "/pages/desktop-bind/index" });
   };
@@ -236,8 +225,6 @@ export default function AvatarProgress() {
             <Text className="preview-label">结果生成后将在这里展示</Text>
           </View>
         )}
-
-        {petSummary ? <Text className="pet-summary-text">{petSummary}</Text> : null}
 
         <View className="bottom-actions">
           <View className="bottom-btn" onClick={handleConfigDesktop}>

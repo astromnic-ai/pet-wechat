@@ -86,7 +86,7 @@ export async function request<T = any>(options: RequestOptions): Promise<T> {
 
   if (res.statusCode === 401) {
     clearToken();
-    Taro.redirectTo({ url: "/pages/login/index" });
+    Taro.reLaunch({ url: "/pages/login/index" });
     throw new Error("登录已过期，请重新登录");
   }
 
@@ -127,7 +127,7 @@ export async function uploadFile<T = any>(options: UploadFileOptions): Promise<T
 
   if (res.statusCode === 401) {
     clearToken();
-    Taro.redirectTo({ url: "/pages/login/index" });
+    Taro.reLaunch({ url: "/pages/login/index" });
     throw new Error("登录已过期，请重新登录");
   }
 

@@ -2,6 +2,7 @@ import type { Serve } from "bun";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import path from "node:path";
 import { authMiddleware } from "./middleware/auth";
 import { adminMiddleware } from "./middleware/admin";
 import { verifyToken } from "./middleware/auth";
@@ -28,6 +29,17 @@ export function createApp() {
 
   app.get("/", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
   app.get("/health", (c) => c.json({ status: "ok" }));
+  app.get("/storage/*", async (c) => {
+    const relativePath = c.req.path.replace(/^\/storage\//, "");
+    const filePath = path.resolve(process.cwd(), "storage", relativePath);
+    const file = Bun.file(filePath);
+
+    if (!(await file.exists())) {
+      return c.json({ error: "文件不存在" }, 404);
+    }
+
+    return new Response(file);
+  });
 
   // 公开路由（登录接口 + 邀请预览）
   app.route("/api/auth", authRoute);

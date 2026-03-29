@@ -2,6 +2,7 @@ import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { ICON_CHECK_GREEN, ICON_ERROR_RED } from "../../assets/icons";
 import PageBack from "../../components/PageBack";
+import { markGuideCompleted } from "../../utils/storage";
 import "./index.scss";
 
 export default function WifiResult() {
@@ -44,6 +45,8 @@ export default function WifiResult() {
     }
 
     if (stage === "config") {
+      markGuideCompleted();
+
       if (deviceType === "collar") {
         const nextCollarId = collarId || deviceId || "";
         Taro.navigateTo({ url: `/pages/pet-info/index?collarId=${nextCollarId}` });

@@ -114,9 +114,17 @@
   align-items: center;
 }
 
-.upload-icon {
-  width: 84rpx;
-  height: 84rpx;
+.upload-preview {
+  width: 420rpx;
+  height: 420rpx;
+  border-radius: 16rpx;
+  background: #e5e5e5;
+  padding: 18rpx;
+  box-sizing: border-box;
+}
+
+.upload-preview--selected {
+  padding: 0;
 }
 
 .upload-trigger {
@@ -133,13 +141,6 @@
 .upload-trigger-text {
   font-size: 24rpx;
   color: #000000;
-}
-
-.preview-image {
-  width: 140rpx;
-  height: 140rpx;
-  border-radius: 16rpx;
-  margin-bottom: 10rpx;
 }
 
 .quota-text {

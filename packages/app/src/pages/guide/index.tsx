@@ -11,12 +11,10 @@ export default function Guide() {
   }
 
   const handleCollarSetup = () => {
-    markGuideCompleted()
     Taro.navigateTo({ url: '/pages/collar-bind/index' })
   }
 
   const handleDesktopSetup = () => {
-    markGuideCompleted()
     Taro.navigateTo({ url: '/pages/desktop-bind/index' })
   }
 

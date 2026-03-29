@@ -5,6 +5,7 @@ import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
 import type { CollarDevice, DesktopDevice, Pet } from "@pet-wechat/shared";
 import QuickNav from "../../components/QuickNav";
+import { hasCompletedGuide } from "../../utils/storage";
 import "./index.scss";
 
 const ACTION_LABELS: Record<string, string> = {
@@ -130,6 +131,14 @@ export default function Index() {
       ]);
       setCollars(collarList);
       setDesktops(desktopList);
+
+      if (
+        collarList.length === 0 &&
+        desktopList.length === 0 &&
+        !hasCompletedGuide()
+      ) {
+        Taro.redirectTo({ url: "/pages/guide/index" });
+      }
     } catch {
       setCollars([]);
       setDesktops([]);
@@ -160,10 +169,6 @@ export default function Index() {
     }
 
     Taro.navigateTo({ url: "/pages/pet-info/index" });
-  };
-  const handleOpenPetAvatar = (pet: Pet | null) => {
-    if (!pet) return;
-    Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
   };
   const handleConfigCollar = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
   const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/desktop-bind/index" });
@@ -225,7 +230,7 @@ export default function Index() {
                 >
                   {petSlides.map((pet, index) => (
                     <SwiperItem key={pet?.id ?? `pet-${index}`}>
-                      <View className="pet-slide" onClick={() => handleOpenPetAvatar(pet)}>
+                      <View className="pet-slide">
                         <Image
                           className="pet-showcase"
                           src={pet?.avatarImageUrl || petHeroImage}
