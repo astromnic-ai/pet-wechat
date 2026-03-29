@@ -37,6 +37,7 @@ services:
     ports:
       - "9527:9527"
     environment:
+      NODE_ENV: production
       DATABASE_URL: postgresql://pet:pet123@postgres:5432/pet_wechat
       PORT: "9527"
       WX_APPID: ${WX_APPID}

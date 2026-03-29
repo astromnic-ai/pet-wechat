@@ -15,10 +15,10 @@ const s3 = new S3Client({
   forcePathStyle: true,
 });
 
-const BUCKET = process.env.S3_BUCKET ?? "pet-uploads";
+export const BUCKET = process.env.S3_BUCKET ?? "pet-uploads";
 let ensureBucketPromise: Promise<void> | null = null;
 
-async function ensureBucket(): Promise<void> {
+export async function ensureBucket(): Promise<void> {
   if (!ensureBucketPromise) {
     ensureBucketPromise = (async () => {
       try {
