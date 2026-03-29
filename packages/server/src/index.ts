@@ -17,6 +17,7 @@ import meRoute from "./routes/me";
 import debugRoute from "./routes/debug";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
+import { runPreflight } from "./preflight";
 import { wsHandler, type WsConnectionData } from "./ws";
 
 export function createApp() {
@@ -52,9 +53,18 @@ export function createApp() {
 }
 
 const app = createApp();
-
 const port = Number(process.env.PORT ?? 9527);
-console.log(`Server running on http://localhost:${port}`);
+
+if (import.meta.main) {
+  try {
+    await runPreflight();
+    console.log(`Server running on http://localhost:${port}`);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    console.error("启动预检失败，服务退出");
+    process.exit(1);
+  }
+}
 
 export default {
   port,
