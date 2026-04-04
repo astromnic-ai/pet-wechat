@@ -181,6 +181,10 @@ export default function PetInfo() {
   const avatarCardImage =
     avatarPreviewUrl || (species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png"));
 
+  const renderAddModeSectionTitle = (title: string) => (
+    <Text className="add-mode-section-title">{title}</Text>
+  );
+
   const renderTextField = (
     label: string,
     value: string,
@@ -228,9 +232,20 @@ export default function PetInfo() {
   };
 
   return (
-    <View className="pet-info-page">
-      <PageBack />
-      <Text className="brand">YEHEY</Text>
+    <View className={`pet-info-page ${isEditMode ? "pet-info-page--detail" : "pet-info-page--create"}`}>
+      {isEditMode ? (
+        <>
+          <PageBack />
+          <Text className="brand">YEHEY</Text>
+        </>
+      ) : (
+        <View className="create-header">
+          <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) })}>
+            <Text className="create-header-back-icon">←</Text>
+          </View>
+          <Text className="create-header-title">添加宠物</Text>
+        </View>
+      )}
 
       <View className="main-card">
         {isEditMode ? (
@@ -241,7 +256,7 @@ export default function PetInfo() {
             </View>
           </View>
         ) : (
-          <Text className="page-title">录入宠物信息</Text>
+          <Text className="page-title page-title--create">添加宠物</Text>
         )}
 
         {isEditMode ? (
@@ -276,6 +291,7 @@ export default function PetInfo() {
 
         {isEditMode ? null : (
           <>
+            {renderAddModeSectionTitle("宠物类型")}
             <View className="species-showcase">
               <View
                 className={`species-face ${species === "cat" ? "active" : ""}`}
@@ -286,8 +302,8 @@ export default function PetInfo() {
                   src={require("@/assets/images/black cat 3.png")}
                   mode="aspectFit"
                 />
+                <Text className="species-face-label">猫</Text>
               </View>
-              <Text className="species-or">or</Text>
               <View
                 className={`species-face ${species === "dog" ? "active" : ""}`}
                 onClick={() => setSpecies("dog")}
@@ -297,6 +313,10 @@ export default function PetInfo() {
                   src={require("@/assets/images/husky.png")}
                   mode="aspectFit"
                 />
+                <Text className="species-face-label">狗</Text>
+              </View>
+              <View className="species-face species-face--disabled">
+                <Text className="species-other-label">其他</Text>
               </View>
             </View>
 
@@ -304,9 +324,12 @@ export default function PetInfo() {
           </>
         )}
 
+        {!isEditMode ? renderAddModeSectionTitle("宠物名字") : null}
         {renderTextField("宠物名字", name, setName, "宠物名字", { required: true })}
+        {!isEditMode ? renderAddModeSectionTitle("宠物品种") : null}
         {renderTextField("宠物品种", breed, setBreed, "宠物品种", { required: true })}
 
+        {!isEditMode ? renderAddModeSectionTitle("性别") : null}
         <View className="gender-row">
           <View
             className={`gender-btn ${gender === "male" ? "active" : ""}`}
@@ -322,7 +345,9 @@ export default function PetInfo() {
           </View>
         </View>
 
+        {!isEditMode ? renderAddModeSectionTitle("出生日期") : null}
         {renderTextField("出生日期", birthday, setBirthday, "出生日期")}
+        {!isEditMode ? renderAddModeSectionTitle("体重") : null}
         {renderTextField("体重（kg）", weight, setWeight, "体重（kg）", { type: "number" })}
 
         {isEditMode ? (
@@ -353,21 +378,13 @@ export default function PetInfo() {
           <Text className="submit-btn-text">{loading ? "保存中..." : isEditMode ? "保存信息" : "保存，下一步"}</Text>
         </View>
       </View>
-
-      {isEditMode ? null : (
-        <View className="progress-track">
-          <View className="progress-segment" />
-          <View className="progress-segment" />
-          <View className="progress-segment active" />
-          <View className="progress-segment" />
-        </View>
-      )}
-
-      <Image
-        className="bottom-outline"
-        src={require("@/assets/images/pet-outline.png")}
-        mode="widthFix"
-      />
+      {isEditMode ? (
+        <Image
+          className="bottom-outline"
+          src={require("@/assets/images/pet-outline.png")}
+          mode="widthFix"
+        />
+      ) : null}
     </View>
   );
 }

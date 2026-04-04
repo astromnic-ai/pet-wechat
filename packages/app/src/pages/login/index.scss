@@ -1,141 +1,169 @@
 .login-page {
   min-height: 100vh;
-  background: #eaeaea;
+  background: #fff8f0;
+  box-sizing: border-box;
+  padding: 0 0 calc(env(safe-area-inset-bottom) + 24rpx);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  box-sizing: border-box;
-  padding: calc(env(safe-area-inset-top) + 48rpx) 25rpx calc(env(safe-area-inset-bottom) + 40rpx);
 }
 
-.logo {
-  font-size: 42rpx;
-  font-weight: 700;
-  color: #111111;
-  line-height: 1;
-  text-align: center;
-  margin-bottom: 40rpx;
-}
-
-.circle-box {
-  width: 600rpx;
-  height: 600rpx;
-  border-radius: 50%;
-  background: #ffffff;
+.hero-panel {
+  width: 100%;
+  height: 764rpx;
+  border-radius: 0 0 320rpx 320rpx;
+  background: linear-gradient(180deg, #ffd96b 0%, #ffda74 100%);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  margin-bottom: 48rpx;
-  overflow: hidden;
+  padding: calc(env(safe-area-inset-top) + 24rpx) 0 110rpx;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  clip-path: ellipse(88% 100% at 50% 0%);
 }
 
-.pet-img {
-  width: 400rpx;
-  height: 400rpx;
+.hero-text {
+  font-size: 44rpx;
+  line-height: 1.2;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.login-card {
+  width: 100%;
+  margin-top: 8rpx;
+  padding: 44rpx 24rpx 0;
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.welcome-title {
   display: block;
-}
-
-.title {
-  font-size: 42rpx;
-  font-weight: 700;
-  color: #111111;
-  line-height: 1.25;
   text-align: center;
-  margin-bottom: 44rpx;
+  font-size: 52rpx;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #1d1d1d;
+  margin-bottom: 64rpx;
 }
 
 .btn-box {
-  width: 700rpx;
   display: flex;
   flex-direction: column;
-  gap: 18rpx;
-  margin-bottom: 36rpx;
-}
-
-.dev-login-box {
-  display: flex;
-  flex-direction: column;
-  gap: 18rpx;
-}
-
-.dev-login-input {
-  width: 700rpx;
-  height: 88rpx;
-  border-radius: 20rpx;
-  background: #ffffff;
-  border: 2rpx solid #d9d9d9;
-  box-sizing: border-box;
-  padding: 0 28rpx;
-  font-size: 28rpx;
-  color: #111111;
+  gap: 22rpx;
 }
 
 .btn {
-  width: 700rpx;
-  height: 88rpx;
-  line-height: 88rpx;
-  border-radius: 20rpx;
-  font-size: 28rpx;
-  font-weight: 500;
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  border-radius: 32rpx;
+  font-size: 30rpx;
+  font-weight: 600;
   text-align: center;
+  box-shadow: 0 12rpx 24rpx rgba(255, 214, 113, 0.14);
 
   &::after {
     border: none;
   }
 }
 
-.btn-disabled {
-  background: #d9d9d9;
-  color: #111111;
+.btn-primary {
+  background: #ffd96b;
+  color: #3f3320;
 }
 
-.btn-normal {
+.btn-secondary {
   background: #ffffff;
-  color: #111111;
-  border: 2rpx solid #d9d9d9;
+  color: #303030;
+  border: 2rpx solid #ece7dc;
 }
 
 .agreement {
-  width: 700rpx;
-  display: flex;
-  flex-direction: column;
+  margin-top: 50rpx;
+}
+
+.dev-mode-tip {
+  display: block;
+  margin-top: 18rpx;
+  text-align: center;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: #b3a791;
 }
 
 .agreement-title {
+  display: block;
   text-align: center;
   font-size: 24rpx;
-  color: #111111;
   line-height: 1.5;
-  margin-bottom: 18rpx;
+  color: #69635d;
+  margin-bottom: 20rpx;
 }
 
 .agreement-item {
   display: flex;
   align-items: flex-start;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
-  font-size: 22rpx;
-  color: #111111;
-  line-height: 1.55;
+  gap: 14rpx;
+  margin-bottom: 18rpx;
 }
 
-.agreement-item checkbox {
-  transform: scale(0.72);
-  transform-origin: top left;
-  margin-top: 2rpx;
+.agreement-check {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 6rpx;
+  background: #ffffff;
+  border: 2rpx solid #ddd5c7;
+  flex-shrink: 0;
+  margin-top: 6rpx;
+
+  &.checked {
+    background: #ffd96b;
+    border-color: #ffd96b;
+  }
 }
 
-.agreement-item text {
+.agreement-text {
   flex: 1;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #5e5650;
 }
 
-.register {
-  width: 100%;
+.split-line {
   display: flex;
-  justify-content: center;
   align-items: center;
-  margin-top: 56rpx;
+  gap: 20rpx;
+  margin: auto 0 20rpx;
+  padding-top: 24rpx;
+}
+
+.split-divider {
+  flex: 1;
+  height: 2rpx;
+  background: #e6dfd4;
+}
+
+.split-text {
   font-size: 24rpx;
-  line-height: 1.5;
-  color: #333333;
+  color: #b4ab9a;
+}
+
+.register-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10rpx;
+  font-size: 24rpx;
+  padding-bottom: 20rpx;
+}
+
+.register-label {
+  color: #6f675f;
+}
+
+.register-link {
+  color: #347ff7;
+  font-weight: 600;
 }

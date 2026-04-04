@@ -13,6 +13,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
 
   &.active {
     background: #cfcfcf;
@@ -22,4 +23,11 @@
 .quick-nav-icon {
   width: 58rpx;
   height: 58rpx;
+}
+
+.quick-nav-label {
+  margin-top: 8rpx;
+  font-size: 20rpx;
+  line-height: 1;
+  color: #8d826b;
 }

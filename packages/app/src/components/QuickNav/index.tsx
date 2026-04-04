@@ -1,4 +1,4 @@
-import { View, Image } from "@tarojs/components";
+import { View, Image, Text } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import "./index.scss";
 
@@ -6,6 +6,7 @@ type QuickNavKey = "profile" | "data" | "settings";
 
 interface QuickNavProps {
   active?: QuickNavKey;
+  showLabels?: boolean;
 }
 
 function jumpTo(url: string, type: "tab" | "page") {
@@ -25,25 +26,28 @@ function jumpTo(url: string, type: "tab" | "page") {
   Taro.redirectTo({ url });
 }
 
-const ITEMS: Array<{ key: QuickNavKey; icon: string; action: () => void }> = [
+const ITEMS: Array<{ key: QuickNavKey; label: string; icon: string; action: () => void }> = [
   {
     key: "profile",
+    label: "我的",
     icon: require("@/assets/images/btn-user.png"),
     action: () => jumpTo("/pages/profile/index", "tab"),
   },
   {
     key: "data",
+    label: "记录",
     icon: require("@/assets/images/btn-data.png"),
     action: () => jumpTo("/pages/data/index", "page"),
   },
   {
     key: "settings",
+    label: "设置",
     icon: require("@/assets/images/btn-settings.png"),
     action: () => jumpTo("/pages/settings/index", "page"),
   },
 ];
 
-export default function QuickNav({ active }: QuickNavProps) {
+export default function QuickNav({ active, showLabels = false }: QuickNavProps) {
   return (
     <View className="quick-nav">
       {ITEMS.map((item) => (
@@ -56,6 +60,7 @@ export default function QuickNav({ active }: QuickNavProps) {
           }}
         >
           <Image className="quick-nav-icon" src={item.icon} mode="aspectFit" />
+          {showLabels ? <Text className="quick-nav-label">{item.label}</Text> : null}
         </View>
       ))}
     </View>

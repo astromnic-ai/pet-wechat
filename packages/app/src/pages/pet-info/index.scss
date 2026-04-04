@@ -5,6 +5,11 @@
   padding: calc(env(safe-area-inset-top) + 24rpx) 0 calc(env(safe-area-inset-bottom) + 20rpx);
 }
 
+.pet-info-page--create {
+  background: #fffaf1;
+  padding-top: calc(env(safe-area-inset-top) + 14rpx);
+}
+
 .brand {
   display: block;
   text-align: center;
@@ -13,6 +18,34 @@
   color: #000000;
   line-height: 1;
   margin-bottom: 12rpx;
+}
+
+.create-header {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 8rpx 32rpx 26rpx;
+}
+
+.create-header-back {
+  width: 56rpx;
+  height: 56rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-header-back-icon {
+  font-size: 42rpx;
+  color: #222222;
+  line-height: 1;
+}
+
+.create-header-title {
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #111111;
+  line-height: 1;
 }
 
 .bottom-outline {
@@ -33,6 +66,14 @@
   z-index: 1;
 }
 
+.pet-info-page--create .main-card {
+  width: 100%;
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+  padding: 8rpx 30rpx 24rpx;
+}
+
 .page-title {
   display: block;
   text-align: center;
@@ -41,6 +82,10 @@
   color: #000000;
   line-height: 1.25;
   margin-bottom: 24rpx;
+}
+
+.page-title--create {
+  display: none;
 }
 
 .page-title-row {
@@ -139,54 +184,81 @@
 .species-showcase {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 34rpx;
+  justify-content: space-between;
+  gap: 18rpx;
 }
 
 .species-face {
-  width: 150rpx;
-  height: 150rpx;
+  width: 212rpx;
+  height: 162rpx;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  border-radius: 20rpx;
+  border-radius: 28rpx;
+  border: 2rpx solid #e8e1d6;
+  background: #ffffff;
   transition: background-color 0.2s ease;
 
   &.active {
-    background: #f1f1f1;
+    background: #ffd86f;
+    border-color: #ffd86f;
   }
 }
 
 .species-avatar {
-  width: 128rpx;
-  height: 128rpx;
+  width: 110rpx;
+  height: 110rpx;
 }
 
-.species-or {
-  font-size: 44rpx;
-  color: #222222;
-  line-height: 1;
+.species-face-label,
+.species-other-label {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #444444;
+  line-height: 1.2;
+}
+
+.species-face--disabled {
+  justify-content: center;
+}
+
+.species-other-label {
+  margin-top: 0;
+  font-size: 34rpx;
+  color: #666666;
 }
 
 .species-tip {
   display: block;
-  text-align: center;
-  font-size: 28rpx;
-  color: #333333;
+  text-align: left;
+  font-size: 22rpx;
+  color: #999999;
   line-height: 1.45;
-  margin: 16rpx 0 20rpx;
+  margin: 16rpx 0 24rpx;
+}
+
+.add-mode-section-title {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #666666;
+  line-height: 1.2;
+  margin: 18rpx 0 12rpx;
 }
 
 .single-input {
   width: 100%;
-  height: 72rpx;
-  background: #f0f0f0;
-  border-radius: 16rpx;
-  padding: 0 22rpx;
+  height: 104rpx;
+  background: #ffffff;
+  border: 2rpx solid #ece5d9;
+  border-radius: 30rpx;
+  padding: 0 28rpx;
   box-sizing: border-box;
-  font-size: 24rpx;
+  font-size: 28rpx;
   color: #000000;
-  margin-bottom: 14rpx;
+  margin-bottom: 10rpx;
 }
 
 .required-input {
@@ -194,15 +266,15 @@
 }
 
 .single-input--required {
-  padding-right: 84rpx;
+  padding-right: 110rpx;
 }
 
 .required-text {
   position: absolute;
   top: 50%;
-  right: 24rpx;
+  right: 30rpx;
   transform: translateY(-50%);
-  font-size: 20rpx;
+  font-size: 24rpx;
   color: #8d8d8d;
   line-height: 1;
 }
@@ -261,7 +333,7 @@
   display: flex;
   justify-content: space-between;
   gap: 20rpx;
-  margin-bottom: 14rpx;
+  margin-bottom: 10rpx;
 }
 
 .main-card .gender-row {
@@ -274,15 +346,15 @@
 
 .gender-btn {
   flex: 1;
-  height: 72rpx;
-  border-radius: 16rpx;
-  background: #f0f0f0;
+  height: 88rpx;
+  border-radius: 26rpx;
+  background: #f3f3f3;
   display: flex;
   align-items: center;
   justify-content: center;
 
   &.active {
-    background: #e6e6e6;
+    background: #5b98ef;
   }
 }
 
@@ -292,16 +364,21 @@
 }
 
 .gender-text {
-  font-size: 24rpx;
-  color: #222222;
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #4b4b4b;
+}
+
+.gender-btn.active .gender-text {
+  color: #ffffff;
 }
 
 .device-row {
   width: 100%;
-  min-height: 72rpx;
-  background: #f0f0f0;
-  border-radius: 16rpx;
-  padding: 0 18rpx;
+  min-height: 88rpx;
+  background: #f3f3f3;
+  border-radius: 26rpx;
+  padding: 0 22rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -317,7 +394,7 @@
 
 .device-prefix,
 .device-value {
-  font-size: 20rpx;
+  font-size: 24rpx;
   color: #222222;
   line-height: 1.4;
 }
@@ -333,23 +410,23 @@
 
 .submit-btn {
   width: 100%;
-  height: 74rpx;
-  border-radius: 44rpx;
-  background: #ffffff;
-  box-shadow: 0 8rpx 24rpx rgba(0, 0, 0, 0.08);
+  height: 96rpx;
+  border-radius: 999rpx;
+  background: #5b98ef;
   display: flex;
   align-items: center;
   justify-content: center;
+  margin-top: 26rpx;
 }
 
 .submit-btn--disabled {
-  opacity: 0.45;
+  opacity: 0.55;
 }
 
 .submit-btn-text {
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: 600;
-  color: #222222;
+  color: #ffffff;
 }
 
 .progress-track {
@@ -358,6 +435,10 @@
   justify-content: space-between;
   gap: 10rpx;
   margin: 28rpx auto 0;
+}
+
+.pet-info-page--create .progress-track {
+  margin-top: 34rpx;
 }
 
 .progress-segment {

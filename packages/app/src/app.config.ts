@@ -15,6 +15,7 @@ export default defineAppConfig({
     { root: "pages/pet-info", pages: ["index"] },
     { root: "pages/pet-avatar", pages: ["index"] },
     { root: "pages/avatar-progress", pages: ["index"] },
+    { root: "pages/register", pages: ["index"] },
     { root: "pages/desktop-bind", pages: ["index"] },
     { root: "pages/desktop-pair", pages: ["index"] },
     { root: "pages/data", pages: ["index"] },
