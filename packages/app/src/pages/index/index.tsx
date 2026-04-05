@@ -144,12 +144,12 @@ export default function Index() {
     return collars.find((item) => item.petId === currentPet.id) ?? collars[0] ?? null;
   }, [collars, currentPet]);
   const activeDesktop = desktops[0] ?? null;
-  const onlineDesktopCount = desktops.filter((item) => item.status === "online").length;
+  const primaryManagedDevice = activeDesktop ?? activeCollar;
+  const primaryManagedDeviceLabel = activeDesktop ? "累计在线366天" : activeCollar ? `${activeCollar.status === "online" ? "在线" : "离线"}${activeCollar.battery ? ` · ${activeCollar.battery}%` : ""}` : "";
   const hasManagedDevices = Boolean(activeCollar || activeDesktop);
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
-  const activity = currentPet?.activityScore ?? 0;
-  const activityHeight = `${Math.max(18, Math.min(activity, 100))}%`;
-  const bubbleText = getBubbleText(currentPet);
+  const hasCompletePetProfile = Boolean(currentPet?.name?.trim() && currentPet?.breed?.trim());
+  const bubbleText = currentPet ? "在家开水龙头喝水？" : "点击开始创建宠物";
   const petHeroImage = currentPet?.avatarImageUrl || require("@/assets/images/pet-collar.png");
   const petSubtitle = hasPet
     ? currentPet?.breed || "蓝灰色的小煤球"
@@ -157,13 +157,16 @@ export default function Index() {
 
   const handleAddPet = () => Taro.navigateTo({ url: "/pages/pet-info/index" });
   const handleOpenPetInfo = () => {
-    if (hasPet) {
+    if (hasPet && hasCompletePetProfile) {
       if (!currentPet) return;
       Taro.navigateTo({ url: `/pages/pet-info/index?petId=${currentPet.id}` });
       return;
     }
 
-    Taro.navigateTo({ url: "/pages/pet-info/index" });
+    const incompletePetId = currentPet?.id;
+    Taro.navigateTo({
+      url: incompletePetId ? `/pages/pet-info/index?petId=${incompletePetId}&edit=1` : "/pages/pet-info/index",
+    });
   };
   const handleConfigCollar = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
   const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/desktop-bind/index" });
@@ -194,24 +197,6 @@ export default function Index() {
     <View className="home-page">
       <Text className="home-brand">YEHEY</Text>
 
-      {hasPet ? (
-        <View className="activity-column">
-          <View className="activity-dot" />
-          <View className="activity-bar">
-            <View className="activity-fill" style={{ height: activityHeight }} />
-          </View>
-          <Text className="activity-label">活跃值</Text>
-          <View className="activity-bell-wrap" onClick={handleOpenMessages}>
-            <Image
-              className="activity-bell"
-              src={require("@/assets/images/bell-icon.png")}
-              mode="aspectFit"
-            />
-            {unreadCount > 0 ? <View className="activity-bell-dot" /> : null}
-          </View>
-        </View>
-      ) : null}
-
       <View className="home-content">
         <View className="hero-header">
           <View className="top-card" onClick={handleOpenPetInfo}>
@@ -230,11 +215,15 @@ export default function Index() {
               <Text className="pet-name">{hasPet ? currentPet?.name ?? "" : "宠物的昵称"}</Text>
               <Text className="pet-subtitle">{petSubtitle}</Text>
             </View>
-            {!hasPet ? (
-              <View className="top-card-plus">
-                <Text className="top-card-plus-text">+</Text>
-              </View>
-            ) : null}
+            <View
+              className="top-card-plus"
+              onClick={(e) => {
+                e.stopPropagation?.();
+                handleAddPet();
+              }}
+            >
+              <Text className="top-card-plus-text">+</Text>
+            </View>
           </View>
 
           <View className="message-button" onClick={handleOpenMessages}>
@@ -299,70 +288,53 @@ export default function Index() {
           )}
         </View>
 
-        {!isCompletelyEmpty ? (
-          <View className="device-card">
-            <View className="device-card-header">
-              <Text className="device-card-title">设备管理</Text>
-              {hasManagedDevices ? (
-                <View className="device-badge">
-                  <Text className="device-badge-text">已连接</Text>
-                </View>
-              ) : null}
-            </View>
-            <View className="device-main-grid">
-              <View className="device-option" onClick={handleConfigCollar}>
-                <View className="device-icon-wrap">
-                  <Image
-                    className="device-icon"
-                    src={require("@/assets/images/collar-icon.png")}
-                    mode="aspectFit"
-                  />
-                </View>
-                <Text className="device-name">
-                  {activeCollar ? activeCollar.name || "项圈" : "点击此处配置项圈"}
-                </Text>
-                <Text className="device-text">
-                  {activeCollar
-                    ? `${activeCollar.status === "online" ? "在线" : "离线"}${activeCollar.battery ? ` · ${activeCollar.battery}%` : ""}`
-                    : "立即完成真实宠物连接"}
-                </Text>
-              </View>
-              <View className="device-option" onClick={handleConfigDesktop}>
-                <View className="device-icon-wrap">
-                  <Image
-                    className="device-icon"
-                    src={require("@/assets/images/desktop-icon.png")}
-                    mode="aspectFit"
-                  />
-                </View>
-                <Text className="device-name">
-                  {activeDesktop ? activeDesktop.name || "桌面端" : "点击此处配置桌面端"}
-                </Text>
-                <Text className="device-text">
-                  {activeDesktop ? `${onlineDesktopCount}个在线设备` : "开启毛毛的大House"}
-                </Text>
-              </View>
-            </View>
-            {hasManagedDevices ? (
-              <View className="device-manage" onClick={handleManageDevices}>
-                <Text className="device-manage-text">›</Text>
-              </View>
-            ) : null}
+        <View className="mode-card" onClick={handleOpenRecords}>
+          <Text className="mode-card-title">宠物家庭活动模式</Text>
+          <View className="mode-card-meta">
+            <Text className="mode-card-caption">当前</Text>
+            <Text className="mode-card-status">系统自由模式</Text>
+            <Text className="mode-card-arrow">›</Text>
           </View>
-        ) : (
-          <>
-            <View className="mode-card" onClick={handleOpenRecords}>
-              <Text className="mode-card-title">宠物活动模式</Text>
-              <Text className="mode-card-arrow">›</Text>
-            </View>
+        </View>
 
-            <View className="device-card empty-device-card">
-              <Text className="device-empty-title">设备管理</Text>
-              <View className="device-plus-box" onClick={handleAddDevice}>
-                <Text className="device-plus-icon">+</Text>
-              </View>
+        {hasPet && (
+          <>
+            <View className="device-card managed-device-card" onClick={hasManagedDevices ? handleManageDevices : handleAddDevice}>
+              <Text className="device-card-title visible">设备管理</Text>
+              {hasManagedDevices ? (
+                <View className="managed-device-row">
+                  <View className="device-icon-wrap managed">
+                    <Image
+                      className="device-icon"
+                      src={activeDesktop ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}
+                      mode="aspectFit"
+                    />
+                  </View>
+                  <View className="managed-device-main">
+                    <Text className="managed-device-name">{primaryManagedDevice?.name || "毛毛的大House"}</Text>
+                    <Text className="managed-device-text">{primaryManagedDeviceLabel}</Text>
+                  </View>
+                  <View className="managed-device-status">
+                    <Text className="managed-device-status-text">已连接</Text>
+                  </View>
+                  <Text className="device-manage-text">›</Text>
+                </View>
+              ) : (
+                <View className="device-plus-box managed-empty" onClick={handleAddDevice}>
+                  <Text className="device-plus-icon">+</Text>
+                </View>
+              )}
             </View>
           </>
+        )}
+
+        {!hasPet && (
+          <View className="device-card empty-device-card">
+            <Text className="device-empty-title">设备管理</Text>
+            <View className="device-plus-box" onClick={handleAddDevice}>
+              <Text className="device-plus-icon">+</Text>
+            </View>
+          </View>
         )}
 
         <View className="quick-nav-wrap">

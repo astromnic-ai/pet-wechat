@@ -72,6 +72,11 @@ export async function checkPostgres(): Promise<void> {
 }
 
 export async function checkMinio(): Promise<void> {
+  if (process.env.ENABLE_DEV_LOGIN === "true") {
+    console.log("ℹ️ 开发模式已启用，跳过 MinIO 检查");
+    return;
+  }
+
   const { BUCKET, ensureBucket } = await import("./utils/storage");
 
   try {

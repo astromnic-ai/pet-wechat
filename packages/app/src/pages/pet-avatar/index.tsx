@@ -6,52 +6,12 @@ import type { Pet, User } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-const EXAMPLE_LABELS = [
-  "完整正面露出尾巴",
-  "完整侧面面部清晰",
-  "光线不足面部模糊",
-  "局部遮挡身体缺失",
-];
-
-const CAT_EXAMPLE_IMAGES = [
-  require("@/assets/images/black cat 3.png"),
-  require("@/assets/images/black cat 3.png"),
-  require("@/assets/images/pet-avatar-default.png"),
-  require("@/assets/images/pet-avatar-default.png"),
-];
-
-const DOG_EXAMPLE_IMAGES = [
-  require("@/assets/images/husky.png"),
-  require("@/assets/images/husky.png"),
-  require("@/assets/images/pet-avatar-default.png"),
-  require("@/assets/images/pet-avatar-default.png"),
-];
-
-const DEFAULT_CAT_IMAGE = require("@/assets/images/black cat 3.png");
-const DEFAULT_DOG_IMAGE = require("@/assets/images/husky.png");
-const PHOTO_PLACEHOLDER_IMAGE = require("@/assets/images/pet-avatar-default.png");
+const PHOTO_PLACEHOLDER_IMAGE = require("@/assets/images/upload-icon.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 
 function parseQuota(value?: string) {
   const quota = Number(value);
   return Number.isFinite(quota) && quota >= 0 ? quota : null;
-}
-
-function getSpeciesLabel(species: Pet["species"]) {
-  return species === "cat" ? "猫咪" : "狗狗";
-}
-
-function getPetSummary(pet: Pet | null) {
-  if (!pet) return "";
-  return [pet.name, pet.breed || getSpeciesLabel(pet.species)].filter(Boolean).join(" ");
-}
-
-function getSpeciesExamples(species: Pet["species"] | undefined) {
-  return species === "dog" ? DOG_EXAMPLE_IMAGES : CAT_EXAMPLE_IMAGES;
-}
-
-function getSpeciesAvatar(species: Pet["species"] | undefined) {
-  return species === "dog" ? DEFAULT_DOG_IMAGE : DEFAULT_CAT_IMAGE;
 }
 
 export default function PetAvatar() {
@@ -160,58 +120,47 @@ export default function PetAvatar() {
     Taro.switchTab({ url: "/pages/index/index" });
   };
 
-  const exampleImages = getSpeciesExamples(pet?.species);
-  const summaryImage = getSpeciesAvatar(pet?.species);
   const previewImage = images[0] || "";
 
   return (
     <View className="pet-avatar-page">
       <PageBack />
-      <Text className="brand">YEHEY</Text>
-      <Image
-        className="outline-image"
-        src={require("@/assets/images/pet-outline.png")}
-        mode="widthFix"
-      />
+      <View className="upload-header">
+        <Text className="upload-page-title">上传您的宠物照片</Text>
+        <Text className="upload-page-subtitle">我们将为您生成专属的宠物定制形象</Text>
+      </View>
 
       <View className="main-card">
-        <Text className="card-title">定制宠物动态</Text>
-
-        <View className="pet-summary">
-          <Image
-            className="pet-summary-image"
-            src={summaryImage}
-            mode="aspectFit"
-          />
-          {pet ? <Text className="pet-summary-text">{getPetSummary(pet)}</Text> : null}
-        </View>
-
-        <Text className="example-title">图像上传示例：</Text>
-        <View className="example-row">
-          {EXAMPLE_LABELS.map((label, index) => (
-            <View key={label} className="example-item">
-              <Image
-                className="example-image"
-                src={exampleImages[index]}
-                mode="aspectFit"
-              />
-              <Text className="example-label">{label}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Text className="upload-tip">上传宠物照片，专属定制宠物动态图像</Text>
-
         <View className="upload-box">
-          <Image
-            className={`upload-preview ${previewImage ? "upload-preview--selected" : ""}`}
-            src={previewImage || PHOTO_PLACEHOLDER_IMAGE}
-            mode={previewImage ? "aspectFill" : "aspectFit"}
-          />
+          <View className={`upload-preview-wrap ${previewImage ? "upload-preview-wrap--selected" : ""}`}>
+            <Image
+              className={`upload-preview ${previewImage ? "upload-preview--selected" : ""}`}
+              src={previewImage || PHOTO_PLACEHOLDER_IMAGE}
+              mode={previewImage ? "aspectFill" : "aspectFit"}
+            />
+          </View>
+          <Text className="upload-box-title">点击上传或拍摄照片</Text>
+          <Text className="upload-box-subtitle">支持 JPG、PNG 格式，最大 10MB</Text>
           <View className="upload-trigger" onClick={handleChooseImage}>
             <Text className="upload-trigger-text">点击上传照片</Text>
           </View>
-          <Text className="quota-text">当前定制额度（{quota.remaining}/{quota.total}）</Text>
+          <Text className="quota-text">新用户免费定制{quota.total}次（{quota.remaining}/{quota.total}）</Text>
+        </View>
+
+        <View className="upload-tips-card">
+          <Text className="upload-tips-title">上传建议</Text>
+          <View className="upload-tip-item">
+            <View className="upload-tip-dot" />
+            <Text className="upload-tip-text">选择清晰、光线充足的照片</Text>
+          </View>
+          <View className="upload-tip-item">
+            <View className="upload-tip-dot" />
+            <Text className="upload-tip-text">宠物面部完整可见</Text>
+          </View>
+          <View className="upload-tip-item">
+            <View className="upload-tip-dot" />
+            <Text className="upload-tip-text">避免背景杂乱</Text>
+          </View>
         </View>
 
         <View className={`primary-action ${images.length === 0 ? "disabled" : ""}`} onClick={handleUpload}>
@@ -219,14 +168,10 @@ export default function PetAvatar() {
             {loading ? "上传中..." : "开始定制宠物动态图像"}
           </Text>
         </View>
-
-        <View className="secondary-action" onClick={handleSkip}>
-          <Text className="secondary-action-text">跳过，稍后再完成</Text>
-        </View>
       </View>
 
-      <View className="progress-track">
-        <View className="progress-fill progress-step-2" />
+      <View className="secondary-action" onClick={handleSkip}>
+        <Text className="secondary-action-text">跳过，稍后再完成</Text>
       </View>
     </View>
   );

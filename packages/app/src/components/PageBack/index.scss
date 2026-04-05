@@ -1,7 +1,7 @@
 .page-back {
   position: fixed;
   left: 24rpx;
-  top: calc(env(safe-area-inset-top) + 24rpx);
+  top: calc(env(safe-area-inset-top) + 20rpx);
   width: 72rpx;
   height: 72rpx;
   border-radius: 36rpx;
@@ -14,6 +14,6 @@
 }
 
 .page-back-icon {
-  width: 34rpx;
-  height: 34rpx;
+  width: 32rpx;
+  height: 32rpx;
 }

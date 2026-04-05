@@ -1,4 +1,4 @@
-import { View, Text, Image, Input } from "@tarojs/components";
+import { View, Text, Image, Input, Picker } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import { request } from "../../utils/request";
@@ -10,21 +10,25 @@ export default function PetInfo() {
   const router = useRouter();
   const petId = router.params.petId || router.params.id;
   const routeCollarId = router.params.collarId || router.params.deviceId || "";
+  const isEditFormMode = Boolean(petId && router.params.edit === "1");
 
   const [species, setSpecies] = useState<Species>("cat");
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [birthday, setBirthday] = useState("");
   const [weight, setWeight] = useState("");
+  const [age, setAge] = useState("");
+  const [personality, setPersonality] = useState("");
   const [gender, setGender] = useState<Gender>("male");
   const [collarId, setCollarId] = useState(routeCollarId);
   const [collarDisplayName, setCollarDisplayName] = useState("");
   const [avatarId, setAvatarId] = useState("");
   const [avatarStatus, setAvatarStatus] = useState<AvatarStatus | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
+  const [avatarActions, setAvatarActions] = useState<PetAvatarAction[]>([]);
   const [loading, setLoading] = useState(false);
   const canSubmit = name.trim().length > 0 && breed.trim().length > 0 && !loading;
-  const isEditMode = Boolean(petId);
+  const isDetailMode = Boolean(petId) && !isEditFormMode;
 
   useDidShow(() => {
     if (routeCollarId) {
@@ -63,6 +67,7 @@ export default function PetInfo() {
       setAvatarId("");
       setAvatarStatus(null);
       setAvatarPreviewUrl("");
+      setAvatarActions([]);
       return;
     }
 
@@ -73,6 +78,7 @@ export default function PetInfo() {
     setAvatarId(latestAvatar.id);
     setAvatarStatus(latestAvatar.status);
     setAvatarPreviewUrl(latestAvatar.sourceImageUrl || latestActions[0]?.imageUrl || "");
+    setAvatarActions(latestActions);
   };
 
   const loadPet = async () => {
@@ -127,7 +133,7 @@ export default function PetInfo() {
       };
       let pet: Pet;
 
-      if (petId) {
+    if (petId) {
         const res = await request<{ pet: Pet }>({
           url: `/api/pets/${petId}`,
           method: "PUT",
@@ -156,6 +162,7 @@ export default function PetInfo() {
 
       if (petId) {
         Taro.showToast({ title: "保存成功", icon: "success" });
+        Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) });
         return;
       }
 
@@ -180,10 +187,64 @@ export default function PetInfo() {
 
   const avatarCardImage =
     avatarPreviewUrl || (species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png"));
+  const ageLabel = birthday ? birthday : "3岁半";
+  const systemActions = avatarActions.slice(0, 8);
+  const customActions = avatarActions.slice(8);
+
+  const breedOptions =
+    species === "dog"
+      ? ["金毛", "柯基", "哈士奇", "柴犬", "其他（自定义）"]
+      : ["英短", "布偶", "橘猫", "狸花", "其他（自定义）"];
+  const isCustomBreed = breed.length > 0 && !breedOptions.slice(0, -1).includes(breed);
 
   const renderAddModeSectionTitle = (title: string) => (
     <Text className="add-mode-section-title">{title}</Text>
   );
+
+  const renderCreateHalfField = (
+    label: string,
+    value: string,
+    onChange: (nextValue: string) => void,
+    placeholder: string,
+    options?: {
+      type?: "text" | "number";
+      suffix?: string;
+      icon?: string;
+    }
+  ) => (
+    <View className="half-field">
+      <Text className="add-mode-section-title add-mode-section-title--compact">{label}</Text>
+      <View className="half-field-input-wrap">
+        <Input
+          className={`single-input single-input--half ${options?.suffix ? "single-input--with-suffix" : ""}`}
+          type={options?.type === "number" ? "number" : "text"}
+          placeholder={placeholder}
+          value={value}
+          onInput={(e) => onChange(e.detail.value)}
+        />
+        {options?.icon ? (
+          <Image className="half-field-icon" src={options.icon} mode="aspectFit" />
+        ) : null}
+        {options?.suffix ? <Text className="half-field-suffix">{options.suffix}</Text> : null}
+      </View>
+    </View>
+  );
+
+  const handlePickBreed = (value: number) => {
+    const selected = breedOptions[value];
+    if (!selected) return;
+    if (selected === "其他（自定义）") {
+      setBreed("");
+      Taro.showToast({ title: "请在下方输入自定义品种", icon: "none" });
+      return;
+    }
+    setBreed(selected);
+  };
+
+  const handleOpenCustomActionUpload = () => {
+    if (!petId) return;
+    Taro.navigateTo({ url: `/pages/custom-action/index?petId=${petId}` });
+  };
 
   const renderTextField = (
     label: string,
@@ -196,7 +257,7 @@ export default function PetInfo() {
       icon?: string;
     }
   ) => {
-    if (isEditMode) {
+    if (isDetailMode) {
       return (
         <View className="detail-field-row">
           <View className="detail-field-label-wrap">
@@ -232,64 +293,118 @@ export default function PetInfo() {
   };
 
   return (
-    <View className={`pet-info-page ${isEditMode ? "pet-info-page--detail" : "pet-info-page--create"}`}>
-      {isEditMode ? (
-        <>
-          <PageBack />
-          <Text className="brand">YEHEY</Text>
-        </>
+    <View className={`pet-info-page ${isDetailMode ? "pet-info-page--detail" : "pet-info-page--create"}`}>
+      {isDetailMode ? (
+        <View className="detail-header-shell">
+          <View className="detail-top-strip" />
+          <View className="detail-header">
+            <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) })}>
+              <Text className="create-header-back-icon">←</Text>
+            </View>
+            <Text className="detail-header-title">宠物信息</Text>
+            <View className="detail-header-switch">
+              <Text className="detail-header-switch-icon">⇄</Text>
+            </View>
+          </View>
+        </View>
       ) : (
         <View className="create-header">
           <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) })}>
             <Text className="create-header-back-icon">←</Text>
           </View>
-          <Text className="create-header-title">添加宠物</Text>
+          <Text className="create-header-title">{isEditFormMode ? "编辑宠物" : "添加宠物"}</Text>
         </View>
       )}
 
       <View className="main-card">
-        {isEditMode ? (
-          <View className="page-title-row">
-            <Text className="page-title">{`${name || "宠物"}-宠物信息`}</Text>
-            <View className="page-switch-btn">
-              <Text className="page-switch-icon">⇄</Text>
+        {isDetailMode ? (
+          <>
+            <View
+              className="detail-avatar-panel"
+              onClick={handleOpenAvatarPanel}
+              onLongPress={handleOpenAvatarPanel}
+            >
+              <View className="detail-avatar-frame">
+                {avatarStatus && avatarStatus !== "done" ? (
+                  <View className="avatar-progress-box">
+                    <View className="avatar-progress-ring">
+                      <View className="avatar-progress-inner">
+                        <Image className="avatar-panel-image avatar-panel-image--small" src={avatarCardImage} mode="aspectFit" />
+                        <Text className="avatar-progress-text">82%</Text>
+                      </View>
+                    </View>
+                  </View>
+                ) : (
+                  <Image className="detail-avatar-image" src={avatarCardImage} mode="aspectFit" />
+                )}
+                <Text className="detail-avatar-tip">
+                  {avatarStatus === "done"
+                    ? "长按图片，重新定制宠物动态"
+                    : avatarStatus
+                      ? "动态图像定制中，点击查看详情"
+                      : "上传宠物照片，专属定制宠物动态图像"}
+                </Text>
+              </View>
             </View>
-          </View>
+
+            <View className="detail-meta-row">
+              <View className="detail-pill">
+                <Text className="detail-pill-text">{name || "毛毛"}</Text>
+              </View>
+              <View className="detail-pill">
+                <Text className="detail-pill-text">{breed || "英短蓝猫"}</Text>
+              </View>
+              <View className="detail-pill">
+                <Text className="detail-pill-text">{gender === "female" ? "♀ 母" : "♂ 公"} · {ageLabel}</Text>
+              </View>
+              <View className="detail-edit-btn" onClick={() => Taro.navigateTo({ url: `/pages/pet-info/index?petId=${petId}&edit=1` })}>
+                <Text className="detail-edit-icon">✎</Text>
+              </View>
+            </View>
+
+            <View className="detail-actions-card">
+              <Text className="detail-actions-title">系统动作</Text>
+              <View className="detail-action-grid">
+                {(systemActions.length > 0 ? systemActions : new Array(8).fill(null)).map((action, index) => (
+                  <View key={action?.id || `system-${index}`} className="detail-action-item">
+                    <View className="detail-action-thumb-wrap">
+                      <Image
+                        className="detail-action-thumb"
+                        src={action?.imageUrl || avatarCardImage}
+                        mode="aspectFill"
+                      />
+                    </View>
+                    <Text className="detail-action-label">{action?.actionType || ["蹲坐", "趴卧", "吃饭", "睡觉", "跑", "走", "舔爪子", "睡觉"][index]}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <Text className="detail-actions-title detail-actions-title--custom">自定义动作</Text>
+              <View className="detail-custom-row">
+                {customActions[0] ? (
+                  <View className="detail-action-item detail-action-item--custom">
+                    <View className="detail-action-thumb-wrap">
+                      <Image className="detail-action-thumb" src={customActions[0].imageUrl} mode="aspectFill" />
+                    </View>
+                    <Text className="detail-action-label">{customActions[0].actionType}</Text>
+                  </View>
+                ) : (
+                  <View className="detail-action-item detail-action-item--custom">
+                    <View className="detail-action-thumb-wrap">
+                      <Image className="detail-action-thumb" src={avatarCardImage} mode="aspectFill" />
+                    </View>
+                  </View>
+                )}
+                <View className="detail-add-action" onClick={handleOpenCustomActionUpload}>
+                  <Text className="detail-add-action-icon">＋</Text>
+                </View>
+              </View>
+            </View>
+          </>
         ) : (
           <Text className="page-title page-title--create">添加宠物</Text>
         )}
-
-        {isEditMode ? (
-          <View
-            className="avatar-panel"
-            onClick={handleOpenAvatarPanel}
-            onLongPress={handleOpenAvatarPanel}
-          >
-            <View className="avatar-panel-frame">
-              {avatarStatus && avatarStatus !== "done" ? (
-                <View className="avatar-progress-box">
-                  <View className="avatar-progress-ring">
-                    <View className="avatar-progress-inner">
-                      <Image className="avatar-panel-image avatar-panel-image--small" src={avatarCardImage} mode="aspectFit" />
-                      <Text className="avatar-progress-text">82%</Text>
-                    </View>
-                  </View>
-                </View>
-              ) : (
-                <Image className="avatar-panel-image" src={avatarCardImage} mode="aspectFit" />
-              )}
-              <Text className="avatar-panel-tip">
-                {avatarStatus === "done"
-                  ? "长按图像重新定制宠物动态形象"
-                  : avatarStatus
-                    ? "动态图像定制中，点击查看详情"
-                    : "上传宠物照片，专属定制宠物动态图像"}
-              </Text>
-            </View>
-          </View>
-        ) : null}
-
-        {isEditMode ? null : (
+        {!isDetailMode ? (
           <>
             {renderAddModeSectionTitle("宠物类型")}
             <View className="species-showcase">
@@ -322,69 +437,106 @@ export default function PetInfo() {
 
             <Text className="species-tip">选择当前想要添加的宠物类型</Text>
           </>
-        )}
+        ) : null}
 
-        {!isEditMode ? renderAddModeSectionTitle("宠物名字") : null}
-        {renderTextField("宠物名字", name, setName, "宠物名字", { required: true })}
-        {!isEditMode ? renderAddModeSectionTitle("宠物品种") : null}
-        {renderTextField("宠物品种", breed, setBreed, "宠物品种", { required: true })}
+        {!isDetailMode ? (
+          <>
+            {!isEditFormMode ? renderAddModeSectionTitle("宠物名字") : null}
+            {renderTextField(
+              "宠物名字",
+              name,
+              setName,
+              isEditFormMode ? "宠物名字" : "请输入宠物名字",
+              { required: true }
+            )}
 
-        {!isEditMode ? renderAddModeSectionTitle("性别") : null}
-        <View className="gender-row">
-          <View
-            className={`gender-btn ${gender === "male" ? "active" : ""}`}
-            onClick={() => setGender("male")}
-          >
-            <Text className="gender-text">公</Text>
-          </View>
-          <View
-            className={`gender-btn ${gender === "female" ? "active" : ""}`}
-            onClick={() => setGender("female")}
-          >
-            <Text className="gender-text">母</Text>
-          </View>
-        </View>
-
-        {!isEditMode ? renderAddModeSectionTitle("出生日期") : null}
-        {renderTextField("出生日期", birthday, setBirthday, "出生日期")}
-        {!isEditMode ? renderAddModeSectionTitle("体重") : null}
-        {renderTextField("体重（kg）", weight, setWeight, "体重（kg）", { type: "number" })}
-
-        {isEditMode ? (
-          <View className="detail-field-row">
-            <View className="detail-field-label-wrap">
-              <Image
-                className="detail-field-icon"
-                src={require("@/assets/images/collar-icon.png")}
-                mode="aspectFit"
-              />
-              <Text className="detail-field-label">关联设备</Text>
+            <View className="half-field-row">
+              <View className="half-field">
+                <Text className="add-mode-section-title add-mode-section-title--compact">品种</Text>
+                <Picker
+                  mode="selector"
+                  range={breedOptions}
+                  onChange={(e) => handlePickBreed(Number(e.detail.value))}
+                >
+                  <View className="half-field-input-wrap">
+                    <Input
+                      className="single-input single-input--half single-input--with-suffix"
+                      placeholder="选择品种"
+                      value={breed && !isCustomBreed ? breed : ""}
+                      disabled
+                    />
+                    <Text className="half-field-arrow">▼</Text>
+                  </View>
+                </Picker>
+              </View>
+              <View className="half-field">
+                <Text className="add-mode-section-title add-mode-section-title--compact">生日</Text>
+                <Picker
+                  mode="date"
+                  value={birthday || "2026-04-05"}
+                  onChange={(e) => setBirthday(e.detail.value)}
+                >
+                  <View className="half-field-input-wrap">
+                    <Input
+                      className="single-input single-input--half single-input--with-suffix"
+                      placeholder="选择日期"
+                      value={birthday}
+                      disabled
+                    />
+                    <Image
+                      className="half-field-icon"
+                      src={require("@/assets/images/icon-gray-1.png")}
+                      mode="aspectFit"
+                    />
+                  </View>
+                </Picker>
+              </View>
             </View>
-            <Text className="detail-field-value">{collarDisplayName || collarId || "未关联设备"}</Text>
-          </View>
-        ) : (
-          <View className="device-row">
-            <Image
-              className="device-icon"
-              src={require("@/assets/images/collar-icon.png")}
-              mode="aspectFit"
-            />
-            <Text className="device-prefix">当前关联设备：</Text>
-            <Text className="device-value">{collarDisplayName || collarId || "未关联设备"}</Text>
+
+            {isCustomBreed || !breed
+              ? renderTextField("自定义品种", breed, setBreed, "请输入品种", { required: true })
+              : null}
+
+            <View className="half-field-row">
+              <View className="half-field">
+                <Text className="add-mode-section-title add-mode-section-title--compact">性别</Text>
+                <View className="gender-row gender-row--compact">
+                  <View
+                    className={`gender-btn ${gender === "male" ? "active" : ""}`}
+                    onClick={() => setGender("male")}
+                  >
+                    <Text className="gender-text">公</Text>
+                  </View>
+                  <View
+                    className={`gender-btn ${gender === "female" ? "active" : ""}`}
+                    onClick={() => setGender("female")}
+                  >
+                    <Text className="gender-text">母</Text>
+                  </View>
+                </View>
+              </View>
+              {renderCreateHalfField("年龄", age, setAge, "请输入年龄", {
+                type: "number",
+                suffix: "岁",
+              })}
+            </View>
+
+            <View className="half-field-row">
+              {renderCreateHalfField("体重", weight, setWeight, "请输入体重", {
+                type: "number",
+                suffix: "kg",
+              })}
+              {renderCreateHalfField("性格", personality, setPersonality, "请简要描述")}
+            </View>
+          </>
+        ) : null}
+
+        {isDetailMode ? null : (
+          <View className={`submit-btn ${canSubmit ? "" : "submit-btn--disabled"}`} onClick={handleSubmit}>
+            <Text className="submit-btn-text">{loading ? "保存中..." : isEditFormMode ? "保存信息" : "保存宠物信息，下一步"}</Text>
           </View>
         )}
-
-        <View className={`submit-btn ${canSubmit ? "" : "submit-btn--disabled"}`} onClick={handleSubmit}>
-          <Text className="submit-btn-text">{loading ? "保存中..." : isEditMode ? "保存信息" : "保存，下一步"}</Text>
-        </View>
       </View>
-      {isEditMode ? (
-        <Image
-          className="bottom-outline"
-          src={require("@/assets/images/pet-outline.png")}
-          mode="widthFix"
-        />
-      ) : null}
     </View>
   );
 }

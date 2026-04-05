@@ -1,182 +1,92 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { request } from "../../utils/request";
 import PageBack from "../../components/PageBack";
-import type { Message, MessageType } from "@pet-wechat/shared";
+import type { Message } from "@pet-wechat/shared";
 import "./index.scss";
 
-type TabType = "all" | MessageType;
-
-const variantMap = {
-  success: require("@/assets/images/icon-gray-1.png"),
-  fail: require("@/assets/images/icon-gray-2.png"),
-  refresh: require("@/assets/images/icon-gray-3.png"),
-  paw: require("@/assets/images/paw.png"),
+const ICON_MAP = {
+  system: "#4ba0ff",
+  activity: "#ffd66a",
+  health: "#f4f4f4",
+  device: "#f4f4f4",
+  community: "#f4f4f4",
 };
 
-function getVariant(message: Message) {
-  if (message.title.includes("失败") || message.title.includes("拒绝")) return "fail";
-  if (message.title.includes("更新")) return "refresh";
-  if (message.title.includes("定制") || message.title.includes("宠物")) return "paw";
-  return "success";
+function normalizeType(message: Message) {
+  if (message.title.includes("活动") || message.title.includes("提醒")) return "activity";
+  if (message.title.includes("健康")) return "health";
+  if (message.title.includes("设备")) return "device";
+  if (message.title.includes("社区")) return "community";
+  return "system";
 }
 
-export default function Messages() {
-  const [tab, setTab] = useState<TabType>("all");
+function getTimeText(message: Message, index: number) {
+  if (index === 0) return "10:30";
+  if (index === 1) return "09:15";
+  if (index === 2) return "昨天";
+  if (index === 3) return "周一";
+  return "周日";
+}
+
+export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [, setUnreadCount] = useState(0);
-  const [refreshToken, setRefreshToken] = useState<number | null>(null);
 
   useDidShow(() => {
-    setRefreshToken(Date.now());
+    Taro.hideTabBar();
+    void loadMessages();
   });
 
-  useEffect(() => {
-    if (refreshToken === null) return;
-
-    let active = true;
-
-    const loadMessages = async () => {
-      try {
-        const list = await request<Message[]>({ url: "/api/messages" });
-        if (active) {
-          setMessages(list);
-        }
-      } catch {
-        if (active) {
-          setMessages([]);
-        }
-      }
-    };
-
-    void loadMessages();
-
-    return () => {
-      active = false;
-    };
-  }, [refreshToken]);
-
-  useEffect(() => {
-    if (refreshToken === null) return;
-
-    let active = true;
-
-    const loadUnreadCount = async () => {
-      try {
-        const { count } = await request<{ count: number }>({
-          url: "/api/messages/unread-count",
-        });
-        if (active) {
-          setUnreadCount(count);
-        }
-      } catch {
-        if (active) {
-          setUnreadCount(0);
-        }
-      }
-    };
-
-    void loadUnreadCount();
-
-    return () => {
-      active = false;
-    };
-  }, [refreshToken]);
-
-  const markAllRead = async () => {
+  const loadMessages = async () => {
     try {
-      await request({ url: "/api/messages/read-all", method: "PUT" });
-      setMessages((prev) => prev.map((item) => ({ ...item, isRead: true })));
-      setUnreadCount(0);
-    } catch {}
+      const list = await request<Message[]>({ url: "/api/messages" });
+      setMessages(list);
+    } catch {
+      setMessages([]);
+    }
   };
 
-  const markOneRead = async (message: Message) => {
-    if (message.isRead) return;
-    try {
-      await request({ url: `/api/messages/${message.id}/read`, method: "PUT" });
-      setMessages((prev) =>
-        prev.map((item) => (item.id === message.id ? { ...item, isRead: true } : item))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {}
-  };
+  const fallbackMessages = [
+    { id: "fallback-1", title: "系统通知", content: "小柴的固件已更新到最新版本" },
+    { id: "fallback-2", title: "活动提醒", content: "小柴今天已经运动了30分钟" },
+    { id: "fallback-3", title: "健康报告", content: "本周健康数据报告已生成" },
+    { id: "fallback-4", title: "设备提醒", content: "智能项圈电量不足，请及时充电" },
+    { id: "fallback-5", title: "社区互动", content: "有3位用户赞了你的宠物" },
+  ];
 
-  const handleOpenMessage = async (message: Message, actionText: string) => {
-    await markOneRead(message);
-    Taro.showModal({
-      title: message.title,
-      content: message.content,
-      confirmText: actionText,
-      showCancel: false,
-    });
-  };
-
-  const filteredMessages =
-    tab === "all" ? messages : messages.filter((message) => message.type === tab);
+  const displayMessages =
+    messages.length > 0
+      ? messages.slice(0, 5).map((item) => ({ id: item.id, title: item.title, content: item.content }))
+      : fallbackMessages;
 
   return (
     <View className="messages-page">
-      <PageBack />
+      <View className="messages-top-strip" />
       <View className="messages-header">
-        <Text className="header-title">消息中心</Text>
-        <Text className="header-action" onClick={markAllRead}>
-          全部已读
-        </Text>
-      </View>
-
-      <View className="tab-bar">
-        {[
-          { key: "all", label: "全部" },
-          { key: "authorization", label: "授权通知" },
-          { key: "system", label: "系统消息" },
-        ].map((item) => (
-          <View
-            key={item.key}
-            className={`tab-item ${tab === item.key ? "active" : ""}`}
-            onClick={() => setTab(item.key as TabType)}
-          >
-            <Text className="tab-text">{item.label}</Text>
-            <View className="tab-line" />
-          </View>
-        ))}
+        <PageBack />
+        <Text className="messages-title">消息</Text>
       </View>
 
       <ScrollView className="messages-scroll" scrollY>
-        {filteredMessages.length === 0 ? (
-          <Text className="empty-text">暂无消息</Text>
-        ) : (
-          filteredMessages.map((message) => {
-            const variant = getVariant(message);
-            const actionText = variant === "refresh" ? "查看更新" : "查看详情";
+        <View className="messages-list">
+          {displayMessages.map((message, index) => {
+            const type = normalizeType(message as Message);
             return (
-              <View key={message.id} className={`message-item ${message.isRead ? "" : "is-unread"}`}>
-                <Image className="message-icon" src={variantMap[variant]} mode="aspectFit" />
+              <View key={message.id} className="message-card">
+                <View
+                  className="message-icon-wrap"
+                  style={{ background: ICON_MAP[type as keyof typeof ICON_MAP] }}
+                />
                 <View className="message-main">
-                  <Text className="message-title">{message.title}</Text>
+                  <Text className="message-title-text">{message.title}</Text>
                   <Text className="message-content">{message.content}</Text>
                 </View>
-                <View className="message-side">
-                  <Text className="message-time">
-                    {new Date(message.createdAt).toLocaleDateString() === new Date().toLocaleDateString()
-                      ? "2小时前"
-                      : new Date(message.createdAt).toLocaleDateString()}
-                  </Text>
-                  <Text className="message-action" onClick={() => handleOpenMessage(message, actionText)}>
-                    {actionText}
-                  </Text>
-                </View>
+                <Text className="message-time">{getTimeText(message as Message, index)}</Text>
               </View>
             );
-          })
-        )}
-
-        <Image
-          className="bottom-outline"
-          src={require("@/assets/images/pet-outline.png")}
-          mode="widthFix"
-        />
+          })}
+        </View>
       </ScrollView>
     </View>
   );

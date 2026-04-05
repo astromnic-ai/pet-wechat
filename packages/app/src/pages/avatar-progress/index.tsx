@@ -22,15 +22,17 @@ function getProgress(status: AvatarStatus) {
 }
 
 function getStatusText(status: AvatarStatus) {
-  if (status === "done") return "左右滑动查看行为动态";
+  if (status === "done") return "新形象已生成";
   if (status === "failed") return "定制失败请重新上传图像";
-  if (status === "processing") return "正在生成宠物动态图像";
-  return "已收到照片，正在排队处理中";
+  if (status === "processing") return "预计需要 2-3 分钟";
+  return "预计需要 2-3 分钟";
 }
 
 export default function AvatarProgress() {
   const router = useRouter();
   const avatarId = router.params.avatarId;
+  const forcedStatus = router.params.status as AvatarStatus | undefined;
+  const customLabel = router.params.label ? decodeURIComponent(router.params.label) : "";
   const [pet, setPet] = useState<Pet | null>(null);
   const [avatar, setAvatar] = useState<PetAvatar | null>(null);
   const [actions, setActions] = useState<PetAvatarAction[]>([]);
@@ -65,7 +67,12 @@ export default function AvatarProgress() {
   };
 
   useEffect(() => {
-    if (!avatarId) return;
+    if (!avatarId) {
+      if (forcedStatus) {
+        setStatus(forcedStatus);
+      }
+      return;
+    }
 
     let cancelled = false;
 
@@ -83,7 +90,7 @@ export default function AvatarProgress() {
     return () => {
       cancelled = true;
     };
-  }, [avatarId]);
+  }, [avatarId, forcedStatus]);
 
   useEffect(() => {
     if (!avatarId || status === "done" || status === "failed") return;
@@ -125,6 +132,15 @@ export default function AvatarProgress() {
     petRequestIdRef.current = null;
   }, [avatar?.petId]);
 
+  useEffect(() => {
+    const routePetId = router.params.petId;
+    if (avatarId || !routePetId) return;
+
+    void request<{ pet: Pet }>({ url: `/api/pets/${routePetId}` })
+      .then((res) => setPet(res.pet))
+      .catch(() => setPet(null));
+  }, [avatarId, router.params.petId]);
+
   const isSuccess = status === "done";
   const isFailed = status === "failed";
   const previewAction = actions[0] ?? null;
@@ -147,102 +163,140 @@ export default function AvatarProgress() {
       Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${avatar.petId}` });
       return;
     }
+    if (router.params.petId) {
+      Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${router.params.petId}` });
+      return;
+    }
     Taro.navigateBack();
   };
 
   return (
     <View className="avatar-progress-page">
       <PageBack />
-      <Text className="brand">YEHEY</Text>
-      <Image
-        className="outline-image"
-        src={require("@/assets/images/pet-outline.png")}
-        mode="widthFix"
-      />
-
-      <View className="main-card">
-        <Text className="card-title">正在定制专属动态</Text>
-
-        <View className="progress-ring">
-          <View
-            className="progress-ring-fill"
-            style={{
-              background: `conic-gradient(${ringColor} ${progress * 3.6}deg, #d8d8d8 ${progress * 3.6}deg)`,
-            }}
-          >
-            <View className="progress-ring-inner">
-              <Image
-                className="ring-cat-image"
-                src={DEFAULT_PET_IMAGE}
-                mode="aspectFit"
-              />
-              <Text className="progress-text">{progress}%</Text>
-            </View>
+      {isSuccess ? (
+        <View className="success-shell">
+          <View className="success-badge">
+            <Image className="success-badge-icon" src={statusIcon} mode="aspectFit" />
           </View>
-        </View>
+          <Text className="success-title">定制成功!</Text>
+          <Text className="success-subtitle">{`${pet?.name || "毛毛"}的新形象已生成`}</Text>
 
-        <View className="status-row">
-          <Image
-            className="status-icon"
-            src={statusIcon}
-            mode="aspectFit"
-          />
-          <Text className="status-text">{getStatusText(status)}</Text>
-        </View>
+          <View className="success-preview-card">
+            <View className="success-preview-header">
+              <Text className="success-preview-title">预览</Text>
+              <View className="success-preview-tag">
+                <Text className="success-preview-tag-text">新</Text>
+              </View>
+            </View>
 
-        {isSuccess ? (
-          <View className="preview-card">
-            <View className="preview-row">
-              <Text className="preview-arrow">〈</Text>
+            <View className="success-preview-stage">
               <Image
-                className="preview-image"
+                className="success-preview-image"
                 src={previewAction?.imageUrl || require("@/assets/images/cat-stand.png")}
                 mode="aspectFit"
               />
-              <Text className="preview-arrow">〉</Text>
+              <Text className="success-preview-label">{customLabel || `${pet?.name || "毛毛"}的定制形象`}</Text>
             </View>
-            <Text className="preview-label">{previewAction?.actionType || "定制完成"}</Text>
           </View>
-        ) : isFailed ? (
-          <View className="preview-card">
-            <View className="preview-row">
-              <Text className="preview-arrow">〈</Text>
-              <View className="preview-placeholder" />
-              <Text className="preview-arrow">〉</Text>
-            </View>
-            <View className="retry-upload-btn" onClick={handleRetryUpload}>
-              <Text className="retry-upload-text">重新上传</Text>
-            </View>
-            <Text className="retry-tip">本次不计入免费定制次数</Text>
-          </View>
-        ) : (
-          <View className="preview-card">
-            <View className="preview-row">
-              <Text className="preview-arrow">〈</Text>
-              <View className="preview-placeholder" />
-              <Text className="preview-arrow">〉</Text>
-            </View>
-            <Text className="preview-label">结果生成后将在这里展示</Text>
-          </View>
-        )}
 
-        <View className="bottom-actions">
-          <View className="bottom-btn" onClick={handleConfigDesktop}>
-            <Text className="bottom-btn-text">立即配置桌面端</Text>
+          <View className="success-primary-btn" onClick={handleGoHome}>
+            <Text className="success-primary-btn-text">设为头像</Text>
           </View>
-          <View className="bottom-btn" onClick={handleGoHome}>
-            <Text className="bottom-btn-text">直接进入主页</Text>
+
+          <View className="success-secondary-row">
+            <View className="success-secondary-btn" onClick={handleRetryUpload}>
+              <Text className="success-secondary-btn-text">⟳ 重新定制</Text>
+            </View>
+            <View className="success-secondary-btn" onClick={() => Taro.showToast({ title: "已保存到相册", icon: "success" })}>
+              <Text className="success-secondary-btn-text">▣ 保存到相册</Text>
+            </View>
+          </View>
+
+          <Text className="success-tip">可以随时在宠物信息设置中更换形象</Text>
+        </View>
+      ) : isFailed ? (
+        <View className="progress-shell">
+          <View className="preview-stage-card preview-stage-card--failed">
+            <View className="preview-stage-card-inner preview-stage-card-inner--failed">
+              <Image className="status-hero-icon" src={statusIcon} mode="aspectFit" />
+            </View>
+          </View>
+
+          <Text className="progress-title">生成失败</Text>
+          <Text className="progress-subtitle">{getStatusText(status)}</Text>
+
+          <View className="progress-panel">
+            <View className="progress-meta">
+              <Text className="progress-meta-label">处理进度</Text>
+              <Text className="progress-meta-value">{progress}%</Text>
+            </View>
+            <View className="progress-bar">
+              <View className="progress-bar-fill" style={{ width: `${progress}%` }} />
+            </View>
+          </View>
+
+          <View className="step-card">
+            <View className="step-item">
+              <View className="step-icon step-icon--done">✓</View>
+              <Text className="step-text">上传照片完成</Text>
+            </View>
+            <View className="step-item">
+              <View className="step-icon step-icon--error">✕</View>
+              <Text className="step-text">生成专属形象失败</Text>
+            </View>
+          </View>
+
+          <View className="footer-card">
+            <View className="footer-primary-btn" onClick={handleRetryUpload}>
+              <Text className="footer-primary-btn-text">重新上传</Text>
+            </View>
+            <Text className="footer-tip">本次不计入免费定制次数</Text>
           </View>
         </View>
+      ) : (
+        <View className="progress-shell">
+          <View className="preview-stage-card">
+            <View className="preview-stage-card-inner">
+              <View className="preview-stage-dot" />
+            </View>
+          </View>
 
-        <Text className="retry-link" onClick={handleRetryUpload}>
-          不满意？重新定制
-        </Text>
-      </View>
+          <Text className="progress-title">正在生成您的宠物定制形象</Text>
+          <Text className="progress-subtitle">预计需要 2-3 分钟</Text>
 
-      <View className="progress-track">
-        <View className="progress-fill progress-step-3" />
-      </View>
+          <View className="progress-panel">
+            <View className="progress-meta">
+              <Text className="progress-meta-label">处理进度</Text>
+              <Text className="progress-meta-value">{progress}%</Text>
+            </View>
+            <View className="progress-bar">
+              <View className="progress-bar-fill" style={{ width: `${progress}%` }} />
+            </View>
+          </View>
+
+          <View className="step-card">
+            <View className="step-item">
+              <View className="step-icon step-icon--done">✓</View>
+              <Text className="step-text">上传照片完成</Text>
+            </View>
+            <View className="step-item">
+              <View className="step-icon step-icon--active">…</View>
+              <Text className="step-text">正在分析宠物特征…</Text>
+            </View>
+            <View className="step-item">
+              <View className="step-icon step-icon--pending">•</View>
+              <Text className="step-text step-text--muted">生成专属形象</Text>
+            </View>
+          </View>
+
+          <View className="footer-card">
+            <View className="footer-primary-btn" onClick={handleGoHome}>
+              <Text className="footer-primary-btn-text">进入主页</Text>
+            </View>
+            <Text className="footer-tip">可先进入主页，生成完成后将通知您</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }

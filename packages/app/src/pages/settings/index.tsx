@@ -1,131 +1,104 @@
-import { View, Text, Image } from "@tarojs/components";
+import { View, Text, Switch } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useEffect, useState } from "react";
-import type { Pet } from "@pet-wechat/shared";
-import { clearToken, request } from "../../utils/request";
-import { disconnectWs } from "../../utils/ws";
+import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-declare const ENABLE_DEV_LOGIN: boolean;
-
-const SETTING_ITEMS = [
-  "通知设置",
-  "隐私设置",
-  "主题设置",
-  "语言选择",
-  "关于我们",
-  "帮助与反馈",
-  "隐私政策",
-  "退出登录",
-];
-
-const DEFAULT_PET_THUMBS = [
-  require("@/assets/images/black cat 3.png"),
-  require("@/assets/images/husky.png"),
-];
-
 export default function Settings() {
-  const [pets, setPets] = useState<Pet[]>([]);
+  const [messageEnabled, setMessageEnabled] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
+  const [vibrationEnabled, setVibrationEnabled] = useState(true);
 
   useDidShow(() => {
     Taro.hideTabBar();
   });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadPets = async () => {
-      try {
-        const res = await request<{ pets: Pet[] }>({ url: "/api/pets" });
-        if (cancelled) return;
-        setPets(res.pets);
-      } catch {
-        if (cancelled) return;
-        setPets([]);
-      }
-    };
-
-    void loadPets();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const showComingSoon = () => {
     Taro.showToast({ title: "即将上线，敬请期待", icon: "none" });
   };
 
-  const handleLogout = () => {
-    clearToken();
-    disconnectWs();
-    Taro.reLaunch({ url: "/pages/login/index" });
-  };
-
-  const handleSettingClick = (item: string) => {
-    if (item === "退出登录") {
-      handleLogout();
-      return;
-    }
-
-    showComingSoon();
-  };
-
-  const handleCollectData = async () => {
-    if (!ENABLE_DEV_LOGIN) {
-      return;
-    }
-
-    try {
-      const result = await request<Record<string, unknown>>({
-        url: "/api/debug/collect-data",
-      });
-      Taro.showModal({
-        title: "采集对照数据",
-        content: JSON.stringify(result, null, 2),
-        showCancel: false,
-      });
-    } catch (error: any) {
-      Taro.showToast({
-        title: error?.message || "请求失败",
-        icon: "none",
-      });
-    }
-  };
-
-  const petThumbs = DEFAULT_PET_THUMBS.map(
-    (fallback, index) => pets[index]?.avatarImageUrl || fallback
-  );
-
   return (
     <View className="settings-page">
-      <PageBack />
-      <Text className="page-title">设置</Text>
-
-      <View className="settings-card">
-        <Text className="section-title">我的宠物</Text>
-        <View className="pet-row">
-          {petThumbs.map((src, index) => (
-            <Image key={`${index}-${src}`} className="pet-thumb" src={src} mode="aspectFill" />
-          ))}
-        </View>
+      <View className="settings-top-strip" />
+      <View className="settings-header">
+        <PageBack />
+        <Text className="settings-title">设置</Text>
       </View>
 
-      <View className="settings-card">
-        {SETTING_ITEMS.map((item) => (
-          <View key={item} className="setting-item" onClick={() => handleSettingClick(item)}>
-            <Text className="setting-label">{item}</Text>
-            <Text className="setting-arrow">〉</Text>
+      <View className="settings-shell">
+        <Text className="group-title">通用</Text>
+
+        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+          <Text className="setting-label">账号安全</Text>
+          <Text className="setting-arrow">→</Text>
+        </View>
+
+        <View className="setting-card">
+          <Text className="setting-label">消息通知</Text>
+          <Switch
+            checked={messageEnabled}
+            color="#4aa4ff"
+            onChange={(e) => setMessageEnabled(e.detail.value)}
+          />
+        </View>
+
+        <View className="setting-card">
+          <Text className="setting-label">深色模式</Text>
+          <Switch
+            checked={darkMode}
+            color="#4aa4ff"
+            onChange={(e) => setDarkMode(e.detail.value)}
+          />
+        </View>
+
+        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+          <Text className="setting-label">语言</Text>
+          <View className="setting-meta">
+            <Text className="setting-value">简体中文</Text>
+            <Text className="setting-arrow">→</Text>
           </View>
-        ))}
-      </View>
-
-      {ENABLE_DEV_LOGIN ? (
-        <View className="collect-btn" onClick={handleCollectData}>
-          <Text className="collect-btn-text">采集对照</Text>
         </View>
-      ) : null}
+
+        <View className="setting-card">
+          <Text className="setting-label">震动反馈</Text>
+          <Switch
+            checked={vibrationEnabled}
+            color="#4aa4ff"
+            onChange={(e) => setVibrationEnabled(e.detail.value)}
+          />
+        </View>
+
+        <Text className="group-title group-title--support">支持</Text>
+
+        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+          <Text className="setting-label">帮助中心</Text>
+          <Text className="setting-arrow">→</Text>
+        </View>
+
+        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+          <Text className="setting-label">联系我们</Text>
+          <Text className="setting-arrow">→</Text>
+        </View>
+
+        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+          <Text className="setting-label">关于 YEHEY</Text>
+          <View className="setting-meta">
+            <Text className="setting-value">v2.1.0</Text>
+            <Text className="setting-arrow">→</Text>
+          </View>
+        </View>
+
+        <View className="firmware-card">
+          <View className="firmware-icon" />
+          <View className="firmware-main">
+            <Text className="firmware-title">固件更新</Text>
+            <Text className="firmware-desc">当前版本 v2.1.0</Text>
+          </View>
+          <View className="firmware-arrow-wrap">
+            <Text className="firmware-arrow">→</Text>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
