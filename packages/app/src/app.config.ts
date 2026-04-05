@@ -20,6 +20,7 @@ export default defineAppConfig({
     { root: "pages/desktop-bind", pages: ["index"] },
     { root: "pages/desktop-pair", pages: ["index"] },
     { root: "pages/data", pages: ["index"] },
+    { root: "pages/pet-mode", pages: ["index", "custom"] },
     { root: "pages/invite", pages: ["index"] },
     { root: "pages/settings", pages: ["index"] },
   ],

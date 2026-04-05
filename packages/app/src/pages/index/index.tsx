@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
 import type { CollarDevice, DesktopDevice, Pet } from "@pet-wechat/shared";
+import { getPetActivityMode } from "../../utils/storage";
 import QuickNav from "../../components/QuickNav";
 import "./index.scss";
 
@@ -41,6 +42,7 @@ export default function Index() {
   const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
   const skipNextDidShowRef = useRef(true);
 
   useDidShow(() => {
@@ -53,6 +55,7 @@ export default function Index() {
     void loadPets();
     void loadUnreadCount();
     void loadDevices();
+    setPetMode(getPetActivityMode(pets[currentPetIndex]?.id));
   });
 
   useEffect(() => {
@@ -68,6 +71,10 @@ export default function Index() {
   useEffect(() => {
     void loadPets();
   }, []);
+
+  useEffect(() => {
+    setPetMode(getPetActivityMode(currentPet?.id));
+  }, [currentPet?.id]);
 
   useEffect(() => {
     void loadUnreadCount();
@@ -185,12 +192,18 @@ export default function Index() {
         }
       },
     });
-  const handleOpenRecords = () => {
+  const handleOpenPetMode = () => {
     if (!hasPet) {
       handleAddPet();
       return;
     }
-    Taro.navigateTo({ url: "/pages/data/index" });
+    Taro.navigateTo({ url: `/pages/pet-mode/index?petId=${currentPet?.id || ""}` });
+  };
+
+  const modeLabelMap = {
+    free: "系统自由模式",
+    custom: "个性自定义",
+    real: "真实行为模式",
   };
 
   return (
@@ -288,11 +301,11 @@ export default function Index() {
           )}
         </View>
 
-        <View className="mode-card" onClick={handleOpenRecords}>
-          <Text className="mode-card-title">宠物家庭活动模式</Text>
+        <View className="mode-card" onClick={handleOpenPetMode}>
+          <Text className="mode-card-title">宠物活动模式</Text>
           <View className="mode-card-meta">
             <Text className="mode-card-caption">当前</Text>
-            <Text className="mode-card-status">系统自由模式</Text>
+            <Text className="mode-card-status">{modeLabelMap[petMode]}</Text>
             <Text className="mode-card-arrow">›</Text>
           </View>
         </View>
