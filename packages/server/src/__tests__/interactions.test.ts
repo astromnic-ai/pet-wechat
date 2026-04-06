@@ -18,6 +18,7 @@ describe("Interaction Routes", () => {
 
   describe("POST /api/interactions", () => {
     it("reports interaction successfully", async () => {
+      const timestamp = "2026-04-06T08:30:00.000Z";
       mockDb._results.select = [
         [fakeBinding()],
         [fakePet()],
@@ -33,6 +34,7 @@ describe("Interaction Routes", () => {
             petId: "pet-1",
             interactionType: "shake",
             count: 3,
+            timestamp,
           },
         }),
       );
@@ -45,6 +47,7 @@ describe("Interaction Routes", () => {
         petId: "pet-1",
         interactionType: "shake",
         count: 3,
+        timestamp: new Date(timestamp),
       });
     });
 
@@ -79,6 +82,26 @@ describe("Interaction Routes", () => {
       );
 
       expect(res.status).toBe(400);
+    });
+
+    it("returns 400 when timestamp is more than one hour in the future", async () => {
+      const headers = await authHeader("user-1");
+      const futureTimestamp = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      const res = await app.request(
+        jsonReq("POST", "/api/interactions", {
+          headers,
+          body: {
+            desktopDeviceId: "desktop-1",
+            petId: "pet-1",
+            interactionType: "touch",
+            timestamp: futureTimestamp,
+          },
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("timestamp 不能晚于当前时间 1 小时");
     });
   });
 

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, InputNumber, Select, Space, Card, message, Divider } from "antd";
+import { Table, Button, Modal, Form, Input, InputNumber, Select, Space, message } from "antd";
 import { PlusOutlined, ThunderboltOutlined } from "@ant-design/icons";
-import { api } from "../api/client";
+import { api, type AdminMessageType, type CreateAdminMessageInput } from "../api/client";
 import dayjs from "dayjs";
 
 function getFilteredCollars(petId: string | undefined, collars: any[]) {
@@ -34,24 +34,38 @@ function syncCollarField(form: any, petId: string | undefined, collars: any[]) {
   }
 }
 
+const messageTypeOptions: Array<{ value: AdminMessageType; label: string }> = [
+  { value: "system", label: "系统消息" },
+  { value: "authorization", label: "授权消息" },
+  { value: "activity", label: "活动提醒" },
+  { value: "health", label: "健康报告" },
+  { value: "device", label: "设备提醒" },
+  { value: "community", label: "社区互动" },
+];
+
 export default function EventsPage() {
   const [data, setData] = useState<any[]>([]);
   const [pets, setPets] = useState<any[]>([]);
   const [collars, setCollars] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [manualOpen, setManualOpen] = useState(false);
   const [autoOpen, setAutoOpen] = useState(false);
+  const [messageOpen, setMessageOpen] = useState(false);
+  const [messageSaving, setMessageSaving] = useState(false);
   const [manualForm] = Form.useForm();
   const [autoForm] = Form.useForm();
+  const [messageForm] = Form.useForm<CreateAdminMessageInput>();
   const manualPetId = Form.useWatch("petId", manualForm);
   const autoPetId = Form.useWatch("petId", autoForm);
 
   const load = () => {
     setLoading(true);
-    Promise.all([api.getBehaviors(100), api.getPets(), api.getCollars()]).then(([b, p, c]) => {
+    Promise.all([api.getBehaviors(100), api.getPets(), api.getCollars(), api.getUsers()]).then(([b, p, c, u]) => {
       setData(b.behaviors);
       setPets(p.pets);
       setCollars(c.collars);
+      setUsers(u.users);
     }).catch((e) => message.error(e.message)).finally(() => setLoading(false));
   };
 
@@ -88,6 +102,21 @@ export default function EventsPage() {
       load();
     } catch (e: any) {
       if (e.message) message.error(e.message);
+    }
+  };
+
+  const handleCreateMessage = async () => {
+    try {
+      const values = await messageForm.validateFields();
+      setMessageSaving(true);
+      await api.createMessage(values);
+      message.success("消息创建成功");
+      setMessageOpen(false);
+      messageForm.resetFields();
+    } catch (e: any) {
+      if (e.message) message.error(e.message);
+    } finally {
+      setMessageSaving(false);
     }
   };
 
@@ -133,6 +162,14 @@ export default function EventsPage() {
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
         <h2 style={{ margin: 0 }}>模拟事件</h2>
         <Space>
+          <Button
+            onClick={() => {
+              messageForm.setFieldsValue({ type: "system", isRead: false });
+              setMessageOpen(true);
+            }}
+          >
+            发送消息
+          </Button>
           <Button type="primary" icon={<PlusOutlined />} onClick={() => { manualForm.resetFields(); setManualOpen(true); }}>
             手动创建
           </Button>
@@ -143,6 +180,39 @@ export default function EventsPage() {
       </div>
 
       <Table dataSource={data} columns={columns} rowKey="id" loading={loading} size="middle" />
+
+      <Modal
+        title="创建消息"
+        open={messageOpen}
+        confirmLoading={messageSaving}
+        onOk={() => void handleCreateMessage()}
+        onCancel={() => {
+          setMessageOpen(false);
+          messageForm.resetFields();
+        }}
+      >
+        <Form form={messageForm} layout="vertical" initialValues={{ type: "system", isRead: false }}>
+          <Form.Item name="userId" label="接收用户" rules={[{ required: true, message: "请选择接收用户" }]}>
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={users.map((user) => ({
+                value: user.id,
+                label: `${user.nickname} (${user.id.slice(0, 8)}...)`,
+              }))}
+            />
+          </Form.Item>
+          <Form.Item name="type" label="消息类型" rules={[{ required: true, message: "请选择消息类型" }]}>
+            <Select options={messageTypeOptions} />
+          </Form.Item>
+          <Form.Item name="title" label="标题" rules={[{ required: true, message: "请输入标题" }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="content" label="内容" rules={[{ required: true, message: "请输入内容" }]}>
+            <Input.TextArea rows={4} />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       {/* 手动创建弹窗 */}
       <Modal

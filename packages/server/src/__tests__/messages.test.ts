@@ -49,6 +49,17 @@ describe("Message Routes", () => {
       expect(json).toHaveLength(1);
       expect(json[0].type).toBe("community");
     });
+
+    it("returns 400 for invalid message type filter", async () => {
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/messages?type=invalid", { headers })
+      );
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("无效的消息类型");
+    });
   });
 
   describe("POST /api/admin/messages", () => {
@@ -73,6 +84,24 @@ describe("Message Routes", () => {
       expect((mockDb._calls.insert[0] as any).values).toMatchObject({
         type: "device",
       });
+    });
+
+    it("rejects invalid message type", async () => {
+      const res = await adminApp.request(
+        jsonReq("POST", "/api/admin/messages", {
+          headers: { "X-Admin-Key": "yehey-admin-dev" },
+          body: {
+            userId: "user-1",
+            type: "invalid",
+            title: "Bad",
+            content: "Bad",
+          },
+        })
+      );
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("无效的消息类型");
     });
   });
 

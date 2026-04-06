@@ -112,6 +112,10 @@ auth.post("/phone", async (c) => {
   const hasCode = typeof code === "string";
   const hasPassword = typeof password === "string";
 
+  if (!isValidPhone(phone)) {
+    return c.json({ error: "手机号格式错误" }, 400);
+  }
+
   if (hasCode === hasPassword) {
     return c.json({ error: "必须且只能提供验证码或密码" }, 400);
   }

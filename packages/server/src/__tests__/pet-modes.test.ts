@@ -70,8 +70,9 @@ describe("Pet Mode Routes", () => {
       expect(json.mode.mode).toBe("custom");
     });
 
-    it("returns 400 when switching to real mode without collar", async () => {
-      mockDb._results.select = [[{ id: "pet-1" }], []];
+    it("allows switching to real mode without requiring collar binding", async () => {
+      mockDb._results.select = [[{ id: "pet-1" }]];
+      mockDb._results.insert = [[fakeMode({ petId: "pet-1", mode: "real" })]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -81,9 +82,9 @@ describe("Pet Mode Routes", () => {
         }),
       );
 
-      expect(res.status).toBe(400);
+      expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.error).toBe("请先绑定项圈设备");
+      expect(json.mode.mode).toBe("real");
     });
   });
 
@@ -97,7 +98,11 @@ describe("Pet Mode Routes", () => {
         actionType: "playing",
         sortOrder: 0,
       });
-      mockDb._results.select = [[{ id: "pet-1" }], []];
+      mockDb._results.select = [
+        [{ id: "pet-1" }],
+        [fakeMode({ petId: "pet-1", mode: "custom" })],
+        [],
+      ];
       mockDb._results.insert = [[createdSchedule]];
 
       const headers = await authHeader("user-1");
@@ -139,9 +144,28 @@ describe("Pet Mode Routes", () => {
       expect(res.status).toBe(400);
     });
 
+    it("returns 400 for out-of-range time values", async () => {
+      mockDb._results.select = [[{ id: "pet-1" }]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/pets/pet-1/mode/schedules", {
+          headers,
+          body: {
+            startTime: "24:00",
+            endTime: "25:00",
+            actionType: "playing",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(400);
+    });
+
     it("returns 400 when schedules overlap", async () => {
       mockDb._results.select = [
         [{ id: "pet-1" }],
+        [fakeMode({ petId: "pet-1", mode: "custom" })],
         [fakeSchedule({ source: "custom", startTime: "09:00", endTime: "10:00" })],
       ];
 
@@ -163,6 +187,7 @@ describe("Pet Mode Routes", () => {
     it("returns 400 when custom schedules exceed 20", async () => {
       mockDb._results.select = [
         [{ id: "pet-1" }],
+        [fakeMode({ petId: "pet-1", mode: "custom" })],
         Array.from({ length: 20 }, (_, index) =>
           fakeSchedule({
             id: `schedule-${index + 1}`,
@@ -188,6 +213,29 @@ describe("Pet Mode Routes", () => {
 
       expect(res.status).toBe(400);
     });
+
+    it("returns 400 when current mode is not custom", async () => {
+      mockDb._results.select = [
+        [{ id: "pet-1" }],
+        [fakeMode({ petId: "pet-1", mode: "free" })],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/pets/pet-1/mode/schedules", {
+          headers,
+          body: {
+            startTime: "10:00",
+            endTime: "11:00",
+            actionType: "playing",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toBe("当前仅支持在 custom 模式下编辑自定义时间表");
+    });
   });
 
   describe("PUT /api/pets/:id/mode/schedules/:scheduleId", () => {
@@ -195,6 +243,7 @@ describe("Pet Mode Routes", () => {
       mockDb._results.select = [
         [{ id: "pet-1" }],
         [fakeSchedule({ id: "schedule-1", source: "custom", startTime: "09:00", endTime: "10:00" })],
+        [fakeMode({ petId: "pet-1", mode: "custom" })],
         [fakeSchedule({ id: "schedule-1", source: "custom", startTime: "09:00", endTime: "10:00" })],
       ];
       mockDb._results.update = [[
@@ -248,6 +297,7 @@ describe("Pet Mode Routes", () => {
       mockDb._results.select = [
         [{ id: "pet-1" }],
         [fakeSchedule({ id: "schedule-1", source: "custom" })],
+        [fakeMode({ petId: "pet-1", mode: "custom" })],
       ];
 
       const headers = await authHeader("user-1");

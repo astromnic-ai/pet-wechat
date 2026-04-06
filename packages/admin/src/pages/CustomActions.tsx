@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { CloseCircleOutlined, UploadOutlined } from "@ant-design/icons";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography, message } from "antd";
 import dayjs from "dayjs";
 import { api, type CustomAction, type CustomActionStatus } from "../api/client";
@@ -53,8 +54,10 @@ export default function CustomActionsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [activeAction, setActiveAction] = useState<CustomAction | null>(null);
   const [form] = Form.useForm<{ resultImageUrl: string }>();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
     setLoading(true);
@@ -77,6 +80,16 @@ export default function CustomActionsPage() {
     try {
       await api.updateCustomAction(record.id, { status: "processing" });
       message.success("已开始处理");
+      await load();
+    } catch (error) {
+      message.error(getErrorMessage(error));
+    }
+  };
+
+  const handleMarkFailed = async (record: CustomAction) => {
+    try {
+      await api.updateCustomAction(record.id, { status: "failed" });
+      message.success("已标记为失败");
       await load();
     } catch (error) {
       message.error(getErrorMessage(error));
@@ -110,6 +123,26 @@ export default function CustomActionsPage() {
       message.error(getErrorMessage(error));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleUploadResultFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const result = await api.uploadAdminFile(file);
+      form.setFieldValue("resultImageUrl", result.url);
+      message.success("结果文件上传成功");
+    } catch (error) {
+      message.error(getErrorMessage(error));
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -160,7 +193,7 @@ export default function CustomActionsPage() {
     {
       title: "操作",
       key: "action",
-      width: 160,
+      width: 220,
       render: (_: unknown, record: CustomAction) => {
         if (record.status === "pending") {
           return (
@@ -172,9 +205,19 @@ export default function CustomActionsPage() {
 
         if (record.status === "processing") {
           return (
-            <Button size="small" type="primary" onClick={() => openDoneModal(record)}>
-              上传结果
-            </Button>
+            <Space size={8}>
+              <Button size="small" type="primary" onClick={() => openDoneModal(record)}>
+                上传结果
+              </Button>
+              <Button
+                size="small"
+                danger
+                icon={<CloseCircleOutlined />}
+                onClick={() => void handleMarkFailed(record)}
+              >
+                标记失败
+              </Button>
+            </Space>
           );
         }
 
@@ -213,6 +256,27 @@ export default function CustomActionsPage() {
         }}
       >
         <Form form={form} layout="vertical">
+          <Form.Item label="上传结果文件">
+            <Space>
+              <Button
+                icon={<UploadOutlined />}
+                loading={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                上传图片或 GIF
+              </Button>
+              <Typography.Text type="secondary">
+                支持 JPG / PNG / WEBP / GIF
+              </Typography.Text>
+            </Space>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              style={{ display: "none" }}
+              onChange={(event) => void handleUploadResultFile(event)}
+            />
+          </Form.Item>
           <Form.Item
             name="resultImageUrl"
             label="结果图片 URL"

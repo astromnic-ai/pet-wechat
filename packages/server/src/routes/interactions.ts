@@ -11,6 +11,7 @@ const VALID_RANGES = new Set(["day", "week", "month"]);
 
 type InteractionType = "touch" | "shake" | "gesture";
 type StatsRange = "day" | "week" | "month";
+const MAX_FUTURE_TIMESTAMP_MS = 60 * 60 * 1000;
 
 function normalizeTimestamp(timestamp: Date | string) {
   return timestamp instanceof Date ? timestamp.toISOString() : timestamp;
@@ -34,6 +35,27 @@ function normalizeCount(value: unknown, defaultValue: number) {
   }
 
   return value;
+}
+
+function parseInteractionTimestamp(value: unknown) {
+  if (value === undefined) {
+    return new Date();
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return null;
+  }
+
+  const timestamp = new Date(value);
+  if (Number.isNaN(timestamp.getTime())) {
+    return null;
+  }
+
+  if (timestamp.getTime() > Date.now() + MAX_FUTURE_TIMESTAMP_MS) {
+    return "timestamp 不能晚于当前时间 1 小时";
+  }
+
+  return timestamp;
 }
 
 async function ensureOwnedPet(userId: string, petId: string) {
@@ -66,11 +88,14 @@ interactionsRoute.post("/", async (c) => {
     petId?: string;
     interactionType?: string;
     count?: number;
+    timestamp?: string;
   }>();
-  const desktopDeviceId = typeof body.desktopDeviceId === "string" ? body.desktopDeviceId : "";
-  const petId = typeof body.petId === "string" ? body.petId : "";
+  const desktopDeviceId =
+    typeof body.desktopDeviceId === "string" ? body.desktopDeviceId.trim() : "";
+  const petId = typeof body.petId === "string" ? body.petId.trim() : "";
   const interactionType = body.interactionType;
   const count = normalizeCount(body.count, 1);
+  const timestamp = parseInteractionTimestamp(body.timestamp);
 
   if (!desktopDeviceId || !petId) {
     return c.json({ error: "desktopDeviceId 和 petId 必填" }, 400);
@@ -82,6 +107,14 @@ interactionsRoute.post("/", async (c) => {
 
   if (count === null) {
     return c.json({ error: "count 必须是 1-1000 的正整数" }, 400);
+  }
+
+  if (timestamp === null) {
+    return c.json({ error: "timestamp 格式错误" }, 400);
+  }
+
+  if (typeof timestamp === "string") {
+    return c.json({ error: timestamp }, 400);
   }
 
   const [binding] = await db
@@ -117,7 +150,7 @@ interactionsRoute.post("/", async (c) => {
       petId,
       interactionType: interactionType as InteractionType,
       count,
-      timestamp: new Date(),
+      timestamp,
     })
     .returning();
 

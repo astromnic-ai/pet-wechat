@@ -2,84 +2,27 @@ import { Hono } from "hono";
 import { and, asc, eq } from "drizzle-orm";
 import { db } from "../db";
 import {
-  collarDevices,
   deviceAuthorizations,
   petModeSchedules,
   petModes,
   pets,
 } from "../db/schema";
+import {
+  MAX_SCHEDULES_PER_SOURCE,
+  hasScheduleOverlap,
+  normalizeScheduleInput,
+  type ScheduleInput,
+  validateScheduleInput,
+  validateScheduleTimes,
+} from "../utils/pet-mode-schedules";
 
 const petModesRoute = new Hono();
 
-const TIME_PATTERN = /^\d{2}:\d{2}$/;
-
 type PetActivityMode = "free" | "custom" | "real";
 type ScheduleSource = "system" | "custom";
-type ScheduleInput = {
-  startTime: string;
-  endTime: string;
-  actionType: string;
-};
 
 function isPetActivityMode(value: unknown): value is PetActivityMode {
   return value === "free" || value === "custom" || value === "real";
-}
-
-function validateScheduleTimes(startTime: string, endTime: string) {
-  if (!TIME_PATTERN.test(startTime) || !TIME_PATTERN.test(endTime)) {
-    return "时间格式错误";
-  }
-
-  if (startTime === endTime || startTime > endTime) {
-    return "开始时间必须早于结束时间";
-  }
-
-  return null;
-}
-
-function validateScheduleInput(
-  input: Partial<ScheduleInput>,
-  options: { partial?: boolean } = {},
-) {
-  const partial = options.partial ?? false;
-
-  if (!partial || input.startTime !== undefined) {
-    if (typeof input.startTime !== "string") {
-      return "startTime 必填";
-    }
-  }
-
-  if (!partial || input.endTime !== undefined) {
-    if (typeof input.endTime !== "string") {
-      return "endTime 必填";
-    }
-  }
-
-  if (!partial || input.actionType !== undefined) {
-    if (typeof input.actionType !== "string" || !input.actionType.trim()) {
-      return "actionType 必填";
-    }
-  }
-
-  if (input.startTime !== undefined && input.endTime !== undefined) {
-    return validateScheduleTimes(input.startTime, input.endTime);
-  }
-
-  return null;
-}
-
-function hasOverlap(
-  target: Pick<ScheduleInput, "startTime" | "endTime">,
-  schedules: Array<typeof petModeSchedules.$inferSelect>,
-  excludeId?: string,
-) {
-  return schedules.some((schedule) => {
-    if (excludeId && schedule.id === excludeId) {
-      return false;
-    }
-
-    return target.startTime < schedule.endTime && target.endTime > schedule.startTime;
-  });
 }
 
 async function ensurePetAccess(userId: string, petId: string) {
@@ -151,6 +94,16 @@ async function getCustomSchedules(petId: string) {
   return getSchedulesBySource(petId, "custom");
 }
 
+async function ensureCustomModeEditable(petId: string) {
+  const modeRecord = await getOrCreatePetMode(petId);
+
+  if (modeRecord.mode !== "custom") {
+    return null;
+  }
+
+  return modeRecord;
+}
+
 petModesRoute.get("/:id/mode", async (c) => {
   const userId = c.get("userId" as never) as string;
   const petId = c.req.param("id");
@@ -178,18 +131,6 @@ petModesRoute.put("/:id/mode", async (c) => {
   const body = await c.req.json<{ mode?: PetActivityMode }>();
   if (!isPetActivityMode(body.mode)) {
     return c.json({ error: "无效的活动模式" }, 400);
-  }
-
-  if (body.mode === "real") {
-    const [collar] = await db
-      .select({ id: collarDevices.id })
-      .from(collarDevices)
-      .where(eq(collarDevices.petId, petId))
-      .limit(1);
-
-    if (!collar) {
-      return c.json({ error: "请先绑定项圈设备" }, 400);
-    }
   }
 
   const [modeRecord] = await db
@@ -235,17 +176,25 @@ petModesRoute.post("/:id/mode/schedules", async (c) => {
   }
 
   const body = await c.req.json<ScheduleInput>();
-  const validationError = validateScheduleInput(body);
+  const normalizedBody = normalizeScheduleInput(body);
+  const validationError = validateScheduleInput(normalizedBody);
   if (validationError) {
     return c.json({ error: validationError }, 400);
   }
 
-  const customSchedules = await getCustomSchedules(petId);
-  if (customSchedules.length >= 20) {
-    return c.json({ error: "自定义时间表最多 20 条" }, 400);
+  if (!(await ensureCustomModeEditable(petId))) {
+    return c.json({ error: "当前仅支持在 custom 模式下编辑自定义时间表" }, 400);
   }
 
-  if (hasOverlap(body, customSchedules)) {
+  const customSchedules = await getCustomSchedules(petId);
+  if (customSchedules.length >= MAX_SCHEDULES_PER_SOURCE) {
+    return c.json(
+      { error: `自定义时间表最多 ${MAX_SCHEDULES_PER_SOURCE} 条` },
+      400,
+    );
+  }
+
+  if (hasScheduleOverlap(normalizedBody, customSchedules)) {
     return c.json({ error: "时间段与现有配置重叠" }, 400);
   }
 
@@ -259,9 +208,9 @@ petModesRoute.post("/:id/mode/schedules", async (c) => {
     .values({
       petId,
       source: "custom",
-      startTime: body.startTime,
-      endTime: body.endTime,
-      actionType: body.actionType.trim(),
+      startTime: normalizedBody.startTime,
+      endTime: normalizedBody.endTime,
+      actionType: normalizedBody.actionType,
       sortOrder: nextSortOrder,
     })
     .returning();
@@ -294,15 +243,20 @@ petModesRoute.put("/:id/mode/schedules/:scheduleId", async (c) => {
   }
 
   const body = await c.req.json<Partial<ScheduleInput>>();
-  const validationError = validateScheduleInput(body, { partial: true });
+  const normalizedBody = normalizeScheduleInput(body);
+  const validationError = validateScheduleInput(normalizedBody, { partial: true });
   if (validationError) {
     return c.json({ error: validationError }, 400);
   }
 
+  if (!(await ensureCustomModeEditable(petId))) {
+    return c.json({ error: "当前仅支持在 custom 模式下编辑自定义时间表" }, 400);
+  }
+
   const nextSchedule = {
-    startTime: body.startTime ?? existingSchedule.startTime,
-    endTime: body.endTime ?? existingSchedule.endTime,
-    actionType: body.actionType?.trim() ?? existingSchedule.actionType,
+    startTime: normalizedBody.startTime ?? existingSchedule.startTime,
+    endTime: normalizedBody.endTime ?? existingSchedule.endTime,
+    actionType: normalizedBody.actionType ?? existingSchedule.actionType,
   };
 
   const timeError = validateScheduleTimes(nextSchedule.startTime, nextSchedule.endTime);
@@ -311,7 +265,7 @@ petModesRoute.put("/:id/mode/schedules/:scheduleId", async (c) => {
   }
 
   const customSchedules = await getCustomSchedules(petId);
-  if (hasOverlap(nextSchedule, customSchedules, scheduleId)) {
+  if (hasScheduleOverlap(nextSchedule, customSchedules, scheduleId)) {
     return c.json({ error: "时间段与现有配置重叠" }, 400);
   }
 
@@ -350,6 +304,10 @@ petModesRoute.delete("/:id/mode/schedules/:scheduleId", async (c) => {
 
   if (existingSchedule.source !== "custom") {
     return c.json({ error: "不能删除系统时间表" }, 403);
+  }
+
+  if (!(await ensureCustomModeEditable(petId))) {
+    return c.json({ error: "当前仅支持在 custom 模式下编辑自定义时间表" }, 400);
   }
 
   await db.delete(petModeSchedules).where(eq(petModeSchedules.id, scheduleId));

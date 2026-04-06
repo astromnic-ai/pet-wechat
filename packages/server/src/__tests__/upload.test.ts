@@ -113,5 +113,28 @@ describe("Upload Routes", () => {
       const json = await res.json();
       expect(json.url).toEndWith(".mov");
     });
+
+    it("allows admin to upload gif result assets", async () => {
+      const formData = new FormData();
+      const file = new File(["gif"], "result.gif", {
+        type: "image/gif",
+      });
+      formData.append("file", file);
+
+      const res = await app.request(
+        new Request("http://localhost/api/admin/uploads", {
+          method: "POST",
+          headers: {
+            "X-Admin-Key": "yehey-admin-dev",
+          },
+          body: formData,
+        })
+      );
+
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.url).toContain("test-storage.local/admin/");
+      expect(json.url).toEndWith(".gif");
+    });
   });
 });

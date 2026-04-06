@@ -18,6 +18,13 @@ import {
 } from "../db/schema";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createId } from "../utils/id";
+import { isMessageType } from "../utils/message-types";
+import {
+  normalizeScheduleInput,
+  type ScheduleInput as AdminScheduleInput,
+  validateSchedulesInput,
+} from "../utils/pet-mode-schedules";
+import { UploadError, parseUploadFile, saveUploadedFile } from "../utils/uploads";
 import { broadcast } from "../ws";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
@@ -39,79 +46,8 @@ async function validateCollarPetBinding(collarDeviceId: string, petId: string) {
   return { valid: true as const, collar };
 }
 
-const TIME_PATTERN = /^\d{2}:\d{2}$/;
-
-type AdminScheduleInput = {
-  startTime: string;
-  endTime: string;
-  actionType: string;
-};
-
 type CustomActionStatus = "pending" | "processing" | "done" | "failed";
 type InteractionType = "touch" | "shake" | "gesture";
-
-function validateScheduleTimes(startTime: string, endTime: string) {
-  if (!TIME_PATTERN.test(startTime) || !TIME_PATTERN.test(endTime)) {
-    return "时间格式错误";
-  }
-
-  if (startTime === endTime || startTime > endTime) {
-    return "开始时间必须早于结束时间";
-  }
-
-  return null;
-}
-
-function hasScheduleOverlap(schedules: AdminScheduleInput[]) {
-  const sortedSchedules = [...schedules].sort((a, b) =>
-    a.startTime === b.startTime ? a.endTime.localeCompare(b.endTime) : a.startTime.localeCompare(b.startTime),
-  );
-
-  for (let index = 1; index < sortedSchedules.length; index += 1) {
-    if (sortedSchedules[index].startTime < sortedSchedules[index - 1].endTime) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function validateSchedulesInput(schedules: unknown) {
-  if (!Array.isArray(schedules)) {
-    return "schedules 必须是数组";
-  }
-
-  if (schedules.length > 20) {
-    return "时间表最多 20 条";
-  }
-
-  for (const schedule of schedules) {
-    if (
-      !schedule ||
-      typeof schedule !== "object" ||
-      typeof (schedule as AdminScheduleInput).startTime !== "string" ||
-      typeof (schedule as AdminScheduleInput).endTime !== "string" ||
-      typeof (schedule as AdminScheduleInput).actionType !== "string" ||
-      !(schedule as AdminScheduleInput).actionType.trim()
-    ) {
-      return "时间表数据不完整";
-    }
-
-    const timeError = validateScheduleTimes(
-      (schedule as AdminScheduleInput).startTime,
-      (schedule as AdminScheduleInput).endTime,
-    );
-    if (timeError) {
-      return timeError;
-    }
-  }
-
-  if (hasScheduleOverlap(schedules as AdminScheduleInput[])) {
-    return "时间段与现有配置重叠";
-  }
-
-  return null;
-}
 
 function isCustomActionStatus(value: unknown): value is CustomActionStatus {
   return value === "pending" || value === "processing" || value === "done" || value === "failed";
@@ -124,6 +60,14 @@ function normalizeOptionalString(value: unknown) {
 
   const normalized = value.trim();
   return normalized ? normalized : null;
+}
+
+function normalizeRequiredString(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
 }
 
 function normalizePositiveInteger(value: unknown, defaultValue: number, max: number) {
@@ -162,19 +106,49 @@ async function replaceSystemSchedules(
   return tx
     .insert(petModeSchedules)
     .values(
-      schedules.map((schedule, index) => ({
-        petId,
-        source: "system" as const,
-        startTime: schedule.startTime,
-        endTime: schedule.endTime,
-        actionType: schedule.actionType.trim(),
-        sortOrder: index,
-      })),
+      schedules.map((schedule, index) => {
+        const normalizedSchedule = normalizeScheduleInput(schedule);
+
+        return {
+          petId,
+          source: "system" as const,
+          startTime: normalizedSchedule.startTime,
+          endTime: normalizedSchedule.endTime,
+          actionType: normalizedSchedule.actionType,
+          sortOrder: index,
+        };
+      }),
     )
     .returning();
 }
 
+async function findMissingPetIds(petIds: string[]) {
+  const existingPets = await db
+    .select({ id: pets.id })
+    .from(pets)
+    .where(inArray(pets.id, petIds));
+  const existingPetIds = new Set(existingPets.map((pet) => pet.id));
+
+  return petIds.filter((petId) => !existingPetIds.has(petId));
+}
+
 const adminRoute = new Hono();
+
+adminRoute.post("/uploads", async (c) => {
+  try {
+    const body = await c.req.parseBody();
+    const uploadedFile = parseUploadFile(body["file"]);
+    const result = await saveUploadedFile("admin", uploadedFile);
+    return c.json(result, 201);
+  } catch (error) {
+    if (error instanceof UploadError) {
+      return c.json({ error: error.message }, error.status);
+    }
+
+    console.error("Admin upload failed:", error);
+    return c.json({ error: "文件上传失败，请稍后重试" }, 503);
+  }
+});
 
 // ===== 用户 =====
 
@@ -314,6 +288,12 @@ adminRoute.put("/pets/:id", async (c) => {
 
 adminRoute.get("/pets/:id/mode/schedules", async (c) => {
   const petId = c.req.param("id");
+  const missingPetIds = await findMissingPetIds([petId]);
+
+  if (missingPetIds.length > 0) {
+    return c.json({ error: "Pet not found" }, 404);
+  }
+
   const schedules = await db
     .select()
     .from(petModeSchedules)
@@ -330,6 +310,11 @@ adminRoute.put("/pets/:id/mode/schedules", async (c) => {
 
   if (validationError) {
     return c.json({ error: validationError }, 400);
+  }
+
+  const missingPetIds = await findMissingPetIds([petId]);
+  if (missingPetIds.length > 0) {
+    return c.json({ error: "Pet not found" }, 404);
   }
 
   const schedules = await db.transaction((tx) =>
@@ -350,18 +335,28 @@ adminRoute.post("/pets/batch-schedules", async (c) => {
     return c.json({ error: "petIds 最多 50 个" }, 400);
   }
 
+  if (body.petIds.some((petId) => typeof petId !== "string" || !petId.trim())) {
+    return c.json({ error: "petIds 必须全部是有效字符串" }, 400);
+  }
+
   const validationError = validateSchedulesInput(body.schedules);
   if (validationError) {
     return c.json({ error: validationError }, 400);
   }
 
+  const normalizedPetIds = Array.from(new Set(body.petIds.map((petId) => petId.trim())));
+  const missingPetIds = await findMissingPetIds(normalizedPetIds);
+  if (missingPetIds.length > 0) {
+    return c.json({ error: `Pet not found: ${missingPetIds.join(", ")}` }, 404);
+  }
+
   await db.transaction(async (tx) => {
-    for (const petId of body.petIds ?? []) {
+    for (const petId of normalizedPetIds) {
       await replaceSystemSchedules(tx as typeof db, petId, body.schedules ?? []);
     }
   });
 
-  return c.json({ updatedCount: body.petIds.length });
+  return c.json({ updatedCount: normalizedPetIds.length });
 });
 
 adminRoute.delete("/pets/:id", async (c) => {
@@ -583,14 +578,32 @@ adminRoute.post("/behaviors/auto", async (c) => {
 // ===== 消息 =====
 
 adminRoute.post("/messages", async (c) => {
-  const body = await c.req.json();
+  const body = await c.req.json<{
+    userId?: string;
+    type?: string;
+    title?: string;
+    content?: string;
+    isRead?: boolean;
+  }>();
+  const userId = normalizeRequiredString(body.userId);
+  const title = normalizeRequiredString(body.title);
+  const content = normalizeRequiredString(body.content);
+
+  if (!userId || !title || !content) {
+    return c.json({ error: "userId、title、content 必填" }, 400);
+  }
+
+  if (!isMessageType(body.type)) {
+    return c.json({ error: "无效的消息类型" }, 400);
+  }
+
   const [message] = await db
     .insert(messages)
     .values({
-      userId: body.userId,
+      userId,
       type: body.type,
-      title: body.title,
-      content: body.content,
+      title,
+      content,
       isRead: body.isRead ?? false,
     })
     .returning();
@@ -659,7 +672,7 @@ adminRoute.put("/custom-actions/:id", async (c) => {
     .update(customActions)
     .set({
       status: body.status,
-      resultImageUrl: body.status === "done" ? resultImageUrl : existingAction.resultImageUrl,
+      resultImageUrl: body.status === "done" ? resultImageUrl : null,
     })
     .where(eq(customActions.id, id))
     .returning();

@@ -99,6 +99,22 @@ export interface AutoInteractionsInput {
   intervalMinutes?: number;
 }
 
+export type AdminMessageType =
+  | "system"
+  | "authorization"
+  | "activity"
+  | "health"
+  | "device"
+  | "community";
+
+export interface CreateAdminMessageInput {
+  userId: string;
+  type: AdminMessageType;
+  title: string;
+  content: string;
+  isRead?: boolean;
+}
+
 export async function fetchPetModeSchedules(petId: string): Promise<{ schedules: PetModeSchedule[] }> {
   return request<{ schedules: PetModeSchedule[] }>(`/pets/${petId}/mode/schedules`);
 }
@@ -153,6 +169,41 @@ export async function autoGenerateInteractions(
   });
 }
 
+export async function uploadAdminFile(file: File): Promise<{ url: string; fileId: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch("/api/admin/uploads", {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": getAdminKey(),
+    },
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("adminKey");
+    window.location.reload();
+    throw new Error("Admin Key 无效");
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+
+  return res.json();
+}
+
+export async function createAdminMessage(
+  data: CreateAdminMessageInput,
+): Promise<{ message: any }> {
+  return request<{ message: any }>("/messages", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
 export const api = {
   // Stats
   getStats: () => request<Record<string, number>>("/stats"),
@@ -185,10 +236,12 @@ export const api = {
   getBehaviors: (limit?: number) => request<{ behaviors: any[] }>(`/behaviors?limit=${limit ?? 50}`),
   createBehavior: (data: any) => request<{ behavior: any }>("/behaviors", { method: "POST", body: JSON.stringify(data) }),
   autoBehaviors: (data: any) => request<{ behaviors: any[]; count: number }>("/behaviors/auto", { method: "POST", body: JSON.stringify(data) }),
+  createMessage: (data: CreateAdminMessageInput) => createAdminMessage(data),
   getCustomActions: (status?: CustomActionStatus) => fetchCustomActions(status),
   updateCustomAction,
   getInteractions: (limit?: number) => fetchInteractions(limit),
   autoGenerateInteractions,
+  uploadAdminFile,
   fetchPetModeSchedules,
   updatePetModeSchedules,
   batchUpdateSchedules,

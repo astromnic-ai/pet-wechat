@@ -2,24 +2,21 @@ import { Hono } from "hono";
 import { db } from "../db";
 import { messages } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
+import { isMessageType } from "../utils/message-types";
 
 const messagesRoute = new Hono();
-const ALLOWED_MESSAGE_TYPES = new Set([
-  "system",
-  "authorization",
-  "activity",
-  "health",
-  "device",
-  "community",
-]);
 
 // 获取消息列表
 messagesRoute.get("/", async (c) => {
   const userId = c.get("userId" as never) as string;
   const type = c.req.query("type");
 
+  if (type && !isMessageType(type)) {
+    return c.json({ error: "无效的消息类型" }, 400);
+  }
+
   const conditions = [eq(messages.userId, userId)];
-  if (type && ALLOWED_MESSAGE_TYPES.has(type)) {
+  if (type) {
     conditions.push(eq(messages.type, type));
   }
 
