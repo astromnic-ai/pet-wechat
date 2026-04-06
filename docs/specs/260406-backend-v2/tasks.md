@@ -37,7 +37,7 @@
   - **测试**: 覆盖 mode 获取（含 lazy init）、mode 切换（含 real 模式拒绝无项圈）、schedule CRUD（含时间校验/重叠/上限/source 隔离）、admin 批量配置
   - **关联决策**: D-01, D-06, D-07
 
-- [ ] 4. 自定义动作 + 桌面互动记录（后端 API + 测试 + admin 前端）
+- [x] 4. 自定义动作 + 桌面互动记录（后端 API + 测试 + admin 前端）
   - **文件**: `packages/server/src/routes/custom-actions.ts`(新增), `packages/server/src/routes/interactions.ts`(新增), `packages/server/src/routes/admin.ts`, `packages/server/src/index.ts`, `packages/server/src/websocket.ts`, `packages/server/src/__tests__/custom-actions.test.ts`(新增), `packages/server/src/__tests__/interactions.test.ts`(新增), `packages/admin/src/pages/CustomActions.tsx`(新增), `packages/admin/src/pages/Interactions.tsx`(新增), `packages/admin/src/App.tsx`, `packages/admin/src/api/client.ts`
   - **做什么**:
     - custom-actions.ts: GET/POST/DELETE，POST 校验宠物归属，DELETE 拒绝 processing 状态

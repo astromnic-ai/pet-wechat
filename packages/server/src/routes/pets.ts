@@ -5,6 +5,10 @@ import {
   petAvatars,
   petAvatarActions,
   petBehaviors,
+  petModes,
+  petModeSchedules,
+  customActions,
+  deviceInteractions,
   collarDevices,
   desktopPetBindings,
   deviceAuthorizations,
@@ -297,6 +301,10 @@ petsRoute.delete("/:id", async (c) => {
   }
   await db.delete(petAvatars).where(eq(petAvatars.petId, petId));
   await db.delete(petBehaviors).where(eq(petBehaviors.petId, petId));
+  await db.delete(petModes).where(eq(petModes.petId, petId));
+  await db.delete(petModeSchedules).where(eq(petModeSchedules.petId, petId));
+  await db.delete(customActions).where(eq(customActions.petId, petId));
+  await db.delete(deviceInteractions).where(eq(deviceInteractions.petId, petId));
   // 软删除绑定记录
   await db
     .update(desktopPetBindings)

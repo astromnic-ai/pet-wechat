@@ -43,6 +43,13 @@ export default function UsersPage() {
     setModalOpen(true);
   };
 
+  const handleCreate = () => {
+    setEditingId(null);
+    form.resetFields();
+    form.setFieldsValue({ deviceBindingQuota: 3 });
+    setModalOpen(true);
+  };
+
   const handleDelete = async (id: string) => {
     try {
       await api.deleteUser(id);
@@ -59,6 +66,7 @@ export default function UsersPage() {
     { title: "手机", dataIndex: "phone", key: "phone" },
     { title: "微信 OpenID", dataIndex: "wechatOpenid", key: "wechatOpenid", ellipsis: true },
     { title: "形象配额", dataIndex: "avatarQuota", key: "avatarQuota", width: 100 },
+    { title: "设备绑定额度", dataIndex: "deviceBindingQuota", key: "deviceBindingQuota", width: 120 },
     {
       title: "创建时间",
       dataIndex: "createdAt",
@@ -85,7 +93,7 @@ export default function UsersPage() {
     <>
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
         <h2 style={{ margin: 0 }}>用户管理</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingId(null); form.resetFields(); setModalOpen(true); }}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreate}>
           新建用户
         </Button>
       </div>
@@ -107,6 +115,9 @@ export default function UsersPage() {
             <Input />
           </Form.Item>
           <Form.Item name="avatarQuota" label="形象配额">
+            <InputNumber min={0} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="deviceBindingQuota" label="设备绑定额度" initialValue={3}>
             <InputNumber min={0} style={{ width: "100%" }} />
           </Form.Item>
         </Form>

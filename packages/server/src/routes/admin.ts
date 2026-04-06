@@ -11,6 +11,7 @@ import {
   petAvatarActions,
   deviceAuthorizations,
   messages,
+  petModes,
   petModeSchedules,
   customActions,
   deviceInteractions,
@@ -192,6 +193,7 @@ adminRoute.post("/users", async (c) => {
       phone: body.phone ?? null,
       avatarUrl: body.avatarUrl ?? null,
       avatarQuota: body.avatarQuota ?? 2,
+      deviceBindingQuota: body.deviceBindingQuota ?? 3,
     })
     .returning();
   return c.json({ user }, 201);
@@ -223,6 +225,8 @@ adminRoute.delete("/users/:id", async (c) => {
     // 查出该用户的所有宠物 ID
     const userPets = await tx.select({ id: pets.id }).from(pets).where(eq(pets.userId, id));
     const petIds = userPets.map((p) => p.id);
+    const userDesktops = await tx.select({ id: desktopDevices.id }).from(desktopDevices).where(eq(desktopDevices.userId, id));
+    const desktopIds = userDesktops.map((desktop) => desktop.id);
 
     if (petIds.length > 0) {
       // 清理宠物关联的 avatar actions 和 avatars
@@ -233,6 +237,10 @@ adminRoute.delete("/users/:id", async (c) => {
       }
       await tx.delete(petAvatars).where(inArray(petAvatars.petId, petIds));
       await tx.delete(petBehaviors).where(inArray(petBehaviors.petId, petIds));
+      await tx.delete(petModes).where(inArray(petModes.petId, petIds));
+      await tx.delete(petModeSchedules).where(inArray(petModeSchedules.petId, petIds));
+      await tx.delete(customActions).where(inArray(customActions.petId, petIds));
+      await tx.delete(deviceInteractions).where(inArray(deviceInteractions.petId, petIds));
       await tx.update(desktopPetBindings).set({ unboundAt: new Date() }).where(inArray(desktopPetBindings.petId, petIds));
       await tx.delete(deviceAuthorizations).where(inArray(deviceAuthorizations.petId, petIds));
       // 解除项圈与宠物的绑定
@@ -240,9 +248,12 @@ adminRoute.delete("/users/:id", async (c) => {
     }
 
     // 清理该用户的桌面端绑定
-    await tx.update(desktopPetBindings).set({ unboundAt: new Date() }).where(
-      eq(desktopPetBindings.desktopDeviceId, sql`ANY(SELECT id FROM desktop_devices WHERE user_id = ${id})`)
-    );
+    if (desktopIds.length > 0) {
+      await tx.update(desktopPetBindings).set({ unboundAt: new Date() }).where(
+        inArray(desktopPetBindings.desktopDeviceId, desktopIds)
+      );
+      await tx.delete(deviceInteractions).where(inArray(deviceInteractions.desktopDeviceId, desktopIds));
+    }
     await tx.delete(collarDevices).where(eq(collarDevices.userId, id));
     await tx.delete(desktopDevices).where(eq(desktopDevices.userId, id));
     await tx.delete(deviceAuthorizations).where(eq(deviceAuthorizations.fromUserId, id));
@@ -278,6 +289,8 @@ adminRoute.post("/pets", async (c) => {
       name: body.name,
       species: body.species,
       breed: body.breed ?? null,
+      description: body.description ?? null,
+      color: body.color ?? null,
       gender: body.gender ?? "unknown",
       birthday: body.birthday ?? null,
       weight: body.weight ?? null,
@@ -289,7 +302,7 @@ adminRoute.post("/pets", async (c) => {
 adminRoute.put("/pets/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const allowed = pick(body, ["name", "species", "breed", "gender", "birthday", "weight", "userId"]);
+  const allowed = pick(body, ["name", "species", "breed", "description", "color", "gender", "birthday", "weight", "userId"]);
   const [pet] = await db
     .update(pets)
     .set({ ...allowed, updatedAt: new Date() })
@@ -362,6 +375,10 @@ adminRoute.delete("/pets/:id", async (c) => {
     }
     await tx.delete(petAvatars).where(eq(petAvatars.petId, id));
     await tx.delete(petBehaviors).where(eq(petBehaviors.petId, id));
+    await tx.delete(petModes).where(eq(petModes.petId, id));
+    await tx.delete(petModeSchedules).where(eq(petModeSchedules.petId, id));
+    await tx.delete(customActions).where(eq(customActions.petId, id));
+    await tx.delete(deviceInteractions).where(eq(deviceInteractions.petId, id));
     await tx.update(desktopPetBindings)
       .set({ unboundAt: new Date() })
       .where(eq(desktopPetBindings.petId, id));
@@ -487,6 +504,7 @@ adminRoute.delete("/desktops/:id", async (c) => {
     .update(desktopPetBindings)
     .set({ unboundAt: new Date() })
     .where(eq(desktopPetBindings.desktopDeviceId, id));
+  await db.delete(deviceInteractions).where(eq(deviceInteractions.desktopDeviceId, id));
   await db.delete(desktopDevices).where(eq(desktopDevices.id, id));
   return c.json({ success: true });
 });

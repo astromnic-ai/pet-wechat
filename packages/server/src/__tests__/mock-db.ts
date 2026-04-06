@@ -182,7 +182,7 @@ export function createMockDb(): MockDb {
 
     delete(_table: unknown) {
       const idx = db._calls.delete.length;
-      db._calls.delete.push({});
+      db._calls.delete.push({ table: _table });
 
       return {
         where(..._args: unknown[]) {

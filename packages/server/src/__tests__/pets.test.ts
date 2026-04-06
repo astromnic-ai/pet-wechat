@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { mockDb } from "./setup";
 import { createApp, authHeader, jsonReq, fakePet } from "./helpers";
+import { customActions, deviceInteractions, petModeSchedules, petModes } from "../db/schema";
 
 const app = createApp();
 
@@ -174,8 +175,8 @@ describe("Pet Routes", () => {
   // ===== DELETE /api/pets/:id =====
 
   describe("DELETE /api/pets/:id", () => {
-    it("deletes own pet", async () => {
-      mockDb._results.select = [[fakePet()]];
+    it("deletes own pet and clears related mode/action/interaction records", async () => {
+      mockDb._results.select = [[fakePet()], []];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -184,6 +185,12 @@ describe("Pet Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
+
+      const deletedTables = (mockDb._calls.delete as Array<{ table?: unknown }>).map((call) => call.table);
+      expect(deletedTables).toContain(petModes);
+      expect(deletedTables).toContain(petModeSchedules);
+      expect(deletedTables).toContain(customActions);
+      expect(deletedTables).toContain(deviceInteractions);
     });
 
     it("returns 404 when deleting another user's pet", async () => {

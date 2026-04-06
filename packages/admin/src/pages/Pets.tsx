@@ -65,7 +65,7 @@ export default function PetsPage() {
       dataIndex: "species",
       key: "species",
       width: 80,
-      render: (v: string) => v === "cat" ? "猫" : "狗",
+      render: (v: string) => ({ cat: "猫", dog: "狗", other: "其他" }[v] ?? v),
     },
     {
       title: "性别",
@@ -75,6 +75,8 @@ export default function PetsPage() {
       render: (v: string) => ({ male: "公", female: "母", unknown: "未知" }[v]),
     },
     { title: "品种", dataIndex: "breed", key: "breed" },
+    { title: "描述", dataIndex: "description", key: "description" },
+    { title: "毛色", dataIndex: "color", key: "color", width: 120 },
     { title: "主人", dataIndex: "ownerNickname", key: "ownerNickname" },
     { title: "活跃分", dataIndex: "activityScore", key: "activityScore", width: 80 },
     {
@@ -126,12 +128,24 @@ export default function PetsPage() {
             <Input />
           </Form.Item>
           <Form.Item name="species" label="物种" rules={[{ required: true }]}>
-            <Select options={[{ value: "cat", label: "猫" }, { value: "dog", label: "狗" }]} />
+            <Select
+              options={[
+                { value: "cat", label: "猫" },
+                { value: "dog", label: "狗" },
+                { value: "other", label: "其他" },
+              ]}
+            />
           </Form.Item>
           <Form.Item name="gender" label="性别">
             <Select options={[{ value: "male", label: "公" }, { value: "female", label: "母" }, { value: "unknown", label: "未知" }]} />
           </Form.Item>
           <Form.Item name="breed" label="品种">
+            <Input />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
+            <Input.TextArea rows={4} />
+          </Form.Item>
+          <Form.Item name="color" label="毛色">
             <Input />
           </Form.Item>
           <Form.Item name="birthday" label="生日">
