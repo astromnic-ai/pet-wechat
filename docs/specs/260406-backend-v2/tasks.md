@@ -50,7 +50,7 @@
   - **测试**: custom-actions 覆盖 CRUD+状态机+权限；interactions 覆盖上报校验+统计聚合；admin 路由覆盖
   - **关联决策**: D-03, D-04
 
-- [ ] 5. Admin 前端现有页面更新 + 删除级联 + 数据库迁移
+- [x] 5. Admin 前端现有页面更新 + 删除级联 + 数据库迁移
   - **文件**: `packages/admin/src/pages/Pets.tsx`, `packages/admin/src/pages/Users.tsx`, `packages/server/src/routes/pets.ts`, `packages/server/src/routes/admin.ts`
   - **做什么**:
     - Pets.tsx: 表单/表格加 description/color/species "other"
