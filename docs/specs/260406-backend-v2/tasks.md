@@ -1,6 +1,6 @@
 # 实施计划
 
-- [ ] 1. Schema 扩展 + 共享类型 + 测试基座
+- [x] 1. Schema 扩展 + 共享类型 + 测试基座
   - **文件**: `packages/server/src/db/schema.ts`, `packages/shared/src/types.ts`, `packages/server/src/__tests__/helpers.ts`, `packages/server/src/__tests__/mock-db.ts`
   - **做什么**:
     - schema.ts: 扩展 species/messageType 枚举，users 加 passwordHash/deviceBindingQuota，pets 加 description/color，新增 petModes/petModeSchedules/customActions/deviceInteractions 四张表（含 FK + ON DELETE CASCADE）

@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach } from "bun:test";
+import { Hono } from "hono";
 import { mockDb } from "./setup";
 import { createApp, authHeader, jsonReq, fakeMessage } from "./helpers";
+import adminRoute from "../routes/admin";
+import { adminMiddleware } from "../middleware/admin";
 
 const app = createApp();
+const adminApp = new Hono();
+adminApp.use("/api/admin/*", adminMiddleware);
+adminApp.route("/api/admin", adminRoute);
 
 describe("Message Routes", () => {
   beforeEach(() => {
@@ -30,17 +36,43 @@ describe("Message Routes", () => {
       expect(json).toHaveLength(1);
     });
 
-    it("supports type filter", async () => {
-      const msg = fakeMessage({ type: "authorization" });
+    it("supports new message type filter", async () => {
+      const msg = fakeMessage({ type: "community" });
       mockDb._results.select = [[msg]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
-        jsonReq("GET", "/api/messages?type=authorization", { headers })
+        jsonReq("GET", "/api/messages?type=community", { headers })
       );
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json).toHaveLength(1);
+      expect(json[0].type).toBe("community");
+    });
+  });
+
+  describe("POST /api/admin/messages", () => {
+    it("creates a message with new message type", async () => {
+      const message = fakeMessage({ type: "device" });
+      mockDb._results.insert = [[message]];
+
+      const res = await adminApp.request(
+        jsonReq("POST", "/api/admin/messages", {
+          headers: { "X-Admin-Key": "yehey-admin-dev" },
+          body: {
+            userId: "user-1",
+            type: "device",
+            title: "Device Alert",
+            content: "Desktop offline",
+          },
+        })
+      );
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.message.type).toBe("device");
+      expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+        type: "device",
+      });
     });
   });
 

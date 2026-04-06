@@ -88,29 +88,49 @@ describe("Pet Routes", () => {
   // ===== POST /api/pets =====
 
   describe("POST /api/pets", () => {
-    it("creates a pet", async () => {
-      const pet = fakePet({ name: "Lucky", species: "dog" });
+    it("creates a pet with description and color", async () => {
+      const pet = fakePet({
+        name: "Lucky",
+        species: "dog",
+        description: "Very friendly",
+        color: "golden",
+      });
       mockDb._results.insert = [[pet]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
         jsonReq("POST", "/api/pets", {
           headers,
-          body: { name: "Lucky", species: "dog" },
+          body: {
+            name: "Lucky",
+            species: "dog",
+            description: "Very friendly",
+            color: "golden",
+          },
         })
       );
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.pet.name).toBe("Lucky");
+      expect(json.pet.description).toBe("Very friendly");
+      expect(json.pet.color).toBe("golden");
+      expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+        description: "Very friendly",
+        color: "golden",
+      });
     });
   });
 
   // ===== PUT /api/pets/:id =====
 
   describe("PUT /api/pets/:id", () => {
-    it("updates own pet", async () => {
+    it("updates own pet including description and color", async () => {
       const existing = fakePet();
-      const updated = fakePet({ name: "New Name" });
+      const updated = fakePet({
+        name: "New Name",
+        description: "Calm and smart",
+        color: "black",
+      });
       // select: find existing, update: return updated
       mockDb._results.select = [[existing]];
       mockDb._results.update = [[updated]];
@@ -119,12 +139,22 @@ describe("Pet Routes", () => {
       const res = await app.request(
         jsonReq("PUT", "/api/pets/pet-1", {
           headers,
-          body: { name: "New Name" },
+          body: {
+            name: "New Name",
+            description: "Calm and smart",
+            color: "black",
+          },
         })
       );
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.pet.name).toBe("New Name");
+      expect(json.pet.description).toBe("Calm and smart");
+      expect(json.pet.color).toBe("black");
+      expect((mockDb._calls.update[0] as any).set).toMatchObject({
+        description: "Calm and smart",
+        color: "black",
+      });
     });
 
     it("returns 404 when updating another user's pet", async () => {

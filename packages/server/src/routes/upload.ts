@@ -4,8 +4,16 @@ import { uploadFile } from "../utils/storage";
 
 const uploadRoute = new Hono();
 
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+const FILE_RULES: Record<
+  string,
+  { ext: string; maxSize: number; label: "image" | "video" }
+> = {
+  "image/jpeg": { ext: "jpg", maxSize: 10 * 1024 * 1024, label: "image" },
+  "image/png": { ext: "png", maxSize: 10 * 1024 * 1024, label: "image" },
+  "image/webp": { ext: "webp", maxSize: 10 * 1024 * 1024, label: "image" },
+  "video/mp4": { ext: "mp4", maxSize: 50 * 1024 * 1024, label: "video" },
+  "video/quicktime": { ext: "mov", maxSize: 50 * 1024 * 1024, label: "video" },
+};
 
 uploadRoute.post("/", async (c) => {
   try {
@@ -18,23 +26,29 @@ uploadRoute.post("/", async (c) => {
     }
 
     const uploadedFile = file as File;
+    const fileRule = FILE_RULES[uploadedFile.type];
 
-    if (!ALLOWED_TYPES.has(uploadedFile.type)) {
-      return c.json({ error: "不支持的文件格式，请上传 JPG/PNG/WEBP 图片" }, 400);
+    if (!fileRule) {
+      return c.json(
+        { error: "不支持的文件格式，请上传 JPG/PNG/WEBP 图片或 MP4/MOV 视频" },
+        400,
+      );
     }
 
-    if (uploadedFile.size > MAX_FILE_SIZE) {
-      return c.json({ error: "文件过大，请上传 10MB 以内的图片" }, 400);
+    if (uploadedFile.size > fileRule.maxSize) {
+      return c.json(
+        {
+          error:
+            fileRule.label === "video"
+              ? "文件过大，请上传 50MB 以内的视频"
+              : "文件过大，请上传 10MB 以内的图片",
+        },
+        400,
+      );
     }
 
     const fileId = createId();
-    const ext =
-      uploadedFile.type === "image/png"
-        ? "png"
-        : uploadedFile.type === "image/webp"
-          ? "webp"
-          : "jpg";
-    const key = `${userId}/${fileId}.${ext}`;
+    const key = `${userId}/${fileId}.${fileRule.ext}`;
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
 
     let url: string;

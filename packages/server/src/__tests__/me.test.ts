@@ -9,6 +9,32 @@ describe("Me Routes", () => {
     mockDb._reset();
   });
 
+  describe("GET /api/me", () => {
+    it("returns quotas for current user", async () => {
+      const user = fakeUser({ avatarQuota: 5, deviceBindingQuota: 4 });
+      mockDb._results.select = [
+        [user],
+        [{ id: "pet-1" }, { id: "pet-2" }],
+        [{ id: "avatar-1" }, { id: "avatar-2" }, { id: "avatar-3" }],
+        [{ id: "desktop-1" }, { id: "desktop-2" }],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/me", { headers })
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.user.id).toBe("user-1");
+      expect(json.quotas).toEqual({
+        avatarQuota: 5,
+        avatarUsed: 3,
+        deviceBindingQuota: 4,
+        deviceBindingUsed: 2,
+      });
+    });
+  });
+
   describe("PUT /api/me", () => {
     it("returns 401 without token", async () => {
       const res = await app.request(jsonReq("PUT", "/api/me"));

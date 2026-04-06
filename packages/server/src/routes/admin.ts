@@ -10,6 +10,7 @@ import {
   petAvatars,
   petAvatarActions,
   deviceAuthorizations,
+  messages,
 } from "../db/schema";
 import { eq, desc, sql, inArray, isNull } from "drizzle-orm";
 import { createId } from "../utils/id";
@@ -60,7 +61,14 @@ adminRoute.post("/users", async (c) => {
 adminRoute.put("/users/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
-  const allowed = pick(body, ["nickname", "phone", "wechatOpenid", "avatarUrl", "avatarQuota"]);
+  const allowed = pick(body, [
+    "nickname",
+    "phone",
+    "wechatOpenid",
+    "avatarUrl",
+    "avatarQuota",
+    "deviceBindingQuota",
+  ]);
   const [user] = await db
     .update(users)
     .set({ ...allowed, updatedAt: new Date() })
@@ -361,6 +369,24 @@ adminRoute.post("/behaviors/auto", async (c) => {
 
   const behaviors = await db.insert(petBehaviors).values(values).returning();
   return c.json({ behaviors, count: behaviors.length }, 201);
+});
+
+// ===== 消息 =====
+
+adminRoute.post("/messages", async (c) => {
+  const body = await c.req.json();
+  const [message] = await db
+    .insert(messages)
+    .values({
+      userId: body.userId,
+      type: body.type,
+      title: body.title,
+      content: body.content,
+      isRead: body.isRead ?? false,
+    })
+    .returning();
+
+  return c.json({ message }, 201);
 });
 
 // ===== 统计概览 =====

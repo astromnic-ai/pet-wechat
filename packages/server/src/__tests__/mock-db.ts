@@ -135,7 +135,7 @@ export function createMockDb(): MockDb {
 
     insert(_table: unknown) {
       const idx = db._calls.insert.length;
-      db._calls.insert.push({});
+      db._calls.insert.push({ table: _table });
       const result = () => db._results.insert[idx] ?? [];
 
       const returningChain = {
@@ -151,6 +151,7 @@ export function createMockDb(): MockDb {
       };
       return {
         values(_v: unknown) {
+          (db._calls.insert[idx] as Record<string, unknown>).values = _v;
           return returningChain;
         },
       } as any;
@@ -158,11 +159,12 @@ export function createMockDb(): MockDb {
 
     update(_table: unknown) {
       const idx = db._calls.update.length;
-      db._calls.update.push({});
+      db._calls.update.push({ table: _table });
       const result = () => db._results.update[idx] ?? [];
 
       return {
         set(_v: unknown) {
+          (db._calls.update[idx] as Record<string, unknown>).set = _v;
           const whereChain: any = {
             where(..._args: unknown[]) {
               const p = Promise.resolve(result());

@@ -72,5 +72,46 @@ describe("Upload Routes", () => {
       expect(json.url).toEndWith(".jpg");
       expect(json.fileId).toBeDefined();
     });
+
+    it("uploads mp4 video up to the 50MB limit", async () => {
+      const headers = await authHeader("user-1");
+      const formData = new FormData();
+      const file = new File([new Uint8Array(11 * 1024 * 1024)], "clip.mp4", {
+        type: "video/mp4",
+      });
+      formData.append("file", file);
+
+      const res = await app.request(
+        new Request("http://localhost/api/upload", {
+          method: "POST",
+          headers,
+          body: formData,
+        })
+      );
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.url).toContain("test-storage.local");
+      expect(json.url).toEndWith(".mp4");
+    });
+
+    it("uploads quicktime video", async () => {
+      const headers = await authHeader("user-1");
+      const formData = new FormData();
+      const file = new File(["quicktime"], "clip.mov", {
+        type: "video/quicktime",
+      });
+      formData.append("file", file);
+
+      const res = await app.request(
+        new Request("http://localhost/api/upload", {
+          method: "POST",
+          headers,
+          body: formData,
+        })
+      );
+      expect(res.status).toBe(201);
+      const json = await res.json();
+      expect(json.url).toEndWith(".mov");
+    });
   });
 });

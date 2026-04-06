@@ -1,10 +1,19 @@
 import { Hono } from "hono";
 import { db } from "../db";
 import { users } from "../db/schema";
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { signToken } from "../middleware/auth";
 
 const auth = new Hono();
+const PHONE_PATTERN = /^\d{11}$/;
+
+function isValidPhone(phone: string) {
+  return PHONE_PATTERN.test(phone);
+}
+
+function isValidPassword(password: string) {
+  return password.length >= 6 && password.length <= 32;
+}
 
 // 微信小程序登录：前端传 code，后端换 openid
 auth.post("/wechat", async (c) => {
@@ -46,10 +55,93 @@ auth.post("/wechat", async (c) => {
   return c.json({ token, user });
 });
 
-// 手机号验证码登录
+auth.post("/register", async (c) => {
+  const body = await c.req.json<{
+    phone?: string;
+    code?: string;
+    password?: string;
+  }>();
+  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+
+  if (!isValidPhone(phone)) {
+    return c.json({ error: "手机号格式错误" }, 400);
+  }
+
+  if (!isValidPassword(password)) {
+    return c.json({ error: "密码长度需为6-32位" }, 400);
+  }
+
+  if (body.code !== "123456") {
+    return c.json({ error: "验证码错误" }, 400);
+  }
+
+  const [existingUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.phone, phone));
+
+  if (existingUser) {
+    return c.json({ error: "手机号已注册" }, 409);
+  }
+
+  const passwordHash = await Bun.password.hash(password);
+  const [user] = await db
+    .insert(users)
+    .values({
+      phone,
+      nickname: `用户${phone.slice(-4)}`,
+      passwordHash,
+    })
+    .returning();
+
+  const token = await signToken(user.id);
+  return c.json({ token, user }, 201);
+});
+
+// 手机号验证码/密码登录
 auth.post("/phone", async (c) => {
-  const { phone, code } = await c.req.json<{ phone: string; code: string }>();
-  if (!phone || !code) return c.json({ error: "phone and code required" }, 400);
+  const body = await c.req.json<{
+    phone?: string;
+    code?: string;
+    password?: string;
+  }>();
+  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const code = typeof body.code === "string" ? body.code : undefined;
+  const password = typeof body.password === "string" ? body.password : undefined;
+  const hasCode = typeof code === "string";
+  const hasPassword = typeof password === "string";
+
+  if (hasCode === hasPassword) {
+    return c.json({ error: "必须且只能提供验证码或密码" }, 400);
+  }
+
+  if (hasPassword) {
+    if (!phone || !password) {
+      return c.json({ error: "phone and password required" }, 400);
+    }
+
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.phone, phone));
+
+    if (!user || !user.passwordHash) {
+      return c.json({ error: "手机号或密码错误" }, 401);
+    }
+
+    const verified = await Bun.password.verify(password, user.passwordHash);
+    if (!verified) {
+      return c.json({ error: "手机号或密码错误" }, 401);
+    }
+
+    const token = await signToken(user.id);
+    return c.json({ token, user });
+  }
+
+  if (!phone || !code) {
+    return c.json({ error: "phone and code required" }, 400);
+  }
 
   // TODO: 接入真实短信验证码服务
   if (code !== "123456") {

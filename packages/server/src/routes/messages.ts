@@ -4,14 +4,22 @@ import { messages } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 
 const messagesRoute = new Hono();
+const ALLOWED_MESSAGE_TYPES = new Set([
+  "system",
+  "authorization",
+  "activity",
+  "health",
+  "device",
+  "community",
+]);
 
 // 获取消息列表
 messagesRoute.get("/", async (c) => {
   const userId = c.get("userId" as never) as string;
-  const type = c.req.query("type"); // authorization | system | 不传=全部
+  const type = c.req.query("type");
 
   const conditions = [eq(messages.userId, userId)];
-  if (type === "authorization" || type === "system") {
+  if (type && ALLOWED_MESSAGE_TYPES.has(type)) {
     conditions.push(eq(messages.type, type));
   }
 
