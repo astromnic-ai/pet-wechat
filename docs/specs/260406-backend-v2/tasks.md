@@ -11,7 +11,7 @@
   - **测试**: 现有测试全部通过即可，新 fake 函数在后续任务中被使用
   - **关联决策**: D-06, D-08
 
-- [ ] 2. 宠物信息扩展 + 消息类型扩展 + 注册流程 + 额度系统（后端 API + 测试）
+- [x] 2. 宠物信息扩展 + 消息类型扩展 + 注册流程 + 额度系统（后端 API + 测试）
   - **文件**: `packages/server/src/routes/pets.ts`, `packages/server/src/routes/auth.ts`, `packages/server/src/routes/me.ts`, `packages/server/src/routes/admin.ts`, `packages/server/src/routes/upload.ts`, `packages/server/src/__tests__/pets.test.ts`, `packages/server/src/__tests__/auth.test.ts`, `packages/server/src/__tests__/me.test.ts`, `packages/server/src/__tests__/messages.test.ts`, `packages/server/src/__tests__/upload.test.ts`
   - **做什么**:
     - pets.ts: POST/PUT 接受 description/color，GET 返回新字段

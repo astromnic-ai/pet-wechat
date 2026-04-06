@@ -49,6 +49,44 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface PetModeScheduleInput {
+  startTime: string;
+  endTime: string;
+  actionType: string;
+}
+
+export interface PetModeSchedule extends PetModeScheduleInput {
+  id: string;
+  petId: string;
+  source: "system" | "custom";
+  sortOrder: number;
+  createdAt: string;
+}
+
+export async function fetchPetModeSchedules(petId: string): Promise<{ schedules: PetModeSchedule[] }> {
+  return request<{ schedules: PetModeSchedule[] }>(`/pets/${petId}/mode/schedules`);
+}
+
+export async function updatePetModeSchedules(
+  petId: string,
+  schedules: PetModeScheduleInput[],
+): Promise<{ schedules: PetModeSchedule[] }> {
+  return request<{ schedules: PetModeSchedule[] }>(`/pets/${petId}/mode/schedules`, {
+    method: "PUT",
+    body: JSON.stringify({ schedules }),
+  });
+}
+
+export async function batchUpdateSchedules(
+  petIds: string[],
+  schedules: PetModeScheduleInput[],
+): Promise<{ updatedCount: number }> {
+  return request<{ updatedCount: number }>("/pets/batch-schedules", {
+    method: "POST",
+    body: JSON.stringify({ petIds, schedules }),
+  });
+}
+
 export const api = {
   // Stats
   getStats: () => request<Record<string, number>>("/stats"),
@@ -81,4 +119,7 @@ export const api = {
   getBehaviors: (limit?: number) => request<{ behaviors: any[] }>(`/behaviors?limit=${limit ?? 50}`),
   createBehavior: (data: any) => request<{ behavior: any }>("/behaviors", { method: "POST", body: JSON.stringify(data) }),
   autoBehaviors: (data: any) => request<{ behaviors: any[]; count: number }>("/behaviors/auto", { method: "POST", body: JSON.stringify(data) }),
+  fetchPetModeSchedules,
+  updatePetModeSchedules,
+  batchUpdateSchedules,
 };

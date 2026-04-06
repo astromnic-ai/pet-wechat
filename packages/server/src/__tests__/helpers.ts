@@ -4,6 +4,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { authMiddleware } from "../middleware/auth";
+import { adminMiddleware } from "../middleware/admin";
 import { signToken } from "../middleware/auth";
 import type { MockDb } from "./mock-db";
 
@@ -19,6 +20,8 @@ import meRoute from "../routes/me";
 import debugRoute from "../routes/debug";
 import uploadRoute from "../routes/upload";
 import invitePublicRoute from "../routes/invite-public";
+import adminRoute from "../routes/admin";
+import petModesRoute from "../routes/pet-modes";
 
 /**
  * Build a fresh Hono app identical to the production one,
@@ -35,10 +38,15 @@ export function createApp(): InstanceType<typeof Hono> {
   app.route("/api/auth", authRoute);
   app.route("/api/invite", invitePublicRoute);
 
+  // Admin routes
+  app.use("/api/admin/*", adminMiddleware);
+  app.route("/api/admin", adminRoute);
+
   // Protected routes
   app.use("/api/*", authMiddleware);
   app.route("/api/me", meRoute);
   app.route("/api/pets", petsRoute);
+  app.route("/api/pets", petModesRoute);
   app.route("/api/avatars", avatarsRoute);
   app.route("/api/devices", devicesRoute);
   app.route("/api/behaviors", behaviorsRoute);

@@ -18,6 +18,7 @@ import meRoute from "./routes/me";
 import debugRoute from "./routes/debug";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
+import petModesRoute from "./routes/pet-modes";
 import { runPreflight } from "./preflight";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -53,6 +54,7 @@ export function createApp() {
   app.use("/api/*", authMiddleware);
   app.route("/api/me", meRoute);
   app.route("/api/pets", petsRoute);
+  app.route("/api/pets", petModesRoute);
   app.route("/api/avatars", avatarsRoute);
   app.route("/api/devices", devicesRoute);
   app.route("/api/behaviors", behaviorsRoute);

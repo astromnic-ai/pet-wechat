@@ -11,8 +11,9 @@ import {
   petAvatarActions,
   deviceAuthorizations,
   messages,
+  petModeSchedules,
 } from "../db/schema";
-import { eq, desc, sql, inArray, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createId } from "../utils/id";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
@@ -32,6 +33,105 @@ async function validateCollarPetBinding(collarDeviceId: string, petId: string) {
     return { valid: false as const, status: 400 as const, error: "项圈与宠物不匹配" };
   }
   return { valid: true as const, collar };
+}
+
+const TIME_PATTERN = /^\d{2}:\d{2}$/;
+
+type AdminScheduleInput = {
+  startTime: string;
+  endTime: string;
+  actionType: string;
+};
+
+function validateScheduleTimes(startTime: string, endTime: string) {
+  if (!TIME_PATTERN.test(startTime) || !TIME_PATTERN.test(endTime)) {
+    return "时间格式错误";
+  }
+
+  if (startTime === endTime || startTime > endTime) {
+    return "开始时间必须早于结束时间";
+  }
+
+  return null;
+}
+
+function hasScheduleOverlap(schedules: AdminScheduleInput[]) {
+  const sortedSchedules = [...schedules].sort((a, b) =>
+    a.startTime === b.startTime ? a.endTime.localeCompare(b.endTime) : a.startTime.localeCompare(b.startTime),
+  );
+
+  for (let index = 1; index < sortedSchedules.length; index += 1) {
+    if (sortedSchedules[index].startTime < sortedSchedules[index - 1].endTime) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function validateSchedulesInput(schedules: unknown) {
+  if (!Array.isArray(schedules)) {
+    return "schedules 必须是数组";
+  }
+
+  if (schedules.length > 20) {
+    return "时间表最多 20 条";
+  }
+
+  for (const schedule of schedules) {
+    if (
+      !schedule ||
+      typeof schedule !== "object" ||
+      typeof (schedule as AdminScheduleInput).startTime !== "string" ||
+      typeof (schedule as AdminScheduleInput).endTime !== "string" ||
+      typeof (schedule as AdminScheduleInput).actionType !== "string" ||
+      !(schedule as AdminScheduleInput).actionType.trim()
+    ) {
+      return "时间表数据不完整";
+    }
+
+    const timeError = validateScheduleTimes(
+      (schedule as AdminScheduleInput).startTime,
+      (schedule as AdminScheduleInput).endTime,
+    );
+    if (timeError) {
+      return timeError;
+    }
+  }
+
+  if (hasScheduleOverlap(schedules as AdminScheduleInput[])) {
+    return "时间段与现有配置重叠";
+  }
+
+  return null;
+}
+
+async function replaceSystemSchedules(
+  tx: typeof db,
+  petId: string,
+  schedules: AdminScheduleInput[],
+) {
+  await tx
+    .delete(petModeSchedules)
+    .where(and(eq(petModeSchedules.petId, petId), eq(petModeSchedules.source, "system")));
+
+  if (schedules.length === 0) {
+    return [];
+  }
+
+  return tx
+    .insert(petModeSchedules)
+    .values(
+      schedules.map((schedule, index) => ({
+        petId,
+        source: "system" as const,
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        actionType: schedule.actionType.trim(),
+        sortOrder: index,
+      })),
+    )
+    .returning();
 }
 
 const adminRoute = new Hono();
@@ -158,6 +258,58 @@ adminRoute.put("/pets/:id", async (c) => {
     .returning();
   if (!pet) return c.json({ error: "Pet not found" }, 404);
   return c.json({ pet });
+});
+
+adminRoute.get("/pets/:id/mode/schedules", async (c) => {
+  const petId = c.req.param("id");
+  const schedules = await db
+    .select()
+    .from(petModeSchedules)
+    .where(and(eq(petModeSchedules.petId, petId), eq(petModeSchedules.source, "system")))
+    .orderBy(asc(petModeSchedules.sortOrder), asc(petModeSchedules.startTime));
+
+  return c.json({ schedules });
+});
+
+adminRoute.put("/pets/:id/mode/schedules", async (c) => {
+  const petId = c.req.param("id");
+  const body = await c.req.json<{ schedules?: AdminScheduleInput[] }>();
+  const validationError = validateSchedulesInput(body.schedules);
+
+  if (validationError) {
+    return c.json({ error: validationError }, 400);
+  }
+
+  const schedules = await db.transaction((tx) =>
+    replaceSystemSchedules(tx as typeof db, petId, body.schedules ?? []),
+  );
+
+  return c.json({ schedules });
+});
+
+adminRoute.post("/pets/batch-schedules", async (c) => {
+  const body = await c.req.json<{ petIds?: string[]; schedules?: AdminScheduleInput[] }>();
+
+  if (!Array.isArray(body.petIds) || body.petIds.length === 0) {
+    return c.json({ error: "petIds 必须是非空数组" }, 400);
+  }
+
+  if (body.petIds.length > 50) {
+    return c.json({ error: "petIds 最多 50 个" }, 400);
+  }
+
+  const validationError = validateSchedulesInput(body.schedules);
+  if (validationError) {
+    return c.json({ error: validationError }, 400);
+  }
+
+  await db.transaction(async (tx) => {
+    for (const petId of body.petIds ?? []) {
+      await replaceSystemSchedules(tx as typeof db, petId, body.schedules ?? []);
+    }
+  });
+
+  return c.json({ updatedCount: body.petIds.length });
 });
 
 adminRoute.delete("/pets/:id", async (c) => {

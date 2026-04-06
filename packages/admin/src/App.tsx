@@ -7,6 +7,7 @@ import {
   ApiOutlined,
   DesktopOutlined,
   ThunderboltOutlined,
+  ClockCircleOutlined,
   DashboardOutlined,
   SettingOutlined,
   LogoutOutlined,
@@ -18,6 +19,7 @@ import PetsPage from "./pages/Pets";
 import CollarsPage from "./pages/Collars";
 import DesktopsPage from "./pages/Desktops";
 import EventsPage from "./pages/Events";
+import PetModesPage from "./pages/PetModes";
 
 const { Header, Sider, Content } = Layout;
 
@@ -25,6 +27,7 @@ const menuItems = [
   { key: "/", icon: <DashboardOutlined />, label: "概览" },
   { key: "/users", icon: <UserOutlined />, label: "用户" },
   { key: "/pets", icon: <HeartOutlined />, label: "宠物" },
+  { key: "/pet-modes", icon: <ClockCircleOutlined />, label: "活动模式" },
   { key: "/collars", icon: <ApiOutlined />, label: "项圈" },
   { key: "/desktops", icon: <DesktopOutlined />, label: "桌面摆台" },
   { key: "/events", icon: <ThunderboltOutlined />, label: "模拟事件" },
@@ -168,6 +171,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/users" element={<UsersPage />} />
             <Route path="/pets" element={<PetsPage />} />
+            <Route path="/pet-modes" element={<PetModesPage />} />
             <Route path="/collars" element={<CollarsPage />} />
             <Route path="/desktops" element={<DesktopsPage />} />
             <Route path="/events" element={<EventsPage />} />
