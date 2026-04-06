@@ -12,7 +12,7 @@ import { createId } from "../utils/id";
 
 // ===== 枚举 =====
 
-export const speciesEnum = pgEnum("species", ["cat", "dog"]);
+export const speciesEnum = pgEnum("species", ["cat", "dog", "other"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "unknown"]);
 export const deviceStatusEnum = pgEnum("device_status", [
   "online",
@@ -28,6 +28,30 @@ export const avatarStatusEnum = pgEnum("avatar_status", [
 export const messageTypeEnum = pgEnum("message_type", [
   "authorization",
   "system",
+  "activity",
+  "health",
+  "device",
+  "community",
+]);
+export const petActivityModeEnum = pgEnum("pet_activity_mode", [
+  "free",
+  "custom",
+  "real",
+]);
+export const scheduleSourceEnum = pgEnum("schedule_source", [
+  "system",
+  "custom",
+]);
+export const customActionStatusEnum = pgEnum("custom_action_status", [
+  "pending",
+  "processing",
+  "done",
+  "failed",
+]);
+export const interactionTypeEnum = pgEnum("interaction_type", [
+  "touch",
+  "shake",
+  "gesture",
 ]);
 export const bindingTypeEnum = pgEnum("binding_type", [
   "owner",
@@ -47,7 +71,9 @@ export const users = pgTable("users", {
   phone: text("phone").unique(),
   nickname: text("nickname").notNull(),
   avatarUrl: text("avatar_url"),
+  passwordHash: text("password_hash"),
   avatarQuota: integer("avatar_quota").notNull().default(2),
+  deviceBindingQuota: integer("device_binding_quota").notNull().default(3),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -64,6 +90,8 @@ export const pets = pgTable("pets", {
   name: text("name").notNull(),
   species: speciesEnum("species").notNull(),
   breed: text("breed"),
+  description: text("description"),
+  color: text("color"),
   gender: genderEnum("gender").notNull().default("unknown"),
   birthday: text("birthday"),
   weight: real("weight"),
@@ -185,6 +213,75 @@ export const petBehaviors = pgTable("pet_behaviors", {
   petId: text("pet_id").notNull(),
   collarDeviceId: text("collar_device_id").notNull(),
   actionType: text("action_type").notNull(),
+  timestamp: timestamp("timestamp", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ===== 宠物活动模式 =====
+
+export const petModes = pgTable("pet_modes", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  petId: text("pet_id")
+    .notNull()
+    .references(() => pets.id, { onDelete: "cascade" })
+    .unique(),
+  mode: petActivityModeEnum("mode").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const petModeSchedules = pgTable("pet_mode_schedules", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  petId: text("pet_id")
+    .notNull()
+    .references(() => pets.id, { onDelete: "cascade" }),
+  source: scheduleSourceEnum("source").notNull(),
+  startTime: text("start_time").notNull(),
+  endTime: text("end_time").notNull(),
+  actionType: text("action_type").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ===== 自定义动作 =====
+
+export const customActions = pgTable("custom_actions", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  petId: text("pet_id")
+    .notNull()
+    .references(() => pets.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  videoUrl: text("video_url").notNull(),
+  status: customActionStatusEnum("status").notNull(),
+  resultImageUrl: text("result_image_url"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ===== 设备互动 =====
+
+export const deviceInteractions = pgTable("device_interactions", {
+  id: text("id").primaryKey().$defaultFn(createId),
+  desktopDeviceId: text("desktop_device_id")
+    .notNull()
+    .references(() => desktopDevices.id, { onDelete: "cascade" }),
+  petId: text("pet_id")
+    .notNull()
+    .references(() => pets.id, { onDelete: "cascade" }),
+  interactionType: interactionTypeEnum("interaction_type").notNull(),
+  count: integer("count").notNull().default(1),
   timestamp: timestamp("timestamp", { withTimezone: true })
     .notNull()
     .defaultNow(),

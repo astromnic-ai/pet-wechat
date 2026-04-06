@@ -1,10 +1,20 @@
 // ===== 枚举 =====
 
-export type Species = "cat" | "dog";
+export type Species = "cat" | "dog" | "other";
 export type Gender = "male" | "female" | "unknown";
 export type DeviceStatus = "online" | "offline" | "pairing";
 export type AvatarStatus = "pending" | "processing" | "done" | "failed";
-export type MessageType = "authorization" | "system";
+export type MessageType =
+  | "authorization"
+  | "system"
+  | "activity"
+  | "health"
+  | "device"
+  | "community";
+export type PetActivityMode = "free" | "custom" | "real";
+export type ScheduleSource = "system" | "custom";
+export type CustomActionStatus = "pending" | "processing" | "done" | "failed";
+export type InteractionType = "touch" | "shake" | "gesture";
 export type BindingType = "owner" | "authorized";
 export type AuthorizationStatus = "pending" | "accepted" | "rejected";
 
@@ -17,6 +27,7 @@ export interface User {
   nickname: string;
   avatarUrl: string | null;
   avatarQuota: number;
+  deviceBindingQuota?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -29,6 +40,8 @@ export interface Pet {
   name: string;
   species: Species;
   breed: string | null;
+  description?: string | null;
+  color?: string | null;
   gender: Gender;
   birthday: string | null;
   weight: number | null;
@@ -41,6 +54,46 @@ export interface Pet {
 
 export interface PetLatestBehavior {
   actionType: string;
+  timestamp: string;
+}
+
+export interface PetMode {
+  id: string;
+  petId: string;
+  mode: PetActivityMode;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PetModeSchedule {
+  id: string;
+  petId: string;
+  source: ScheduleSource;
+  startTime: string;
+  endTime: string;
+  actionType: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export interface CustomAction {
+  id: string;
+  petId: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  videoUrl: string;
+  status: CustomActionStatus;
+  resultImageUrl: string | null;
+  createdAt: string;
+}
+
+export interface DeviceInteraction {
+  id: string;
+  desktopDeviceId: string;
+  petId: string;
+  interactionType: InteractionType;
+  count: number;
   timestamp: string;
 }
 
@@ -139,6 +192,27 @@ export interface WsAvatarDoneMessage {
   };
 }
 
+export interface WsCustomActionDoneMessage {
+  type: "custom-action:done";
+  data: {
+    petId: string;
+    actionId: string;
+    resultImageUrl: string | null;
+  };
+}
+
+export interface WsInteractionNewMessage {
+  type: "interaction:new";
+  data: {
+    interactionId: string;
+    desktopDeviceId: string;
+    petId: string;
+    interactionType: InteractionType;
+    count: number;
+    timestamp: string;
+  };
+}
+
 export interface WsPingMessage {
   type: "ping";
 }
@@ -150,6 +224,8 @@ export interface WsPongMessage {
 export type WsMessage =
   | WsBehaviorNewMessage
   | WsAvatarDoneMessage
+  | WsCustomActionDoneMessage
+  | WsInteractionNewMessage
   | WsPingMessage
   | WsPongMessage;
 

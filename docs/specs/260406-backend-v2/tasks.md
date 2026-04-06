@@ -1,0 +1,62 @@
+# 实施计划
+
+- [ ] 1. Schema 扩展 + 共享类型 + 测试基座
+  - **文件**: `packages/server/src/db/schema.ts`, `packages/shared/src/types.ts`, `packages/server/src/__tests__/helpers.ts`, `packages/server/src/__tests__/mock-db.ts`
+  - **做什么**:
+    - schema.ts: 扩展 species/messageType 枚举，users 加 passwordHash/deviceBindingQuota，pets 加 description/color，新增 petModes/petModeSchedules/customActions/deviceInteractions 四张表（含 FK + ON DELETE CASCADE）
+    - types.ts: 新增 PetActivityMode/ScheduleSource/CustomActionStatus/InteractionType 类型，扩展 Species/MessageType/Pet/User，新增 PetMode/PetModeSchedule/CustomAction/DeviceInteraction/WsCustomActionDoneMessage/WsInteractionNewMessage 接口，passwordHash 不进 shared
+    - helpers.ts: 新增 fakeMode/fakeSchedule/fakeCustomAction/fakeInteraction 工厂函数，createApp() 挂载所有新路由（pet-modes、custom-actions、interactions），挂载 admin 路由
+    - mock-db.ts: 如有需要扩展 mock 以支持新表查询
+  - **完成标准**: `bun test src/__tests__/` 全部现有测试仍然通过；TypeScript 编译无报错（`npx tsc --noEmit` 在 server 和 shared 包）
+  - **测试**: 现有测试全部通过即可，新 fake 函数在后续任务中被使用
+  - **关联决策**: D-06, D-08
+
+- [ ] 2. 宠物信息扩展 + 消息类型扩展 + 注册流程 + 额度系统（后端 API + 测试）
+  - **文件**: `packages/server/src/routes/pets.ts`, `packages/server/src/routes/auth.ts`, `packages/server/src/routes/me.ts`, `packages/server/src/routes/admin.ts`, `packages/server/src/routes/upload.ts`, `packages/server/src/__tests__/pets.test.ts`, `packages/server/src/__tests__/auth.test.ts`, `packages/server/src/__tests__/me.test.ts`, `packages/server/src/__tests__/messages.test.ts`, `packages/server/src/__tests__/upload.test.ts`
+  - **做什么**:
+    - pets.ts: POST/PUT 接受 description/color，GET 返回新字段
+    - auth.ts: 新增 `POST /api/auth/register`（手机号+验证码123456+密码，Bun.password.hash），扩展 `POST /api/auth/phone` 支持 `{phone,password}` 密码登录分支
+    - me.ts: GET /api/me 响应加 quotas 对象（avatarQuota/avatarUsed/deviceBindingQuota/deviceBindingUsed）
+    - admin.ts: PUT /api/admin/users/:id 支持 deviceBindingQuota；确保 POST /api/admin/messages 支持新 messageType
+    - upload.ts: 扩展支持 video/mp4 和 video/quicktime，max 50MB
+    - 对应测试文件全部更新
+  - **完成标准**: `bun test src/__tests__/` 全部通过；`POST /api/auth/register` 成功注册+手机号重复返回 409；`POST /api/auth/phone {phone,password}` 密码登录成功/失败；`GET /api/me` 返回 quotas
+  - **测试**: auth 测试覆盖注册成功/手机号重复/密码登录成功/密码错误/code+password 同时传；me 测试覆盖 quotas；pets 测试覆盖新字段；messages 测试覆盖新类型；upload 测试覆盖视频
+  - **关联决策**: D-02, D-05
+
+- [ ] 3. 宠物活动模式（后端 API + 测试 + admin 前端）
+  - **文件**: `packages/server/src/routes/pet-modes.ts`(新增), `packages/server/src/routes/admin.ts`, `packages/server/src/index.ts`, `packages/server/src/__tests__/pet-modes.test.ts`(新增), `packages/admin/src/pages/PetModes.tsx`(新增), `packages/admin/src/App.tsx`, `packages/admin/src/api/client.ts`
+  - **做什么**:
+    - pet-modes.ts: 实现 GET/PUT mode + GET/POST/PUT/DELETE schedules，含 lazy init、source 隔离、时间格式校验、重叠检测、上限检查、real 模式项圈检查
+    - admin.ts: PUT /api/admin/pets/:id/mode/schedules（事务内整体替换 source=system）+ POST /api/admin/pets/batch-schedules（最多 50 个 petIds）
+    - index.ts: 挂载 pet-modes 路由
+    - PetModes.tsx: 选宠物 → 查看/编辑 system 时间表 + 批量选宠物配置
+    - App.tsx: 新增路由和侧边栏
+    - client.ts: 新增 API 函数
+  - **完成标准**: `bun test src/__tests__/` 全部通过；admin 前端 `pnpm --filter admin build` 编译通过
+  - **测试**: 覆盖 mode 获取（含 lazy init）、mode 切换（含 real 模式拒绝无项圈）、schedule CRUD（含时间校验/重叠/上限/source 隔离）、admin 批量配置
+  - **关联决策**: D-01, D-06, D-07
+
+- [ ] 4. 自定义动作 + 桌面互动记录（后端 API + 测试 + admin 前端）
+  - **文件**: `packages/server/src/routes/custom-actions.ts`(新增), `packages/server/src/routes/interactions.ts`(新增), `packages/server/src/routes/admin.ts`, `packages/server/src/index.ts`, `packages/server/src/websocket.ts`, `packages/server/src/__tests__/custom-actions.test.ts`(新增), `packages/server/src/__tests__/interactions.test.ts`(新增), `packages/admin/src/pages/CustomActions.tsx`(新增), `packages/admin/src/pages/Interactions.tsx`(新增), `packages/admin/src/App.tsx`, `packages/admin/src/api/client.ts`
+  - **做什么**:
+    - custom-actions.ts: GET/POST/DELETE，POST 校验宠物归属，DELETE 拒绝 processing 状态
+    - interactions.ts: POST 上报（校验绑定关系+count+timestamp）+ GET stats（SQL 聚合 day/week/month）
+    - admin.ts: GET/PUT custom-actions + GET/POST auto interactions
+    - websocket.ts: 新增 custom-action:done 和 interaction:new 广播
+    - CustomActions.tsx: 表格+状态过滤+上传处理结果
+    - Interactions.tsx: 事件列表+批量生成按钮
+  - **完成标准**: `bun test src/__tests__/` 全部通过；admin 前端编译通过
+  - **测试**: custom-actions 覆盖 CRUD+状态机+权限；interactions 覆盖上报校验+统计聚合；admin 路由覆盖
+  - **关联决策**: D-03, D-04
+
+- [ ] 5. Admin 前端现有页面更新 + 删除级联 + 数据库迁移
+  - **文件**: `packages/admin/src/pages/Pets.tsx`, `packages/admin/src/pages/Users.tsx`, `packages/server/src/routes/pets.ts`, `packages/server/src/routes/admin.ts`
+  - **做什么**:
+    - Pets.tsx: 表单/表格加 description/color/species "other"
+    - Users.tsx: 表单/表格加 deviceBindingQuota
+    - pets.ts + admin.ts: 删除宠物/用户/设备时清理新增表数据
+    - 运行 `pnpm db:generate` 生成迁移文件
+  - **完成标准**: `bun test src/__tests__/` 全部通过；admin 前端编译通过；迁移文件已生成
+  - **测试**: 删除级联测试
+  - **关联决策**: D-08

@@ -84,6 +84,7 @@ export function fakeUser(overrides: Record<string, unknown> = {}) {
     nickname: "Test User",
     avatarUrl: null,
     avatarQuota: 2,
+    deviceBindingQuota: 3,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -97,6 +98,8 @@ export function fakePet(overrides: Record<string, unknown> = {}) {
     name: "Mimi",
     species: "cat",
     breed: null,
+    description: null,
+    color: null,
     gender: "unknown",
     birthday: null,
     weight: null,
@@ -170,6 +173,58 @@ export function fakeBehavior(overrides: Record<string, unknown> = {}) {
     petId: "pet-1",
     collarDeviceId: "collar-1",
     actionType: "walking",
+    timestamp: new Date(),
+    ...overrides,
+  };
+}
+
+export function fakeMode(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "mode-1",
+    petId: "pet-1",
+    mode: "free",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
+
+export function fakeSchedule(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "schedule-1",
+    petId: "pet-1",
+    source: "custom",
+    startTime: "09:00",
+    endTime: "10:00",
+    actionType: "sleeping",
+    sortOrder: 0,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+export function fakeCustomAction(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "custom-action-1",
+    petId: "pet-1",
+    userId: "user-1",
+    name: "Wave",
+    description: null,
+    videoUrl: "https://example.com/wave.mp4",
+    status: "pending",
+    resultImageUrl: null,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+export function fakeInteraction(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "interaction-1",
+    desktopDeviceId: "desktop-1",
+    petId: "pet-1",
+    interactionType: "touch",
+    count: 1,
     timestamp: new Date(),
     ...overrides,
   };
