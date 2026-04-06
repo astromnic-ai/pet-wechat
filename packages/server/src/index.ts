@@ -19,6 +19,8 @@ import debugRoute from "./routes/debug";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
 import petModesRoute from "./routes/pet-modes";
+import customActionsRoute from "./routes/custom-actions";
+import interactionsRoute from "./routes/interactions";
 import { runPreflight } from "./preflight";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -55,9 +57,11 @@ export function createApp() {
   app.route("/api/me", meRoute);
   app.route("/api/pets", petsRoute);
   app.route("/api/pets", petModesRoute);
+  app.route("/api/pets", customActionsRoute);
   app.route("/api/avatars", avatarsRoute);
   app.route("/api/devices", devicesRoute);
   app.route("/api/behaviors", behaviorsRoute);
+  app.route("/api/interactions", interactionsRoute);
   app.route("/api/stats", statsRoute);
   app.route("/api/messages", messagesRoute);
   app.route("/api/upload", uploadRoute);

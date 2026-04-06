@@ -55,12 +55,48 @@ export interface PetModeScheduleInput {
   actionType: string;
 }
 
+export type CustomActionStatus = "pending" | "processing" | "done" | "failed";
+export type InteractionType = "touch" | "shake" | "gesture";
+
 export interface PetModeSchedule extends PetModeScheduleInput {
   id: string;
   petId: string;
   source: "system" | "custom";
   sortOrder: number;
   createdAt: string;
+}
+
+export interface CustomAction {
+  id: string;
+  petId: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  videoUrl: string;
+  status: CustomActionStatus;
+  resultImageUrl: string | null;
+  createdAt: string;
+}
+
+export interface DeviceInteraction {
+  id: string;
+  desktopDeviceId: string;
+  petId: string;
+  interactionType: InteractionType;
+  count: number;
+  timestamp: string;
+}
+
+export interface UpdateCustomActionInput {
+  status: CustomActionStatus;
+  resultImageUrl?: string;
+}
+
+export interface AutoInteractionsInput {
+  petId: string;
+  desktopDeviceId: string;
+  count?: number;
+  intervalMinutes?: number;
 }
 
 export async function fetchPetModeSchedules(petId: string): Promise<{ schedules: PetModeSchedule[] }> {
@@ -84,6 +120,36 @@ export async function batchUpdateSchedules(
   return request<{ updatedCount: number }>("/pets/batch-schedules", {
     method: "POST",
     body: JSON.stringify({ petIds, schedules }),
+  });
+}
+
+export async function fetchCustomActions(
+  status?: CustomActionStatus,
+): Promise<{ customActions: CustomAction[] }> {
+  const query = status ? `?status=${status}` : "";
+  return request<{ customActions: CustomAction[] }>(`/custom-actions${query}`);
+}
+
+export async function updateCustomAction(
+  id: string,
+  data: UpdateCustomActionInput,
+): Promise<{ customAction: CustomAction }> {
+  return request<{ customAction: CustomAction }>(`/custom-actions/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function fetchInteractions(limit?: number): Promise<{ interactions: DeviceInteraction[] }> {
+  return request<{ interactions: DeviceInteraction[] }>(`/interactions?limit=${limit ?? 50}`);
+}
+
+export async function autoGenerateInteractions(
+  data: AutoInteractionsInput,
+): Promise<{ interactions: DeviceInteraction[]; count: number }> {
+  return request<{ interactions: DeviceInteraction[]; count: number }>("/interactions/auto", {
+    method: "POST",
+    body: JSON.stringify(data),
   });
 }
 
@@ -119,6 +185,10 @@ export const api = {
   getBehaviors: (limit?: number) => request<{ behaviors: any[] }>(`/behaviors?limit=${limit ?? 50}`),
   createBehavior: (data: any) => request<{ behavior: any }>("/behaviors", { method: "POST", body: JSON.stringify(data) }),
   autoBehaviors: (data: any) => request<{ behaviors: any[]; count: number }>("/behaviors/auto", { method: "POST", body: JSON.stringify(data) }),
+  getCustomActions: (status?: CustomActionStatus) => fetchCustomActions(status),
+  updateCustomAction,
+  getInteractions: (limit?: number) => fetchInteractions(limit),
+  autoGenerateInteractions,
   fetchPetModeSchedules,
   updatePetModeSchedules,
   batchUpdateSchedules,

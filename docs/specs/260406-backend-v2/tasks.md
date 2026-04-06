@@ -24,7 +24,7 @@
   - **测试**: auth 测试覆盖注册成功/手机号重复/密码登录成功/密码错误/code+password 同时传；me 测试覆盖 quotas；pets 测试覆盖新字段；messages 测试覆盖新类型；upload 测试覆盖视频
   - **关联决策**: D-02, D-05
 
-- [ ] 3. 宠物活动模式（后端 API + 测试 + admin 前端）
+- [x] 3. 宠物活动模式（后端 API + 测试 + admin 前端）
   - **文件**: `packages/server/src/routes/pet-modes.ts`(新增), `packages/server/src/routes/admin.ts`, `packages/server/src/index.ts`, `packages/server/src/__tests__/pet-modes.test.ts`(新增), `packages/admin/src/pages/PetModes.tsx`(新增), `packages/admin/src/App.tsx`, `packages/admin/src/api/client.ts`
   - **做什么**:
     - pet-modes.ts: 实现 GET/PUT mode + GET/POST/PUT/DELETE schedules，含 lazy init、source 隔离、时间格式校验、重叠检测、上限检查、real 模式项圈检查

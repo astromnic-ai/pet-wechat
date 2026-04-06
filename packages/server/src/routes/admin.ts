@@ -12,9 +12,12 @@ import {
   deviceAuthorizations,
   messages,
   petModeSchedules,
+  customActions,
+  deviceInteractions,
 } from "../db/schema";
 import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { createId } from "../utils/id";
+import { broadcast } from "../ws";
 
 function pick<T extends Record<string, unknown>>(obj: T, keys: string[]): Partial<T> {
   const result: Record<string, unknown> = {};
@@ -42,6 +45,9 @@ type AdminScheduleInput = {
   endTime: string;
   actionType: string;
 };
+
+type CustomActionStatus = "pending" | "processing" | "done" | "failed";
+type InteractionType = "touch" | "shake" | "gesture";
 
 function validateScheduleTimes(startTime: string, endTime: string) {
   if (!TIME_PATTERN.test(startTime) || !TIME_PATTERN.test(endTime)) {
@@ -104,6 +110,39 @@ function validateSchedulesInput(schedules: unknown) {
   }
 
   return null;
+}
+
+function isCustomActionStatus(value: unknown): value is CustomActionStatus {
+  return value === "pending" || value === "processing" || value === "done" || value === "failed";
+}
+
+function normalizeOptionalString(value: unknown) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized ? normalized : null;
+}
+
+function normalizePositiveInteger(value: unknown, defaultValue: number, max: number) {
+  if (value === undefined) {
+    return defaultValue;
+  }
+
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return null;
+  }
+
+  if (value < 1 || value > max) {
+    return null;
+  }
+
+  return value;
+}
+
+function normalizeTimestamp(timestamp: Date | string) {
+  return timestamp instanceof Date ? timestamp.toISOString() : timestamp;
 }
 
 async function replaceSystemSchedules(
@@ -539,6 +578,154 @@ adminRoute.post("/messages", async (c) => {
     .returning();
 
   return c.json({ message }, 201);
+});
+
+// ===== 自定义动作 =====
+
+adminRoute.get("/custom-actions", async (c) => {
+  const status = c.req.query("status");
+
+  if (status && !isCustomActionStatus(status)) {
+    return c.json({ error: "无效的 status" }, 400);
+  }
+
+  const result = status
+    ? await db
+        .select()
+        .from(customActions)
+        .where(eq(customActions.status, status))
+        .orderBy(desc(customActions.createdAt))
+    : await db
+        .select()
+        .from(customActions)
+        .orderBy(desc(customActions.createdAt));
+
+  return c.json({ customActions: result });
+});
+
+adminRoute.put("/custom-actions/:id", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json<{
+    status?: CustomActionStatus;
+    resultImageUrl?: string;
+  }>();
+
+  if (!isCustomActionStatus(body.status)) {
+    return c.json({ error: "无效的 status" }, 400);
+  }
+
+  const [existingAction] = await db
+    .select()
+    .from(customActions)
+    .where(eq(customActions.id, id))
+    .limit(1);
+
+  if (!existingAction) {
+    return c.json({ error: "Custom action not found" }, 404);
+  }
+
+  const resultImageUrl = normalizeOptionalString(body.resultImageUrl);
+  const canUpdateToProcessing = existingAction.status === "pending" && body.status === "processing";
+  const canUpdateToDone = existingAction.status === "processing" && body.status === "done";
+  const canUpdateToFailed = existingAction.status === "processing" && body.status === "failed";
+
+  if (!canUpdateToProcessing && !canUpdateToDone && !canUpdateToFailed) {
+    return c.json({ error: "非法的状态迁移" }, 400);
+  }
+
+  if (body.status === "done" && !resultImageUrl) {
+    return c.json({ error: "resultImageUrl 必填" }, 400);
+  }
+
+  const [customAction] = await db
+    .update(customActions)
+    .set({
+      status: body.status,
+      resultImageUrl: body.status === "done" ? resultImageUrl : existingAction.resultImageUrl,
+    })
+    .where(eq(customActions.id, id))
+    .returning();
+
+  if (customAction.status === "done") {
+    broadcast(existingAction.userId, {
+      type: "custom-action:done",
+      data: {
+        petId: customAction.petId,
+        actionId: customAction.id,
+        resultImageUrl: customAction.resultImageUrl,
+      },
+    });
+  }
+
+  return c.json({ customAction });
+});
+
+// ===== 互动记录 =====
+
+adminRoute.get("/interactions", async (c) => {
+  const limitParam = Number(c.req.query("limit") ?? 50);
+  const limit = Number.isInteger(limitParam) && limitParam > 0 ? limitParam : 50;
+
+  const interactions = await db
+    .select()
+    .from(deviceInteractions)
+    .orderBy(desc(deviceInteractions.timestamp))
+    .limit(limit);
+
+  return c.json({ interactions });
+});
+
+adminRoute.post("/interactions/auto", async (c) => {
+  const body = await c.req.json<{
+    petId?: string;
+    desktopDeviceId?: string;
+    count?: number;
+    intervalMinutes?: number;
+  }>();
+
+  if (typeof body.petId !== "string" || typeof body.desktopDeviceId !== "string") {
+    return c.json({ error: "petId 和 desktopDeviceId 必填" }, 400);
+  }
+
+  const count = normalizePositiveInteger(body.count, 10, 1000);
+  const intervalMinutes = normalizePositiveInteger(body.intervalMinutes, 30, 10_080);
+
+  if (count === null) {
+    return c.json({ error: "count 必须是 1-1000 的正整数" }, 400);
+  }
+
+  if (intervalMinutes === null) {
+    return c.json({ error: "intervalMinutes 必须是正整数" }, 400);
+  }
+
+  const [binding] = await db
+    .select()
+    .from(desktopPetBindings)
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, body.desktopDeviceId),
+        eq(desktopPetBindings.petId, body.petId),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
+    .limit(1);
+
+  if (!binding) {
+    return c.json({ error: "桌面设备与宠物未绑定" }, 400);
+  }
+
+  const interactionTypes: InteractionType[] = ["touch", "shake", "gesture"];
+  const now = Date.now();
+  const values = Array.from({ length: count }, (_, index) => ({
+    petId: body.petId as string,
+    desktopDeviceId: body.desktopDeviceId as string,
+    interactionType: interactionTypes[Math.floor(Math.random() * interactionTypes.length)],
+    count: Math.floor(Math.random() * 5) + 1,
+    timestamp: new Date(now - index * intervalMinutes * 60 * 1000),
+  }));
+
+  const interactions = await db.insert(deviceInteractions).values(values).returning();
+  return c.json({ interactions, count: interactions.length }, 201);
 });
 
 // ===== 统计概览 =====

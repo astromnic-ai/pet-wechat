@@ -22,6 +22,8 @@ import uploadRoute from "../routes/upload";
 import invitePublicRoute from "../routes/invite-public";
 import adminRoute from "../routes/admin";
 import petModesRoute from "../routes/pet-modes";
+import customActionsRoute from "../routes/custom-actions";
+import interactionsRoute from "../routes/interactions";
 
 /**
  * Build a fresh Hono app identical to the production one,
@@ -47,9 +49,11 @@ export function createApp(): InstanceType<typeof Hono> {
   app.route("/api/me", meRoute);
   app.route("/api/pets", petsRoute);
   app.route("/api/pets", petModesRoute);
+  app.route("/api/pets", customActionsRoute);
   app.route("/api/avatars", avatarsRoute);
   app.route("/api/devices", devicesRoute);
   app.route("/api/behaviors", behaviorsRoute);
+  app.route("/api/interactions", interactionsRoute);
   app.route("/api/stats", statsRoute);
   app.route("/api/messages", messagesRoute);
   app.route("/api/upload", uploadRoute);

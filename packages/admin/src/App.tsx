@@ -11,6 +11,8 @@ import {
   DashboardOutlined,
   SettingOutlined,
   LogoutOutlined,
+  VideoCameraOutlined,
+  BarChartOutlined,
 } from "@ant-design/icons";
 import { getAdminKey, setAdminKey, verifyAdminKey } from "./api/client";
 import Dashboard from "./pages/Dashboard";
@@ -20,6 +22,8 @@ import CollarsPage from "./pages/Collars";
 import DesktopsPage from "./pages/Desktops";
 import EventsPage from "./pages/Events";
 import PetModesPage from "./pages/PetModes";
+import CustomActionsPage from "./pages/CustomActions";
+import InteractionsPage from "./pages/Interactions";
 
 const { Header, Sider, Content } = Layout;
 
@@ -28,6 +32,8 @@ const menuItems = [
   { key: "/users", icon: <UserOutlined />, label: "用户" },
   { key: "/pets", icon: <HeartOutlined />, label: "宠物" },
   { key: "/pet-modes", icon: <ClockCircleOutlined />, label: "活动模式" },
+  { key: "/custom-actions", icon: <VideoCameraOutlined />, label: "自定义动作" },
+  { key: "/interactions", icon: <BarChartOutlined />, label: "互动记录" },
   { key: "/collars", icon: <ApiOutlined />, label: "项圈" },
   { key: "/desktops", icon: <DesktopOutlined />, label: "桌面摆台" },
   { key: "/events", icon: <ThunderboltOutlined />, label: "模拟事件" },
@@ -172,6 +178,8 @@ export default function App() {
             <Route path="/users" element={<UsersPage />} />
             <Route path="/pets" element={<PetsPage />} />
             <Route path="/pet-modes" element={<PetModesPage />} />
+            <Route path="/custom-actions" element={<CustomActionsPage />} />
+            <Route path="/interactions" element={<InteractionsPage />} />
             <Route path="/collars" element={<CollarsPage />} />
             <Route path="/desktops" element={<DesktopsPage />} />
             <Route path="/events" element={<EventsPage />} />
