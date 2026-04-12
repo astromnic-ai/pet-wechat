@@ -8,6 +8,13 @@ interface PageBackProps {
   fallbackUrl?: string;
 }
 
+const TABBAR_PAGES = new Set([
+  "/pages/index/index",
+  "/pages/devices/index",
+  "/pages/messages/index",
+  "/pages/profile/index",
+]);
+
 export default function PageBack({ fallbackUrl = "/pages/index/index" }: PageBackProps) {
   const { statusBarHeight } = useSafeArea();
 
@@ -17,7 +24,13 @@ export default function PageBack({ fallbackUrl = "/pages/index/index" }: PageBac
       Taro.navigateBack();
       return;
     }
-    Taro.switchTab({ url: fallbackUrl });
+
+    if (TABBAR_PAGES.has(fallbackUrl)) {
+      Taro.switchTab({ url: fallbackUrl });
+      return;
+    }
+
+    Taro.reLaunch({ url: fallbackUrl });
   };
 
   return (

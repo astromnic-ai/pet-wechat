@@ -1,7 +1,7 @@
-import { View, Text, Button } from "@tarojs/components";
+import { View, Text, Button, Input } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useState } from "react";
-import { request, setToken } from "../../utils/request";
+import { useEffect, useState } from "react";
+import { BASE_URL, request, setToken } from "../../utils/request";
 import { connectWs } from "../../utils/ws";
 import "./index.scss";
 
@@ -18,6 +18,14 @@ export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [agreedPrivacy, setAgreedPrivacy] = useState(true);
   const [loadingType, setLoadingType] = useState<"wechat" | "phone" | null>(null);
+  const [devPhone, setDevPhone] = useState(DEFAULT_DEV_PHONE);
+
+  useEffect(() => {
+    const cachedPhone = Taro.getStorageSync("devLoginPhone");
+    if (cachedPhone) {
+      setDevPhone(cachedPhone);
+    }
+  }, []);
 
   const ensureAgreementsAccepted = () => {
     if (agreedTerms && agreedPrivacy) {
@@ -34,8 +42,10 @@ export default function Login() {
   const finishLogin = async (token: string, userId: string) => {
     setToken(token);
     Taro.setStorageSync("userId", userId);
-    await connectWs();
-    Taro.reLaunch({ url: "/pages/index/index" });
+    connectWs().catch(() => {
+      // Keep login flow responsive in dev even if websocket connects later.
+    });
+    Taro.switchTab({ url: "/pages/index/index" });
   };
 
   const handleQuickLogin = async () => {
@@ -43,24 +53,15 @@ export default function Login() {
       return;
     }
 
-    if (!ENABLE_DEV_LOGIN) {
-      Taro.showToast({
-        title: "请使用微信登录",
-        icon: "none",
-      });
-      return;
-    }
-
     setLoadingType("phone");
     try {
-      const cachedPhone = Taro.getStorageSync("devLoginPhone") || DEFAULT_DEV_PHONE;
       const { token, user } = await request<AuthResponse>({
         url: "/api/auth/dev-login",
         method: "POST",
-        data: { phone: cachedPhone },
+        data: { phone: devPhone.trim() || DEFAULT_DEV_PHONE },
         needAuth: false,
       });
-      Taro.setStorageSync("devLoginPhone", cachedPhone);
+      Taro.setStorageSync("devLoginPhone", devPhone.trim() || DEFAULT_DEV_PHONE);
       await finishLogin(token, user.id);
     } catch (error: any) {
       Taro.showToast({
@@ -111,14 +112,35 @@ export default function Login() {
       <View className="login-card">
         <Text className="welcome-title">欢迎回来</Text>
 
+        <View className="dev-env-banner">
+          <Text className="dev-env-banner-text">
+            当前为开发环境，已启用测试登录
+          </Text>
+          <Text className="dev-env-banner-subtext">
+            API：{BASE_URL || "本地默认地址"}
+          </Text>
+        </View>
+
         <View className="btn-box">
+          <View className="dev-login-box">
+            <Text className="dev-login-label">开发者测试账号</Text>
+            <Input
+              className="dev-login-input"
+              type="number"
+              maxlength={11}
+              value={devPhone}
+              placeholder="请输入开发测试手机号"
+              onInput={(e) => setDevPhone(e.detail.value)}
+            />
+          </View>
+
           <Button
             className="btn btn-primary"
             loading={loadingType === "phone"}
             disabled={loadingType !== null}
             onClick={handleQuickLogin}
           >
-            本机号码快捷登录
+            开发者账号登录
           </Button>
           <Button
             className="btn btn-secondary"
@@ -130,9 +152,7 @@ export default function Login() {
           </Button>
         </View>
 
-        {ENABLE_DEV_LOGIN ? (
-          <Text className="dev-mode-tip">开发模式下将使用本机测试账号登录</Text>
-        ) : null}
+        <Text className="dev-mode-tip">开发模式已启用，可直接输入测试手机号登录</Text>
 
         <View className="agreement">
           <Text className="agreement-title">本人已阅读并同意以下条款</Text>

@@ -1,0 +1,237 @@
+.settings-subpage {
+  min-height: 100vh;
+  background: #fff8f0;
+  box-sizing: border-box;
+}
+
+.settings-subpage-top-strip {
+  width: 100%;
+  height: calc(env(safe-area-inset-top) + 102rpx);
+  background: #ffd86f;
+}
+
+.settings-subpage-header {
+  display: flex;
+  align-items: center;
+  padding: 34rpx 28rpx 14rpx;
+}
+
+.settings-subpage-header :global(.page-back) {
+  position: static;
+  transform: none;
+}
+
+.settings-subpage-title {
+  margin-left: 110rpx;
+  font-size: 42rpx;
+  font-weight: 700;
+  color: #171717;
+  line-height: 1;
+}
+
+.settings-subpage-content {
+  padding: 26rpx 18rpx calc(env(safe-area-inset-bottom) + 32rpx);
+}
+
+.settings-subpage-card {
+  min-height: 110rpx;
+  margin-bottom: 18rpx;
+  padding: 0 26rpx;
+  border-radius: 28rpx;
+  background: #ffffff;
+  border: 2rpx solid #efe7da;
+  box-shadow: 0 8rpx 18rpx rgba(35, 35, 35, 0.04);
+  box-sizing: border-box;
+}
+
+.settings-subpage-card--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-subpage-card .wx-switch-input,
+.settings-subpage-card .wx-switch-input::before {
+  border-radius: 40rpx;
+}
+
+.settings-subpage-label {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #232323;
+}
+
+.settings-subpage-label--regular {
+  font-weight: 600;
+  line-height: 1.4;
+  max-width: 82%;
+}
+
+.settings-subpage-meta {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.settings-subpage-value {
+  font-size: 28rpx;
+  color: #8a837b;
+}
+
+.settings-subpage-arrow {
+  font-size: 28rpx;
+  color: #8a837b;
+}
+
+.theme-card {
+  min-height: 168rpx;
+  margin-bottom: 18rpx;
+  padding: 20rpx;
+  border-radius: 28rpx;
+  background: #ffffff;
+  border: 2rpx solid #efe7da;
+  box-shadow: 0 8rpx 18rpx rgba(35, 35, 35, 0.04);
+  display: flex;
+  align-items: center;
+}
+
+.theme-card--active {
+  border-color: #3fa2f6;
+}
+
+.theme-preview {
+  width: 134rpx;
+  height: 134rpx;
+  border-radius: 28rpx;
+  padding: 18rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+.theme-preview--light {
+  background: #fff8e1;
+}
+
+.theme-preview--warm {
+  background: #fff1cc;
+}
+
+.theme-preview-chip {
+  width: 72rpx;
+  height: 18rpx;
+  border-radius: 10rpx;
+  background: #ffd86f;
+}
+
+.theme-preview-card {
+  width: 100%;
+  height: 42rpx;
+  border-radius: 14rpx;
+  background: #ffffff;
+}
+
+.theme-preview-line {
+  width: 100%;
+  height: 8rpx;
+  border-radius: 8rpx;
+  background: #e5ddd2;
+}
+
+.theme-preview-line--short {
+  width: 64%;
+}
+
+.theme-card-copy {
+  flex: 1;
+  margin-left: 22rpx;
+}
+
+.theme-card-title {
+  display: block;
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #202020;
+}
+
+.theme-card-desc {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #8a837b;
+  line-height: 1.4;
+}
+
+.theme-radio {
+  width: 34rpx;
+  height: 34rpx;
+  border-radius: 17rpx;
+  border: 4rpx solid #d2d7e2;
+  flex-shrink: 0;
+}
+
+.theme-radio--active {
+  background: #3fa2f6;
+  border-color: #3fa2f6;
+}
+
+.about-hero-card {
+  padding: 34rpx 26rpx;
+  border-radius: 30rpx;
+  background: #ffffff;
+  border: 2rpx solid #efe7da;
+  box-shadow: 0 8rpx 18rpx rgba(35, 35, 35, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.about-logo-wrap {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 32rpx;
+  background: #fff1cc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.about-logo {
+  width: 88rpx;
+  height: 88rpx;
+}
+
+.about-title {
+  margin-top: 24rpx;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #202020;
+}
+
+.about-desc {
+  margin-top: 16rpx;
+  font-size: 26rpx;
+  line-height: 1.6;
+  color: #8a837b;
+  text-align: center;
+}
+
+.about-info-card {
+  margin-top: 18rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.about-info-label {
+  font-size: 28rpx;
+  color: #6d665c;
+}
+
+.about-info-value {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #202020;
+}

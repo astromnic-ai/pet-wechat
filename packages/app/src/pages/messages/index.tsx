@@ -42,6 +42,12 @@ export default function MessagesPage() {
     try {
       const list = await request<Message[]>({ url: "/api/messages" });
       setMessages(list);
+      if (list.some((item) => item.isRead === false)) {
+        void request({
+          url: "/api/messages/read-all",
+          method: "PUT",
+        }).catch(() => {});
+      }
     } catch {
       setMessages([]);
     }

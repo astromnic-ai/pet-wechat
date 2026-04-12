@@ -13,9 +13,7 @@ export default function Settings() {
     Taro.hideTabBar();
   });
 
-  const showComingSoon = () => {
-    Taro.showToast({ title: "即将上线，敬请期待", icon: "none" });
-  };
+  const openPage = (url: string) => Taro.navigateTo({ url });
 
   return (
     <View className="settings-page">
@@ -28,8 +26,8 @@ export default function Settings() {
       <View className="settings-shell">
         <Text className="group-title">通用</Text>
 
-        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
-          <Text className="setting-label">账号安全</Text>
+        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/system")}>
+          <Text className="setting-label">系统设置</Text>
           <Text className="setting-arrow">→</Text>
         </View>
 
@@ -51,7 +49,12 @@ export default function Settings() {
           />
         </View>
 
-        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/theme")}>
+          <Text className="setting-label">主题模式</Text>
+          <Text className="setting-arrow">→</Text>
+        </View>
+
+        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/system")}>
           <Text className="setting-label">语言</Text>
           <View className="setting-meta">
             <Text className="setting-value">简体中文</Text>
@@ -70,17 +73,17 @@ export default function Settings() {
 
         <Text className="group-title group-title--support">支持</Text>
 
-        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/help")}>
           <Text className="setting-label">帮助中心</Text>
           <Text className="setting-arrow">→</Text>
         </View>
 
-        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+        <View className="setting-card setting-card--arrow" onClick={() => Taro.showToast({ title: "请联系官方客服", icon: "none" })}>
           <Text className="setting-label">联系我们</Text>
           <Text className="setting-arrow">→</Text>
         </View>
 
-        <View className="setting-card setting-card--arrow" onClick={showComingSoon}>
+        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/about")}>
           <Text className="setting-label">关于 YEHEY</Text>
           <View className="setting-meta">
             <Text className="setting-value">v2.1.0</Text>

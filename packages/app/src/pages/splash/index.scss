@@ -1,65 +1,78 @@
-// 设计稿: SM9fm - Splash 页
-// 背景 #FAF8F5, 猫爪图标 425x425, 进度条 604x12
-
 .splash-page {
   min-height: 100vh;
+  background: #fff8f0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: $color-bg;
-  overflow-x: hidden;
-  max-width: 100vw;
   box-sizing: border-box;
-  padding: $spacing-2xl $container-padding;
-  @include safe-area-top($spacing-2xl);
-  @include safe-area-bottom($spacing-2xl);
+  padding: calc(env(safe-area-inset-top) + 32rpx) 32rpx calc(env(safe-area-inset-bottom) + 40rpx);
 }
 
 .splash-content {
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-xl;
 }
 
-.logo-area {
+.hero-area {
+  width: 100%;
+  min-height: 760rpx;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: $spacing-md;
+  justify-content: center;
 }
 
-.logo-icon {
-  // 设计稿 425x425 → Taro 750/1284 ≈ 0.584 → ~248px
-  width: 248px;
-  height: 248px;
+.hero-badge {
+  width: 280rpx;
+  height: 280rpx;
+  border-radius: 140rpx;
+  background: #ffd671;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 0 18rpx #ffe8cc;
+}
+
+.hero-image {
+  width: 168rpx;
+  height: 168rpx;
+}
+
+.title-badge {
+  margin-top: 32rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid #ffd671;
+  background: #ffffff;
 }
 
 .logo-text {
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Display", sans-serif;
-  font-size: $font-size-xl;
-  font-weight: $font-weight-semibold;
-  color: $color-text-primary;
-  letter-spacing: 8px;
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #ffd671;
+  letter-spacing: 6rpx;
 }
 
 .progress-bar {
-  // 设计稿 604x12 → ~352x7
-  width: 352px;
-  height: 7px;
-  background: $color-border-light;
-  border-radius: 4px;
+  width: 300rpx;
+  height: 10rpx;
+  margin-top: 52rpx;
+  border-radius: 999rpx;
+  background: #eaeaea;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: $color-bg-card;
-  border-radius: 4px;
+  border-radius: 999rpx;
+  background: #ffffff;
   transition: width 0.3s ease;
 }
 
 .loading-text {
-  font-size: $font-size-sm;
-  color: $color-text-tertiary;
+  margin-top: 24rpx;
+  font-size: 24rpx;
+  color: #9f988f;
 }

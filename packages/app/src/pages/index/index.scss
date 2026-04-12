@@ -49,6 +49,13 @@
   flex-shrink: 0;
 }
 
+.top-card-entry {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
 .avatar-shell {
   width: 92rpx;
   height: 92rpx;
@@ -72,20 +79,28 @@
   flex-direction: column;
   justify-content: center;
   flex: 1;
+  overflow: hidden;
 }
 
 .pet-name {
-  font-size: 50rpx;
-  line-height: 1.08;
+  max-width: 100%;
+  font-size: 38rpx;
+  line-height: 1.12;
   color: #ffffff;
   font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pet-subtitle {
-  margin-top: 8rpx;
-  font-size: 22rpx;
+  margin-top: 6rpx;
+  font-size: 20rpx;
   color: rgba(255, 255, 255, 0.94);
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .top-card-plus {
@@ -97,7 +112,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-left: auto;
+  margin-left: 12rpx;
   flex-shrink: 0;
 }
 
@@ -255,6 +270,8 @@
 }
 
 .mode-card {
+  position: relative;
+  z-index: 3;
   width: 100%;
   height: 112rpx;
   background: #ffd96b;
@@ -299,6 +316,8 @@
 }
 
 .device-card {
+  position: relative;
+  z-index: 3;
   background: #ffffff;
   border-radius: 24rpx;
   padding: 18rpx 20rpx;
@@ -397,6 +416,15 @@
   font-size: 18rpx;
   line-height: 1.3;
   color: #6b655d;
+}
+
+.device-manage-btn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .managed-device-status {
