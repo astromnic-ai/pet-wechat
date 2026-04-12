@@ -6,10 +6,23 @@ import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarActio
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
+const SYSTEM_ACTION_FALLBACKS = [
+  { label: "蹲坐", image: require("@/assets/images/action-sit.png") },
+  { label: "趴卧", image: require("@/assets/images/action-lie.png") },
+  { label: "吃饭", image: require("@/assets/images/action-eat.png") },
+  { label: "睡觉", image: require("@/assets/images/action-sleep.png") },
+  { label: "跑", image: require("@/assets/images/action-run.png") },
+  { label: "走", image: require("@/assets/images/action-walk.png") },
+  { label: "舔爪子", image: require("@/assets/images/action-lick.png") },
+  { label: "睡觉", image: require("@/assets/images/action-sleep.png") },
+];
+
 export default function PetInfo() {
   const router = useRouter();
   const petId = router.params.petId || router.params.id;
   const routeCollarId = router.params.collarId || router.params.deviceId || "";
+  const bindDeviceType = router.params.bindDeviceType as "collar" | "desktop" | undefined;
+  const bindDeviceId = router.params.bindDeviceId || "";
   const isEditFormMode = Boolean(petId && router.params.edit === "1");
 
   const [species, setSpecies] = useState<Species>("cat");
@@ -27,7 +40,7 @@ export default function PetInfo() {
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarActions, setAvatarActions] = useState<PetAvatarAction[]>([]);
   const [loading, setLoading] = useState(false);
-  const canSubmit = name.trim().length > 0 && breed.trim().length > 0 && !loading;
+  const canSubmit = name.trim().length > 0 && !loading;
   const isDetailMode = Boolean(petId) && !isEditFormMode;
 
   useDidShow(() => {
@@ -116,11 +129,6 @@ export default function PetInfo() {
       return;
     }
 
-    if (!breed.trim()) {
-      Taro.showToast({ title: "请输入宠物品种", icon: "none" });
-      return;
-    }
-
     setLoading(true);
     try {
       const data = {
@@ -151,18 +159,30 @@ export default function PetInfo() {
 
       applyPetToForm(pet);
 
-      if (collarId) {
+      if (collarId || (bindDeviceType === "collar" && bindDeviceId)) {
+        const targetCollarId = collarId || bindDeviceId;
         const { collar } = await request<{ collar: CollarDevice }>({
-          url: `/api/devices/collars/${collarId}`,
+          url: `/api/devices/collars/${targetCollarId}`,
           method: "PUT",
           data: { petId: pet.id },
         });
         applyCollarToForm(collar);
       }
 
+      if (bindDeviceType === "desktop" && bindDeviceId) {
+        await request({
+          url: `/api/devices/desktops/${bindDeviceId}/bind`,
+          method: "POST",
+          data: {
+            petId: pet.id,
+            bindingType: "owner",
+          },
+        });
+      }
+
       if (petId) {
         Taro.showToast({ title: "保存成功", icon: "success" });
-        Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) });
+        Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
         return;
       }
 
@@ -298,7 +318,7 @@ export default function PetInfo() {
         <View className="detail-header-shell">
           <View className="detail-top-strip" />
           <View className="detail-header">
-            <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) })}>
+            <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
               <Text className="create-header-back-icon">←</Text>
             </View>
             <Text className="detail-header-title">宠物信息</Text>
@@ -309,7 +329,7 @@ export default function PetInfo() {
         </View>
       ) : (
         <View className="create-header">
-          <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.reLaunch({ url: "/pages/index/index" }) })}>
+          <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
             <Text className="create-header-back-icon">←</Text>
           </View>
           <Text className="create-header-title">{isEditFormMode ? "编辑宠物" : "添加宠物"}</Text>
@@ -370,11 +390,13 @@ export default function PetInfo() {
                     <View className="detail-action-thumb-wrap">
                       <Image
                         className="detail-action-thumb"
-                        src={action?.imageUrl || avatarCardImage}
+                        src={action?.imageUrl || SYSTEM_ACTION_FALLBACKS[index]?.image || avatarCardImage}
                         mode="aspectFill"
                       />
                     </View>
-                    <Text className="detail-action-label">{action?.actionType || ["蹲坐", "趴卧", "吃饭", "睡觉", "跑", "走", "舔爪子", "睡觉"][index]}</Text>
+                    <Text className="detail-action-label">
+                      {action?.actionType || SYSTEM_ACTION_FALLBACKS[index]?.label || "动作"}
+                    </Text>
                   </View>
                 ))}
               </View>
@@ -494,7 +516,7 @@ export default function PetInfo() {
             </View>
 
             {isCustomBreed || !breed
-              ? renderTextField("自定义品种", breed, setBreed, "请输入品种", { required: true })
+              ? renderTextField("自定义品种", breed, setBreed, "请输入品种")
               : null}
 
             <View className="half-field-row">

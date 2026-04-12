@@ -1,13 +1,24 @@
 import { PropsWithChildren } from 'react'
-import { useLaunch } from '@tarojs/taro'
+import Taro, { useLaunch } from '@tarojs/taro'
 import { getToken } from './utils/request'
 import { connectWs } from './utils/ws'
 import './app.scss'
 
 declare const ENABLE_DEV_LOGIN: boolean
 
+const DEV_STORAGE_RESET_VERSION = '2026-04-12-reset-1'
+
 function App({ children }: PropsWithChildren) {
   useLaunch(() => {
+    if (ENABLE_DEV_LOGIN) {
+      const resetVersion = Taro.getStorageSync('devStorageResetVersion')
+
+      if (resetVersion !== DEV_STORAGE_RESET_VERSION) {
+        Taro.clearStorageSync()
+        Taro.setStorageSync('devStorageResetVersion', DEV_STORAGE_RESET_VERSION)
+      }
+    }
+
     // In local dev we bypass WeChat auth and often serve from localhost.
     // DevTools may block ws://localhost unless domain checks are disabled,
     // so skip eager websocket boot to avoid startup blank screens.

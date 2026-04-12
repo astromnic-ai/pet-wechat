@@ -14,6 +14,7 @@ export default defineAppConfig({
     { root: "pages/wifi-result", pages: ["index"] },
     { root: "pages/pet-info", pages: ["index"] },
     { root: "pages/pet-avatar", pages: ["index"] },
+    { root: "pages/bind-pet", pages: ["index"] },
     { root: "pages/custom-action", pages: ["index"] },
     { root: "pages/avatar-progress", pages: ["index"] },
     { root: "pages/register", pages: ["index"] },
@@ -22,7 +23,7 @@ export default defineAppConfig({
     { root: "pages/data", pages: ["index"] },
     { root: "pages/pet-mode", pages: ["index", "custom"] },
     { root: "pages/invite", pages: ["index"] },
-    { root: "pages/settings", pages: ["index"] },
+    { root: "pages/settings", pages: ["index", "system", "theme", "help", "about"] },
   ],
   window: {
     backgroundTextStyle: "light",

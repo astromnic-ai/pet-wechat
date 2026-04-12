@@ -40,13 +40,14 @@ export default function Profile() {
     image: pet.avatarImageUrl || DEFAULT_AVATAR,
   }));
 
-  while (petCards.length < 2) {
-    petCards.push({
-      id: `default-${petCards.length}`,
-      name: petCards.length === 0 ? "小柴" : "小橘",
-      image: DEFAULT_AVATAR,
-    });
-  }
+  const handleOpenPet = (petId?: string) => {
+    if (!petId) {
+      Taro.navigateTo({ url: "/pages/pet-info/index" });
+      return;
+    }
+
+    Taro.navigateTo({ url: `/pages/pet-info/index?petId=${petId}` });
+  };
 
   return (
     <View className="profile-page">
@@ -84,7 +85,16 @@ export default function Profile() {
 
           <View className="section-head">
             <Text className="section-title">我的宠物</Text>
-            <Text className="section-more">查看全部 〉</Text>
+            <Text
+              className="section-more"
+              onClick={() =>
+                pets[0]?.id
+                  ? handleOpenPet(pets[0].id)
+                  : Taro.navigateTo({ url: "/pages/pet-info/index" })
+              }
+            >
+              查看全部 〉
+            </Text>
           </View>
 
           <View className="pet-card-row">
@@ -92,6 +102,7 @@ export default function Profile() {
               <View
                 key={pet.id}
                 className={`pet-card ${index === 0 ? "pet-card--active" : ""}`}
+                onClick={() => handleOpenPet(pet.id)}
               >
                 <Image className="pet-card-image" src={pet.image} mode="aspectFill" />
                 <Text className="pet-card-name">{pet.name}</Text>

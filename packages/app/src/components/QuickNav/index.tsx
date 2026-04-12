@@ -23,7 +23,7 @@ function jumpTo(url: string, type: "tab" | "page") {
     return;
   }
 
-  Taro.redirectTo({ url });
+  Taro.navigateTo({ url });
 }
 
 const ITEMS: Array<{ key: QuickNavKey; label: string; icon: string; action: () => void }> = [

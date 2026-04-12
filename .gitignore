@@ -7,6 +7,10 @@ dist/
 task_plan.md
 findings.md
 progress.md
+.DS_Store
+.pnpm-store/
+packages/server/storage/
+project.config.json
 
 # 微信开发者工具本地配置
 project.private.config.json
