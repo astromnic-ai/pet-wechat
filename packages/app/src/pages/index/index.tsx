@@ -51,9 +51,11 @@ export default function Index() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
   const skipNextDidShowRef = useRef(true);
+  const petTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useDidShow(() => {
     Taro.hideTabBar();
+    Taro.hideLoading();
     if (skipNextDidShowRef.current) {
       skipNextDidShowRef.current = false;
       return;
@@ -220,6 +222,29 @@ export default function Index() {
     Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${currentPet.id}` });
   };
 
+  const handlePetTouchStart = (e: any) => {
+    const touch = e.touches?.[0];
+    if (!touch) return;
+
+    petTouchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const handlePetTouchEnd = (e: any) => {
+    const touch = e.changedTouches?.[0];
+    const start = petTouchStartRef.current;
+    petTouchStartRef.current = null;
+    if (!touch || !start) return;
+
+    const deltaX = Math.abs(touch.clientX - start.x);
+    const deltaY = Math.abs(touch.clientY - start.y);
+    if (deltaX > 18 || deltaY > 18) return;
+
+    handleOpenPetAvatar();
+  };
+
   const modeLabelMap = {
     free: "系统自由模式",
     custom: "个性自定义",
@@ -287,12 +312,15 @@ export default function Index() {
                 >
                   {petSlides.map((pet, index) => (
                     <SwiperItem key={pet?.id ?? `pet-${index}`}>
-                      <View className="pet-slide">
+                      <View
+                        className="pet-slide"
+                        onTouchStart={handlePetTouchStart}
+                        onTouchEnd={handlePetTouchEnd}
+                      >
                         <Image
                           className="pet-showcase"
                           src={pet?.avatarImageUrl || require("@/assets/images/pet-collar.png")}
                           mode="widthFix"
-                          onClick={handleOpenPetAvatar}
                         />
                       </View>
                     </SwiperItem>

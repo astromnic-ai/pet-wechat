@@ -80,7 +80,11 @@ export default function Register() {
       await connectWs();
       Taro.showToast({ title: "注册成功", icon: "success", duration: 900 });
       setTimeout(() => {
-        Taro.switchTab({ url: "/pages/index/index" });
+        Taro.showLoading({
+          title: "进入主页中",
+          mask: true,
+        });
+        Taro.reLaunch({ url: "/pages/index/index" });
       }, 300);
     } catch (error: any) {
       Taro.showToast({

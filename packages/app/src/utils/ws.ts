@@ -3,6 +3,7 @@ import type { WsMessage } from "@pet-wechat/shared";
 import { getToken } from "./request";
 
 declare const API_BASE_URL: string;
+declare const ENABLE_DEV_LOGIN: boolean;
 
 type WsMessageType = WsMessage["type"];
 type WsMessageHandler<T extends WsMessageType> = (message: Extract<WsMessage, { type: T }>) => void;
@@ -119,6 +120,8 @@ function bindSocket(task: Taro.SocketTask) {
 }
 
 export async function connectWs() {
+  if (ENABLE_DEV_LOGIN) return;
+
   const token = getToken();
   if (!token || isConnecting || isConnected) return;
 

@@ -1,4 +1,4 @@
-import { View, Text, Image, Input, Picker } from "@tarojs/components";
+import { View, Text, Image, Input } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
@@ -33,6 +33,13 @@ export default function PetInfo() {
   const [age, setAge] = useState("");
   const [personality, setPersonality] = useState("");
   const [gender, setGender] = useState<Gender>("male");
+  const [breedSheetVisible, setBreedSheetVisible] = useState(false);
+  const [birthdaySheetVisible, setBirthdaySheetVisible] = useState(false);
+  const [birthdayDraft, setBirthdayDraft] = useState({
+    year: "2026",
+    month: "04",
+    day: "05",
+  });
   const [collarId, setCollarId] = useState(routeCollarId);
   const [collarDisplayName, setCollarDisplayName] = useState("");
   const [avatarId, setAvatarId] = useState("");
@@ -226,6 +233,25 @@ export default function PetInfo() {
       ? ["金毛", "柯基", "哈士奇", "柴犬", "其他（自定义）"]
       : ["英短", "布偶", "橘猫", "狸花", "其他（自定义）"];
   const isCustomBreed = breed.length > 0 && !breedOptions.slice(0, -1).includes(breed);
+  const birthYears = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    return Array.from({ length: 20 }, (_, index) => String(currentYear - index));
+  }, []);
+  const birthMonths = useMemo(
+    () => Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0")),
+    []
+  );
+  const birthDays = useMemo(() => {
+    const maxDays = new Date(
+      Number(birthdayDraft.year),
+      Number(birthdayDraft.month),
+      0
+    ).getDate();
+
+    return Array.from({ length: maxDays }, (_, index) =>
+      String(index + 1).padStart(2, "0")
+    );
+  }, [birthdayDraft.month, birthdayDraft.year]);
 
   const renderAddModeSectionTitle = (title: string) => (
     <Text className="add-mode-section-title">{title}</Text>
@@ -265,10 +291,27 @@ export default function PetInfo() {
     if (!selected) return;
     if (selected === "其他（自定义）") {
       setBreed("");
+      setBreedSheetVisible(false);
       Taro.showToast({ title: "请在下方输入自定义品种", icon: "none" });
       return;
     }
     setBreed(selected);
+    setBreedSheetVisible(false);
+  };
+
+  const handleOpenBirthdaySheet = () => {
+    const [year = "2026", month = "04", day = "05"] = (birthday || "2026-04-05").split("-");
+    setBirthdayDraft({
+      year,
+      month,
+      day,
+    });
+    setBirthdaySheetVisible(true);
+  };
+
+  const handleConfirmBirthday = () => {
+    setBirthday(`${birthdayDraft.year}-${birthdayDraft.month}-${birthdayDraft.day}`);
+    setBirthdaySheetVisible(false);
   };
 
   const handleOpenCustomActionUpload = () => {
@@ -524,43 +567,31 @@ export default function PetInfo() {
             <View className="half-field-row">
               <View className="half-field">
                 <Text className="add-mode-section-title add-mode-section-title--compact">品种</Text>
-                <Picker
-                  mode="selector"
-                  range={breedOptions}
-                  onChange={(e) => handlePickBreed(Number(e.detail.value))}
-                >
-                  <View className="half-field-input-wrap">
-                    <Input
-                      className="single-input single-input--half single-input--with-suffix"
-                      placeholder="选择品种"
-                      value={breed && !isCustomBreed ? breed : ""}
-                      disabled
-                    />
-                    <Text className="half-field-arrow">▼</Text>
-                  </View>
-                </Picker>
+                <View className="half-field-input-wrap" onClick={() => setBreedSheetVisible(true)}>
+                  <Input
+                    className="single-input single-input--half single-input--with-suffix"
+                    placeholder="选择品种"
+                    value={breed && !isCustomBreed ? breed : ""}
+                    disabled
+                  />
+                  <Text className="half-field-arrow">▼</Text>
+                </View>
               </View>
               <View className="half-field">
                 <Text className="add-mode-section-title add-mode-section-title--compact">生日</Text>
-                <Picker
-                  mode="date"
-                  value={birthday || "2026-04-05"}
-                  onChange={(e) => setBirthday(e.detail.value)}
-                >
-                  <View className="half-field-input-wrap">
-                    <Input
-                      className="single-input single-input--half single-input--with-suffix"
-                      placeholder="选择日期"
-                      value={birthday}
-                      disabled
-                    />
-                    <Image
-                      className="half-field-icon"
-                      src={require("@/assets/images/icon-gray-1.png")}
-                      mode="aspectFit"
-                    />
-                  </View>
-                </Picker>
+                <View className="half-field-input-wrap" onClick={handleOpenBirthdaySheet}>
+                  <Input
+                    className="single-input single-input--half single-input--with-suffix"
+                    placeholder="选择日期"
+                    value={birthday}
+                    disabled
+                  />
+                  <Image
+                    className="half-field-icon"
+                    src={require("@/assets/images/icon-gray-1.png")}
+                    mode="aspectFit"
+                  />
+                </View>
               </View>
             </View>
 
@@ -608,6 +639,90 @@ export default function PetInfo() {
           </View>
         )}
       </View>
+
+      {breedSheetVisible ? (
+        <View className="selector-mask" onClick={() => setBreedSheetVisible(false)}>
+          <View className="selector-sheet" onClick={(e) => e.stopPropagation?.()}>
+            <Text className="selector-sheet-title">选择品种</Text>
+            <View className="selector-options">
+              {breedOptions.map((item, index) => (
+                <View
+                  key={item}
+                  className={`selector-option ${breed === item ? "selector-option--active" : ""}`}
+                  onClick={() => handlePickBreed(index)}
+                >
+                  <Text className="selector-option-text">{item}</Text>
+                </View>
+              ))}
+            </View>
+            <View className="selector-sheet-footer">
+              <View className="selector-sheet-btn selector-sheet-btn--ghost" onClick={() => setBreedSheetVisible(false)}>
+                <Text className="selector-sheet-btn-text selector-sheet-btn-text--ghost">取消</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {birthdaySheetVisible ? (
+        <View className="selector-mask" onClick={() => setBirthdaySheetVisible(false)}>
+          <View className="selector-sheet selector-sheet--date" onClick={(e) => e.stopPropagation?.()}>
+            <Text className="selector-sheet-title">选择生日</Text>
+            <View className="date-picker-row">
+              <View className="date-picker-column">
+                <Text className="date-picker-label">年份</Text>
+                <View className="date-picker-options">
+                  {birthYears.map((item) => (
+                    <View
+                      key={item}
+                      className={`date-picker-option ${birthdayDraft.year === item ? "date-picker-option--active" : ""}`}
+                      onClick={() => setBirthdayDraft((prev) => ({ ...prev, year: item }))}
+                    >
+                      <Text className="date-picker-option-text">{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className="date-picker-column">
+                <Text className="date-picker-label">月份</Text>
+                <View className="date-picker-options">
+                  {birthMonths.map((item) => (
+                    <View
+                      key={item}
+                      className={`date-picker-option ${birthdayDraft.month === item ? "date-picker-option--active" : ""}`}
+                      onClick={() => setBirthdayDraft((prev) => ({ ...prev, month: item }))}
+                    >
+                      <Text className="date-picker-option-text">{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+              <View className="date-picker-column">
+                <Text className="date-picker-label">日期</Text>
+                <View className="date-picker-options">
+                  {birthDays.map((item) => (
+                    <View
+                      key={item}
+                      className={`date-picker-option ${birthdayDraft.day === item ? "date-picker-option--active" : ""}`}
+                      onClick={() => setBirthdayDraft((prev) => ({ ...prev, day: item }))}
+                    >
+                      <Text className="date-picker-option-text">{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+            <View className="selector-sheet-footer selector-sheet-footer--split">
+              <View className="selector-sheet-btn selector-sheet-btn--ghost" onClick={() => setBirthdaySheetVisible(false)}>
+                <Text className="selector-sheet-btn-text selector-sheet-btn-text--ghost">取消</Text>
+              </View>
+              <View className="selector-sheet-btn" onClick={handleConfirmBirthday}>
+                <Text className="selector-sheet-btn-text">确认</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }

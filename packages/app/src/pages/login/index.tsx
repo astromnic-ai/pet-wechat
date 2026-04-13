@@ -33,10 +33,14 @@ export default function Login() {
   const finishLogin = async (token: string, userId: string) => {
     setToken(token);
     Taro.setStorageSync("userId", userId);
+    Taro.showLoading({
+      title: "进入主页中",
+      mask: true,
+    });
     connectWs().catch(() => {
       // Keep login flow responsive in dev even if websocket connects later.
     });
-    Taro.switchTab({ url: "/pages/index/index" });
+    Taro.reLaunch({ url: "/pages/index/index" });
   };
 
   const handleQuickLogin = async () => {
