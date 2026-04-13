@@ -187,6 +187,18 @@
   border-color: #3fa2f6;
 }
 
+.language-dot {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 48rpx;
+  background: #eef3f8;
+  flex-shrink: 0;
+}
+
+.language-dot--active {
+  background: #58a9ff;
+}
+
 .about-hero-card {
   padding: 34rpx 26rpx;
   border-radius: 30rpx;

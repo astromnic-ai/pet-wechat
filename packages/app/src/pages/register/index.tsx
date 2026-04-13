@@ -34,9 +34,9 @@ export default function Register() {
 
     setSendingCode(true);
     Taro.showToast({
-      title: "验证码已发送，开发环境固定为123456",
+      title: "验证码已发送",
       icon: "none",
-      duration: 2200,
+      duration: 1800,
     });
     setTimeout(() => setSendingCode(false), 600);
   };

@@ -96,3 +96,29 @@
   color: #9a948a;
   flex-shrink: 0;
 }
+
+.messages-empty-card {
+  background: #ffffff;
+  border-radius: 30rpx;
+  padding: 56rpx 32rpx;
+  border: 2rpx solid #ece5d9;
+  box-shadow: 0 8rpx 18rpx rgba(35, 35, 35, 0.04);
+  text-align: center;
+}
+
+.messages-empty-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #202020;
+  text-align: center;
+}
+
+.messages-empty-text {
+  display: block;
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #8e877d;
+  text-align: center;
+}

@@ -28,7 +28,6 @@ export default defineConfig(async (merge, { command, mode }) => {
     ],
     defineConstants: {
       API_BASE_URL: JSON.stringify(apiBaseUrl),
-      ENABLE_DEV_LOGIN: JSON.stringify(mode !== 'production'),
     },
     copy: {
       patterns: [],

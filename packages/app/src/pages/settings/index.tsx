@@ -1,14 +1,9 @@
-import { View, Text, Switch } from "@tarojs/components";
+import { View, Text } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 export default function Settings() {
-  const [messageEnabled, setMessageEnabled] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-
   useDidShow(() => {
     Taro.hideTabBar();
   });
@@ -29,46 +24,6 @@ export default function Settings() {
         <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/system")}>
           <Text className="setting-label">系统设置</Text>
           <Text className="setting-arrow">→</Text>
-        </View>
-
-        <View className="setting-card">
-          <Text className="setting-label">消息通知</Text>
-          <Switch
-            checked={messageEnabled}
-            color="#4aa4ff"
-            onChange={(e) => setMessageEnabled(e.detail.value)}
-          />
-        </View>
-
-        <View className="setting-card">
-          <Text className="setting-label">深色模式</Text>
-          <Switch
-            checked={darkMode}
-            color="#4aa4ff"
-            onChange={(e) => setDarkMode(e.detail.value)}
-          />
-        </View>
-
-        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/theme")}>
-          <Text className="setting-label">主题模式</Text>
-          <Text className="setting-arrow">→</Text>
-        </View>
-
-        <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/system")}>
-          <Text className="setting-label">语言</Text>
-          <View className="setting-meta">
-            <Text className="setting-value">简体中文</Text>
-            <Text className="setting-arrow">→</Text>
-          </View>
-        </View>
-
-        <View className="setting-card">
-          <Text className="setting-label">震动反馈</Text>
-          <Switch
-            checked={vibrationEnabled}
-            color="#4aa4ff"
-            onChange={(e) => setVibrationEnabled(e.detail.value)}
-          />
         </View>
 
         <Text className="group-title group-title--support">支持</Text>

@@ -52,19 +52,11 @@ export default function MessagesPage() {
       setMessages([]);
     }
   };
-
-  const fallbackMessages = [
-    { id: "fallback-1", title: "系统通知", content: "小柴的固件已更新到最新版本" },
-    { id: "fallback-2", title: "活动提醒", content: "小柴今天已经运动了30分钟" },
-    { id: "fallback-3", title: "健康报告", content: "本周健康数据报告已生成" },
-    { id: "fallback-4", title: "设备提醒", content: "智能项圈电量不足，请及时充电" },
-    { id: "fallback-5", title: "社区互动", content: "有3位用户赞了你的宠物" },
-  ];
-
-  const displayMessages =
-    messages.length > 0
-      ? messages.slice(0, 5).map((item) => ({ id: item.id, title: item.title, content: item.content }))
-      : fallbackMessages;
+  const displayMessages = messages.slice(0, 5).map((item) => ({
+    id: item.id,
+    title: item.title,
+    content: item.content,
+  }));
 
   return (
     <View className="messages-page">
@@ -76,22 +68,29 @@ export default function MessagesPage() {
 
       <ScrollView className="messages-scroll" scrollY>
         <View className="messages-list">
-          {displayMessages.map((message, index) => {
-            const type = normalizeType(message as Message);
-            return (
-              <View key={message.id} className="message-card">
-                <View
-                  className="message-icon-wrap"
-                  style={{ background: ICON_MAP[type as keyof typeof ICON_MAP] }}
-                />
-                <View className="message-main">
-                  <Text className="message-title-text">{message.title}</Text>
-                  <Text className="message-content">{message.content}</Text>
+          {displayMessages.length > 0 ? (
+            displayMessages.map((message, index) => {
+              const type = normalizeType(message as Message);
+              return (
+                <View key={message.id} className="message-card">
+                  <View
+                    className="message-icon-wrap"
+                    style={{ background: ICON_MAP[type as keyof typeof ICON_MAP] }}
+                  />
+                  <View className="message-main">
+                    <Text className="message-title-text">{message.title}</Text>
+                    <Text className="message-content">{message.content}</Text>
+                  </View>
+                  <Text className="message-time">{getTimeText(message as Message, index)}</Text>
                 </View>
-                <Text className="message-time">{getTimeText(message as Message, index)}</Text>
-              </View>
-            );
-          })}
+              );
+            })
+          ) : (
+            <View className="messages-empty-card">
+              <Text className="messages-empty-title">暂无消息</Text>
+              <Text className="messages-empty-text">当前没有新的系统通知或设备消息</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>

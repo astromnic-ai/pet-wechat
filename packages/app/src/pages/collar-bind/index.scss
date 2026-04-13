@@ -171,3 +171,28 @@
   font-weight: 700;
   color: #ffffff;
 }
+
+.nearby-device-empty {
+  margin-top: 18rpx;
+  background: #ffffff;
+  border-radius: 26rpx;
+  padding: 40rpx 28rpx;
+  border: 2rpx solid #e9eef8;
+}
+
+.nearby-device-empty-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #202020;
+  text-align: center;
+}
+
+.nearby-device-empty-text {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.45;
+  color: #8f8f8f;
+  text-align: center;
+}

@@ -13,11 +13,6 @@ type SearchDevice = {
   deviceType: "collar" | "desktop";
 };
 
-const FALLBACK_DEVICES: SearchDevice[] = [
-  { id: "fallback-collar-001", name: "YEHEY-Collar-001", macAddress: "AA:BB:CC:DD:EE:21", signal: 88, deviceType: "collar" },
-  { id: "fallback-desktop-001", name: "YEHEY-Table-X2", macAddress: "AA:BB:CC:DD:EE:31", signal: 64, deviceType: "desktop" },
-];
-
 function getSignalLabel(signal?: number | null) {
   if (signal == null) return "信号强度：中";
   if (signal >= 80) return "信号强度：强";
@@ -57,8 +52,7 @@ export default function CollarBind() {
       .catch(() => setDevices([]));
   });
 
-  const sourceDevices = devices.length > 0 ? devices : FALLBACK_DEVICES;
-  const visibleDevices = [...sourceDevices].sort((a, b) => {
+  const visibleDevices = [...devices].sort((a, b) => {
     if (a.deviceType === b.deviceType) return 0;
     if (a.deviceType === preferredDeviceType) return -1;
     if (b.deviceType === preferredDeviceType) return 1;
@@ -74,47 +68,21 @@ export default function CollarBind() {
       let nextDeviceName = device.name;
 
       if (device.deviceType === "collar") {
-        if (device.id.startsWith("fallback")) {
-          const res = await request<{ collar: CollarDevice }>({
-            url: "/api/devices/collars/register",
-            method: "POST",
-            data: {
-              macAddress: device.macAddress?.replace(/:/g, "") || "AABBCCDDEE21",
-              name: nextDeviceName,
-            },
-          });
-          nextDeviceId = res.collar.id;
-          nextDeviceName = res.collar.name;
-        } else {
-          const res = await request<{ collar: CollarDevice }>({
-            url: `/api/devices/collars/${device.id}/claim`,
-            method: "POST",
-            data: { name: nextDeviceName },
-          });
-          nextDeviceId = res.collar.id;
-          nextDeviceName = res.collar.name;
-        }
+        const res = await request<{ collar: CollarDevice }>({
+          url: `/api/devices/collars/${device.id}/claim`,
+          method: "POST",
+          data: { name: nextDeviceName },
+        });
+        nextDeviceId = res.collar.id;
+        nextDeviceName = res.collar.name;
       } else {
-        if (device.id.startsWith("fallback")) {
-          const res = await request<{ desktop: DesktopDevice }>({
-            url: "/api/devices/desktops/register",
-            method: "POST",
-            data: {
-              macAddress: device.macAddress?.replace(/:/g, "") || "AABBCCDDEE31",
-              name: nextDeviceName,
-            },
-          });
-          nextDeviceId = res.desktop.id;
-          nextDeviceName = res.desktop.name;
-        } else {
-          const res = await request<{ desktop: DesktopDevice }>({
-            url: `/api/devices/desktops/${device.id}/claim`,
-            method: "POST",
-            data: { name: nextDeviceName },
-          });
-          nextDeviceId = res.desktop.id;
-          nextDeviceName = res.desktop.name;
-        }
+        const res = await request<{ desktop: DesktopDevice }>({
+          url: `/api/devices/desktops/${device.id}/claim`,
+          method: "POST",
+          data: { name: nextDeviceName },
+        });
+        nextDeviceId = res.desktop.id;
+        nextDeviceName = res.desktop.name;
       }
 
       Taro.navigateTo({
@@ -157,26 +125,33 @@ export default function CollarBind() {
           <Text className="step-sub-copy">确保设备已开启蓝牙</Text>
         </View>
 
-        <View className="nearby-device-list">
-          {visibleDevices.map((device) => (
-            <View key={device.id} className={`nearby-device-row ${loadingId === device.id ? "nearby-device-row--active" : ""}`}>
-              <View className="nearby-device-leading">
-                <Image
-                  className="nearby-device-leading-image"
-                  src={device.deviceType === "desktop" ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}
-                  mode="aspectFit"
-                />
+        {visibleDevices.length > 0 ? (
+          <View className="nearby-device-list">
+            {visibleDevices.map((device) => (
+              <View key={device.id} className={`nearby-device-row ${loadingId === device.id ? "nearby-device-row--active" : ""}`}>
+                <View className="nearby-device-leading">
+                  <Image
+                    className="nearby-device-leading-image"
+                    src={device.deviceType === "desktop" ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}
+                    mode="aspectFit"
+                  />
+                </View>
+                <View className="nearby-device-body">
+                  <Text className="nearby-device-name">{device.name}</Text>
+                  <Text className="nearby-device-meta">{getSignalLabel(device.signal)}</Text>
+                </View>
+                <View className="nearby-device-action" onClick={() => handleConnect(device)}>
+                  <Text className="nearby-device-action-text">{loadingId === device.id ? "连接中" : "连接"}</Text>
+                </View>
               </View>
-              <View className="nearby-device-body">
-                <Text className="nearby-device-name">{device.name}</Text>
-                <Text className="nearby-device-meta">{getSignalLabel(device.signal)}</Text>
-              </View>
-              <View className="nearby-device-action" onClick={() => handleConnect(device)}>
-                <Text className="nearby-device-action-text">{loadingId === device.id ? "连接中" : "连接"}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
+            ))}
+          </View>
+        ) : (
+          <View className="nearby-device-empty">
+            <Text className="nearby-device-empty-title">暂未搜索到设备</Text>
+            <Text className="nearby-device-empty-text">请确认设备已插电并开启蓝牙后重试</Text>
+          </View>
+        )}
       </View>
     </View>
   );

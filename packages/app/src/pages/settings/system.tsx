@@ -7,6 +7,7 @@ import "./subpages.scss";
 export default function SystemSettings() {
   const [notifyEnabled, setNotifyEnabled] = useState(true);
   const [vibrationEnabled, setVibrationEnabled] = useState(true);
+  const openPage = (url: string) => Taro.navigateTo({ url });
 
   return (
     <View className="settings-subpage">
@@ -17,7 +18,7 @@ export default function SystemSettings() {
       </View>
 
       <View className="settings-subpage-content">
-        <View className="settings-subpage-card settings-subpage-card--row">
+        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => Taro.showToast({ title: "账户安全即将开放", icon: "none" })}>
           <Text className="settings-subpage-label">账户安全</Text>
           <Text className="settings-subpage-arrow">→</Text>
         </View>
@@ -27,12 +28,12 @@ export default function SystemSettings() {
           <Switch checked={notifyEnabled} color="#4aa4ff" onChange={(e) => setNotifyEnabled(e.detail.value)} />
         </View>
 
-        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => Taro.navigateTo({ url: "/pages/settings/theme" })}>
+        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => openPage("/pages/settings/theme")}>
           <Text className="settings-subpage-label">主题模式</Text>
           <Text className="settings-subpage-arrow">→</Text>
         </View>
 
-        <View className="settings-subpage-card settings-subpage-card--row">
+        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => openPage("/pages/settings/language")}>
           <Text className="settings-subpage-label">语言设置</Text>
           <View className="settings-subpage-meta">
             <Text className="settings-subpage-value">简体中文</Text>
