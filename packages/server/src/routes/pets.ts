@@ -184,10 +184,33 @@ petsRoute.get("/:id", async (c) => {
   const userId = c.get("userId" as never) as string;
   const petId = c.req.param("id");
 
-  const [pet] = await db
+  let [pet] = await db
     .select()
     .from(pets)
     .where(and(eq(pets.id, petId), eq(pets.userId, userId)));
+
+  if (!pet) {
+    const [authorization] = await db
+      .select()
+      .from(deviceAuthorizations)
+      .where(
+        and(
+          eq(deviceAuthorizations.petId, petId),
+          eq(deviceAuthorizations.toUserId, userId),
+          eq(deviceAuthorizations.status, "accepted"),
+        )
+      )
+      .limit(1);
+
+    if (authorization) {
+      [pet] = await db
+        .select()
+        .from(pets)
+        .where(eq(pets.id, petId))
+        .limit(1);
+    }
+  }
+
   if (!pet) return c.json({ error: "Pet not found" }, 404);
 
   const latestBehavior = await getLatestBehavior(petId);

@@ -1,6 +1,6 @@
 import { View, Text, Button, Input } from "@tarojs/components";
 import Taro from "@tarojs/taro";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BASE_URL, request, setToken } from "../../utils/request";
 import { connectWs } from "../../utils/ws";
 import "./index.scss";
@@ -12,20 +12,11 @@ interface AuthResponse {
   user: { id: string };
 }
 
-const DEFAULT_DEV_PHONE = "18652931629";
-
 export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [agreedPrivacy, setAgreedPrivacy] = useState(true);
   const [loadingType, setLoadingType] = useState<"wechat" | "phone" | null>(null);
-  const [devPhone, setDevPhone] = useState(DEFAULT_DEV_PHONE);
-
-  useEffect(() => {
-    const cachedPhone = Taro.getStorageSync("devLoginPhone");
-    if (cachedPhone) {
-      setDevPhone(cachedPhone);
-    }
-  }, []);
+  const [devPhone, setDevPhone] = useState("");
 
   const ensureAgreementsAccepted = () => {
     if (agreedTerms && agreedPrivacy) {
@@ -53,15 +44,23 @@ export default function Login() {
       return;
     }
 
+    const normalizedPhone = devPhone.trim();
+    if (!normalizedPhone) {
+      Taro.showToast({
+        title: "请输入测试手机号",
+        icon: "none",
+      });
+      return;
+    }
+
     setLoadingType("phone");
     try {
       const { token, user } = await request<AuthResponse>({
         url: "/api/auth/dev-login",
         method: "POST",
-        data: { phone: devPhone.trim() || DEFAULT_DEV_PHONE },
+        data: { phone: normalizedPhone },
         needAuth: false,
       });
-      Taro.setStorageSync("devLoginPhone", devPhone.trim() || DEFAULT_DEV_PHONE);
       await finishLogin(token, user.id);
     } catch (error: any) {
       Taro.showToast({

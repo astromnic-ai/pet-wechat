@@ -18,9 +18,8 @@ export default function BindPet() {
   useDidShow(() => {
     void request<{ pets: Pet[]; authorizedPets?: Pet[] }>({ url: "/api/pets" })
       .then((res) => {
-        const mergedPets = [...res.pets, ...(res.authorizedPets || [])];
-        setPets(mergedPets);
-        setSelectedPetId((current) => current || mergedPets[0]?.id || "");
+        setPets(res.pets);
+        setSelectedPetId((current) => current || res.pets[0]?.id || "");
       })
       .catch(() => setPets([]));
   });
