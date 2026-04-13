@@ -75,7 +75,6 @@ export default function Register() {
         },
         needAuth: false,
       });
-      Taro.setStorageSync("devLoginPhone", phone.trim());
       setToken(token);
       Taro.setStorageSync("userId", user.id);
       await connectWs();
