@@ -8,9 +8,7 @@ import prodConfig from './prod'
 export default defineConfig(async (merge, { command, mode }) => {
   const apiBaseUrl =
     process.env.API_BASE_URL ||
-    (mode === 'production'
-      ? 'https://pet-wechat.yangl.com.cn'
-      : 'http://localhost:9527')
+    'https://pet-wechat.yangl.com.cn'
 
   const baseConfig: UserConfigExport = {
     projectName: 'pet-wechat-app',

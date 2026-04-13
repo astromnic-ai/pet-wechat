@@ -7,14 +7,14 @@ import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const SYSTEM_ACTION_FALLBACKS = [
-  { label: "蹲坐", image: require("@/assets/images/action-sit.png") },
-  { label: "趴卧", image: require("@/assets/images/action-lie.png") },
-  { label: "吃饭", image: require("@/assets/images/action-eat.png") },
-  { label: "睡觉", image: require("@/assets/images/action-sleep.png") },
-  { label: "跑", image: require("@/assets/images/action-run.png") },
-  { label: "走", image: require("@/assets/images/action-walk.png") },
-  { label: "舔爪子", image: require("@/assets/images/action-lick.png") },
-  { label: "睡觉", image: require("@/assets/images/action-sleep.png") },
+  { label: "蹲坐", image: require("./images/action-sit.png") },
+  { label: "趴卧", image: require("./images/action-lie.png") },
+  { label: "吃饭", image: require("./images/action-eat.png") },
+  { label: "睡觉", image: require("./images/action-sleep.png") },
+  { label: "跑", image: require("./images/action-run.png") },
+  { label: "走", image: require("./images/action-walk.png") },
+  { label: "舔爪子", image: require("./images/action-lick.png") },
+  { label: "睡觉", image: require("./images/action-sleep.png") },
 ];
 
 export default function PetInfo() {

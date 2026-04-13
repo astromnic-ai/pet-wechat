@@ -4,6 +4,7 @@
   "scripts": {
     "dev:server": "ENABLE_DEV_LOGIN=true pnpm --filter server dev",
     "dev:app": "pnpm --filter app dev:weapp",
+    "dev:app:local": "API_BASE_URL=http://localhost:9527 pnpm --filter app dev:weapp",
     "dev:app:remote": "API_BASE_URL=https://pet-wechat.yangl.com.cn pnpm --filter app dev:weapp",
     "db:generate": "pnpm --filter server db:generate",
     "db:migrate": "pnpm --filter server db:migrate",

@@ -6,10 +6,10 @@ import type { Pet, User } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-const PHOTO_PLACEHOLDER_IMAGE = require("@/assets/images/upload-icon.png");
+const PHOTO_PLACEHOLDER_IMAGE = require("./images/upload-icon.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
-const CAT_SAMPLE = require("@/assets/images/black cat 3.png");
-const DOG_SAMPLE = require("@/assets/images/husky.png");
+const CAT_SAMPLE = require("./images/black-cat-3.png");
+const DOG_SAMPLE = require("./images/husky.png");
 
 function parseQuota(value?: string) {
   const quota = Number(value);
