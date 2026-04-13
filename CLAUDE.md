@@ -57,6 +57,6 @@ YEHEY 宠物"在场" - 微信小程序 MVP
 
 ### 微信小程序
 
-- AppID：`wx875ff2b6ed44918f`
+- AppID：`wx29ab8d3fd0cb4af0`
 - GitHub 组织：`thup-jds/pet-wechat`
 - CI：GitHub Actions 构建 Docker 镜像推送到 GHCR

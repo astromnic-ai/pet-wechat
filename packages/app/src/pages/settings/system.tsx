@@ -1,13 +1,12 @@
-import { View, Text, Switch } from "@tarojs/components";
-import Taro from "@tarojs/taro";
+import { View, Text } from "@tarojs/components";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import "./subpages.scss";
 
+type LanguageOption = "简体中文" | "繁體中文" | "English";
+
 export default function SystemSettings() {
-  const [notifyEnabled, setNotifyEnabled] = useState(true);
-  const [vibrationEnabled, setVibrationEnabled] = useState(true);
-  const openPage = (url: string) => Taro.navigateTo({ url });
+  const [language, setLanguage] = useState<LanguageOption>("简体中文");
 
   return (
     <View className="settings-subpage">
@@ -18,33 +17,42 @@ export default function SystemSettings() {
       </View>
 
       <View className="settings-subpage-content">
-        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => Taro.showToast({ title: "账户安全即将开放", icon: "none" })}>
-          <Text className="settings-subpage-label">账户安全</Text>
-          <Text className="settings-subpage-arrow">→</Text>
-        </View>
+        <Text className="settings-subpage-group">账户安全</Text>
 
-        <View className="settings-subpage-card settings-subpage-card--row">
-          <Text className="settings-subpage-label">消息通知</Text>
-          <Switch checked={notifyEnabled} color="#4aa4ff" onChange={(e) => setNotifyEnabled(e.detail.value)} />
-        </View>
+        <View className="settings-list-card">
+          <View className="settings-list-row">
+            <Text className="settings-list-label">修改密码</Text>
+            <Text className="settings-subpage-arrow">→</Text>
+          </View>
 
-        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => openPage("/pages/settings/theme")}>
-          <Text className="settings-subpage-label">主题模式</Text>
-          <Text className="settings-subpage-arrow">→</Text>
-        </View>
+          <View className="settings-list-row">
+            <Text className="settings-list-label">绑定手机</Text>
+            <Text className="settings-subpage-arrow">→</Text>
+          </View>
 
-        <View className="settings-subpage-card settings-subpage-card--row" onClick={() => openPage("/pages/settings/language")}>
-          <Text className="settings-subpage-label">语言设置</Text>
-          <View className="settings-subpage-meta">
-            <Text className="settings-subpage-value">简体中文</Text>
+          <View className="settings-list-row settings-list-row--last">
+            <Text className="settings-list-label">绑定邮箱</Text>
             <Text className="settings-subpage-arrow">→</Text>
           </View>
         </View>
 
-        <View className="settings-subpage-card settings-subpage-card--row">
-          <Text className="settings-subpage-label">震动反馈</Text>
-          <Switch checked={vibrationEnabled} color="#4aa4ff" onChange={(e) => setVibrationEnabled(e.detail.value)} />
-        </View>
+        <Text className="settings-subpage-group">语言设置</Text>
+
+        {(["简体中文", "繁體中文", "English"] as LanguageOption[]).map((item) => {
+          const active = item === language;
+          return (
+            <View
+              key={item}
+              className={`settings-language-card ${active ? "settings-language-card--active" : ""}`}
+              onClick={() => setLanguage(item)}
+            >
+              <Text className="settings-language-label">{item}</Text>
+              <View className={`settings-language-check ${active ? "settings-language-check--active" : ""}`}>
+                {active ? <Text className="settings-language-check-icon">✓</Text> : null}
+              </View>
+            </View>
+          );
+        })}
       </View>
     </View>
   );

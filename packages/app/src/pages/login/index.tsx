@@ -13,7 +13,7 @@ interface AuthResponse {
 export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(true);
   const [agreedPrivacy, setAgreedPrivacy] = useState(true);
-  const [loadingType, setLoadingType] = useState<"wechat" | null>(null);
+  const [loadingType, setLoadingType] = useState<"wechat" | "phone" | null>(null);
 
   const ensureAgreementsAccepted = () => {
     if (agreedTerms && agreedPrivacy) {
@@ -38,6 +38,40 @@ export default function Login() {
       // Keep login flow responsive in dev even if websocket connects later.
     });
     Taro.reLaunch({ url: "/pages/index/index" });
+  };
+
+  const handlePhoneQuickLogin = async (event: any) => {
+    if (!ensureAgreementsAccepted() || loadingType) {
+      return;
+    }
+
+    const phoneCode = event?.detail?.code;
+    if (!phoneCode) {
+      Taro.showToast({
+        title: "未获取到手机号授权",
+        icon: "none",
+      });
+      return;
+    }
+
+    setLoadingType("phone");
+    try {
+      const { token, user } = await request<AuthResponse>({
+        url: "/api/auth/phone/wechat",
+        method: "POST",
+        data: { code: phoneCode },
+        needAuth: false,
+      });
+
+      await finishLogin(token, user.id);
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message ?? "本机号登录失败",
+        icon: "none",
+      });
+    } finally {
+      setLoadingType(null);
+    }
   };
 
   const handleWechatLogin = async () => {
@@ -82,6 +116,16 @@ export default function Login() {
         <View className="btn-box">
           <Button
             className="btn btn-primary"
+            openType="getPhoneNumber"
+            loading={loadingType === "phone"}
+            disabled={loadingType !== null}
+            onGetPhoneNumber={handlePhoneQuickLogin}
+          >
+            本机号码快捷登录
+          </Button>
+
+          <Button
+            className="btn btn-secondary"
             loading={loadingType === "wechat"}
             disabled={loadingType !== null}
             onClick={handleWechatLogin}

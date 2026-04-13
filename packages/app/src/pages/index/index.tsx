@@ -258,7 +258,7 @@ export default function Index() {
       <View className="home-content">
         <View className="hero-header">
           <View className="top-card">
-            <View className="top-card-entry" onClick={handleOpenPetInfo}>
+            <View className="top-card-entry">
               <View className="avatar-shell">
                 {hasPet ? (
                   <Image

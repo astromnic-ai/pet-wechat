@@ -1,6 +1,6 @@
 .settings-page {
   min-height: 100vh;
-  background: #fffaf1;
+  background: #fff8f0;
   box-sizing: border-box;
 }
 
@@ -14,8 +14,7 @@
   display: flex;
   align-items: center;
   gap: 24rpx;
-  padding: 26rpx 32rpx 18rpx;
-  min-height: 72rpx;
+  padding: 26rpx 32rpx 20rpx;
   box-sizing: border-box;
 }
 
@@ -28,47 +27,47 @@
   flex: 0 0 72rpx;
   width: 72rpx;
   height: 72rpx;
-  z-index: 1;
 }
 
 .settings-title {
   font-size: 42rpx;
+  line-height: 1.2;
   font-weight: 700;
   color: #171717;
-  line-height: 1.2;
-  flex-shrink: 0;
 }
 
 .settings-shell {
-  padding: 34rpx 18rpx calc(env(safe-area-inset-bottom) + 32rpx);
+  padding: 8rpx 20rpx calc(env(safe-area-inset-bottom) + 36rpx);
 }
 
 .group-title {
-  margin: 6rpx 8rpx 12rpx;
+  margin: 0 10rpx 12rpx;
   font-size: 24rpx;
-  color: #8e8479;
+  line-height: 1.4;
+  color: #a39a8d;
 }
 
 .group-title--support {
-  margin-top: 18rpx;
+  margin-top: 12rpx;
 }
 
-.setting-card {
-  min-height: 94rpx;
+.setting-card,
+.firmware-card {
+  width: 100%;
+  min-height: 96rpx;
   margin-bottom: 16rpx;
-  padding: 0 26rpx;
-  border-radius: 26rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  border-radius: 28rpx;
   background: #ffffff;
   border: 2rpx solid #efe7da;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   box-shadow: 0 8rpx 18rpx rgba(35, 35, 35, 0.04);
 }
 
-.setting-card .wx-switch-input,
-.setting-card .wx-switch-input::before {
-  border-radius: 40rpx;
+.setting-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .setting-label {
@@ -77,38 +76,57 @@
   color: #232323;
 }
 
-.setting-meta {
+.setting-card .wx-switch-input,
+.setting-card .wx-switch-input::before {
+  border-radius: 40rpx;
+}
+
+.setting-arrow-wrap,
+.firmware-arrow-wrap {
+  width: 54rpx;
+  height: 54rpx;
+  border-radius: 27rpx;
+  background: #f7f7f7;
   display: flex;
   align-items: center;
-  gap: 10rpx;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.setting-value {
-  font-size: 28rpx;
-  color: #8a837b;
+.setting-arrow,
+.firmware-arrow {
+  font-size: 24rpx;
+  color: #303030;
 }
 
-.setting-arrow {
-  font-size: 28rpx;
-  color: #8a837b;
+.theme-pill-group {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.theme-pill {
+  width: 82rpx;
+  height: 42rpx;
+  border-radius: 24rpx;
+  background: #e9e8e8;
+}
+
+.theme-pill--active {
+  background: #dcdada;
 }
 
 .firmware-card {
-  margin-top: 24rpx;
-  padding: 22rpx 24rpx;
-  border-radius: 28rpx;
-  background: #ffffff;
-  border: 2rpx solid #efe7da;
   display: flex;
   align-items: center;
-  box-shadow: 0 8rpx 18rpx rgba(35, 35, 35, 0.04);
+  padding: 18rpx 22rpx;
 }
 
 .firmware-icon {
-  width: 88rpx;
-  height: 88rpx;
-  border-radius: 24rpx;
-  background: #f4f4f4;
+  width: 74rpx;
+  height: 74rpx;
+  border-radius: 22rpx;
+  background: #f3f3f3;
   flex-shrink: 0;
 }
 
@@ -120,28 +138,15 @@
 .firmware-title {
   display: block;
   font-size: 30rpx;
+  line-height: 1.25;
   font-weight: 700;
   color: #202020;
 }
 
 .firmware-desc {
   display: block;
-  margin-top: 10rpx;
+  margin-top: 6rpx;
   font-size: 22rpx;
-  color: #9b9389;
-}
-
-.firmware-arrow-wrap {
-  width: 54rpx;
-  height: 54rpx;
-  border-radius: 27rpx;
-  background: #f7f7f7;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.firmware-arrow {
-  font-size: 24rpx;
-  color: #3c3c3c;
+  line-height: 1.4;
+  color: #aaa193;
 }

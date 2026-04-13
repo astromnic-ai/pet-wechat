@@ -19,7 +19,7 @@ export default defineAppConfig({
     { root: "pages/data", pages: ["index"] },
     { root: "pages/pet-mode", pages: ["index", "custom"] },
     { root: "pages/invite", pages: ["index"] },
-    { root: "pages/settings", pages: ["index", "system", "theme", "language", "help", "about"] },
+    { root: "pages/settings", pages: ["index", "system", "theme", "help", "about"] },
   ],
   window: {
     backgroundTextStyle: "light",

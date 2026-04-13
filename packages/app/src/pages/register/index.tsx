@@ -2,14 +2,7 @@ import { View, Text, Input, Button } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import PageBack from "../../components/PageBack";
-import { request, setToken } from "../../utils/request";
-import { connectWs } from "../../utils/ws";
 import "./index.scss";
-
-interface AuthResponse {
-  token: string;
-  user: { id: string };
-}
 
 export default function Register() {
   const [phone, setPhone] = useState("");
@@ -34,7 +27,7 @@ export default function Register() {
 
     setSendingCode(true);
     Taro.showToast({
-      title: "验证码已发送",
+      title: "请使用本机号码快捷登录",
       icon: "none",
       duration: 1800,
     });
@@ -64,36 +57,11 @@ export default function Register() {
       return;
     }
 
-    setSubmitting(true);
-    try {
-      const { token, user } = await request<AuthResponse>({
-        url: "/api/auth/phone",
-        method: "POST",
-        data: {
-          phone: phone.trim(),
-          code: code.trim(),
-        },
-        needAuth: false,
-      });
-      setToken(token);
-      Taro.setStorageSync("userId", user.id);
-      await connectWs();
-      Taro.showToast({ title: "注册成功", icon: "success", duration: 900 });
-      setTimeout(() => {
-        Taro.showLoading({
-          title: "进入主页中",
-          mask: true,
-        });
-        Taro.reLaunch({ url: "/pages/index/index" });
-      }, 300);
-    } catch (error: any) {
-      Taro.showToast({
-        title: error?.message ?? "注册失败",
-        icon: "none",
-      });
-    } finally {
-      setSubmitting(false);
-    }
+    Taro.showToast({
+      title: "当前请使用本机号码快捷登录或微信登录",
+      icon: "none",
+      duration: 2200,
+    });
   };
 
   return (

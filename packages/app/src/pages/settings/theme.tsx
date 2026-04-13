@@ -3,7 +3,13 @@ import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import "./subpages.scss";
 
-type ThemeMode = "light" | "warm";
+type ThemeMode = "light" | "dark" | "blue";
+
+const THEMES: Array<{ key: ThemeMode; label: string; color: string }> = [
+  { key: "light", label: "浅色模式", color: "#fff3cf" },
+  { key: "dark", label: "深色模式", color: "#2f2f33" },
+  { key: "blue", label: "蓝色模式", color: "#a9adb3" },
+];
 
 export default function ThemeSettings() {
   const [theme, setTheme] = useState<ThemeMode>("light");
@@ -17,33 +23,22 @@ export default function ThemeSettings() {
       </View>
 
       <View className="settings-subpage-content">
-        <View className={`theme-card ${theme === "light" ? "theme-card--active" : ""}`} onClick={() => setTheme("light")}>
-          <View className="theme-preview theme-preview--light">
-            <View className="theme-preview-chip" />
-            <View className="theme-preview-card" />
-            <View className="theme-preview-line" />
-            <View className="theme-preview-line theme-preview-line--short" />
-          </View>
-          <View className="theme-card-copy">
-            <Text className="theme-card-title">亮色主题</Text>
-            <Text className="theme-card-desc">浅暖底色，舒适柔和</Text>
-          </View>
-          <View className={`theme-radio ${theme === "light" ? "theme-radio--active" : ""}`} />
-        </View>
-
-        <View className={`theme-card ${theme === "warm" ? "theme-card--active" : ""}`} onClick={() => setTheme("warm")}>
-          <View className="theme-preview theme-preview--warm">
-            <View className="theme-preview-chip" />
-            <View className="theme-preview-card" />
-            <View className="theme-preview-line" />
-            <View className="theme-preview-line theme-preview-line--short" />
-          </View>
-          <View className="theme-card-copy">
-            <Text className="theme-card-title">暖光主题</Text>
-            <Text className="theme-card-desc">更明亮的黄色点缀</Text>
-          </View>
-          <View className={`theme-radio ${theme === "warm" ? "theme-radio--active" : ""}`} />
-        </View>
+        {THEMES.map((item) => {
+          const active = item.key === theme;
+          return (
+            <View
+              key={item.key}
+              className={`theme-option-card ${active ? "theme-option-card--active" : ""}`}
+              onClick={() => setTheme(item.key)}
+            >
+              <View className="theme-option-left">
+                <View className="theme-option-preview" style={{ background: item.color }} />
+                <Text className="theme-option-title">{item.label}</Text>
+              </View>
+              <View className={`theme-option-radio ${active ? "theme-option-radio--active" : ""}`} />
+            </View>
+          );
+        })}
       </View>
     </View>
   );
