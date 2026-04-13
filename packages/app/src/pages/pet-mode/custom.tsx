@@ -1,5 +1,5 @@
 import { View, Text } from "@tarojs/components";
-import Taro, { useDidShow, useRouter } from "@tarojs/taro";
+import Taro, { useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import { getPetModeSlots, setPetActivityMode, setPetModeSlots, type PetModeSlot } from "../../utils/storage";
@@ -16,13 +16,10 @@ export default function PetModeCustomPage() {
   const petId = router.params.petId || "";
   const [slots, setSlots] = useState<PetModeSlot[]>(() => getPetModeSlots(petId));
 
-  useDidShow(() => {
-    setPetActivityMode(petId, "custom");
-  });
-
   const handleAddSlot = () => {
     const nextSlots = [...slots, { start: "14:00", end: "16:00", action: "玩耍" }];
     setSlots(nextSlots);
+    setPetActivityMode(petId, "custom");
     setPetModeSlots(petId, nextSlots);
   };
 
@@ -30,7 +27,7 @@ export default function PetModeCustomPage() {
     <View className="pet-mode-custom-page">
       <View className="pet-mode-top-strip" />
       <View className="pet-mode-header">
-        <PageBack fallbackUrl="/pages/index/index" />
+        <PageBack inline fallbackUrl="/pages/index/index" />
         <Text className="pet-mode-title">宠物活动模式</Text>
       </View>
 

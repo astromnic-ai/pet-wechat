@@ -15,7 +15,7 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
-  padding: 26rpx 40rpx 0;
+  padding: 26rpx 32rpx 14rpx;
 }
 
 .device-wifi-back {
@@ -45,7 +45,7 @@
   padding: 34rpx 38rpx 0;
 }
 
-.device-card,
+.device-wifi-device-card,
 .wifi-panel,
 .wifi-hint-panel {
   background: #ffffff;
@@ -53,14 +53,14 @@
   border: 2rpx solid #ebedf2;
 }
 
-.device-card {
+.device-wifi-device-card {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding: 34rpx 30rpx;
 }
 
-.device-card-icon-wrap {
+.device-wifi-device-icon-wrap {
   width: 160rpx;
   height: 120rpx;
   border-radius: 30rpx;
@@ -70,19 +70,19 @@
   justify-content: center;
 }
 
-.device-card-icon {
+.device-wifi-device-icon {
   width: 112rpx;
   height: 112rpx;
 }
 
-.device-card-name {
+.device-wifi-device-name {
   margin-top: 28rpx;
   font-size: 40rpx;
   font-weight: 700;
   color: #202020;
 }
 
-.device-card-status {
+.device-wifi-device-status {
   margin-top: 18rpx;
   min-width: 150rpx;
   height: 58rpx;
@@ -96,8 +96,8 @@
   gap: 8rpx;
 }
 
-.device-card-status-dot,
-.device-card-status-text {
+.device-wifi-device-status-dot,
+.device-wifi-device-status-text {
   font-size: 26rpx;
   font-weight: 700;
   color: #56c169;
@@ -110,10 +110,49 @@
 
 .wifi-panel-title {
   display: block;
-  font-size: 42rpx;
+  font-size: 36rpx;
   font-weight: 700;
   color: #202020;
   margin-bottom: 22rpx;
+}
+
+.wifi-network-block {
+  padding: 20rpx 20rpx 16rpx;
+  border-radius: 28rpx;
+  background: #f8f8f8;
+  margin-bottom: 18rpx;
+}
+
+.wifi-block-caption {
+  display: block;
+  font-size: 24rpx;
+  color: #6f6f6f;
+}
+
+.wifi-network-list {
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.wifi-network-row {
+  height: 62rpx;
+  border-radius: 18rpx;
+  background: #ececec;
+  display: flex;
+  align-items: center;
+  padding: 0 20rpx;
+  box-sizing: border-box;
+}
+
+.wifi-network-row--active {
+  background: #ffd76d;
+}
+
+.wifi-network-row-text {
+  font-size: 26rpx;
+  color: #404040;
 }
 
 .wifi-input-box {

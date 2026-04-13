@@ -1,6 +1,6 @@
 import { View, Text, Image, Input, Picker } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarAction, Species } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
@@ -39,6 +39,8 @@ export default function PetInfo() {
   const [avatarStatus, setAvatarStatus] = useState<AvatarStatus | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarActions, setAvatarActions] = useState<PetAvatarAction[]>([]);
+  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState("");
+  const [selectedPreviewLabel, setSelectedPreviewLabel] = useState("");
   const [loading, setLoading] = useState(false);
   const canSubmit = name.trim().length > 0 && !loading;
   const isDetailMode = Boolean(petId) && !isEditFormMode;
@@ -205,11 +207,19 @@ export default function PetInfo() {
     Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${petId}` });
   };
 
-  const avatarCardImage =
-    avatarPreviewUrl || (species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png"));
+  const fallbackPetImage =
+    species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png");
+  const avatarCardImage = selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
   const ageLabel = birthday ? birthday : "3岁半";
   const systemActions = avatarActions.slice(0, 8);
   const customActions = avatarActions.slice(8);
+  const detailTipText =
+    avatarStatus === "done"
+      ? "长按图片，重新定制宠物动态"
+      : avatarStatus
+        ? "动态图像定制中，点击查看详情"
+        : "上传宠物照片，专属定制宠物动态图像";
+  const previewCaption = selectedPreviewLabel || detailTipText;
 
   const breedOptions =
     species === "dog"
@@ -264,6 +274,37 @@ export default function PetInfo() {
   const handleOpenCustomActionUpload = () => {
     if (!petId) return;
     Taro.navigateTo({ url: `/pages/custom-action/index?petId=${petId}` });
+  };
+
+  useEffect(() => {
+    if (!selectedPreviewUrl) return;
+    const existsInActions = avatarActions.some((item) => item.imageUrl === selectedPreviewUrl);
+    if (!existsInActions && selectedPreviewUrl !== avatarPreviewUrl) {
+      setSelectedPreviewUrl("");
+      setSelectedPreviewLabel("");
+    }
+  }, [avatarActions, avatarPreviewUrl, selectedPreviewUrl]);
+
+  useEffect(() => {
+    if (!selectedPreviewUrl) {
+      setSelectedPreviewLabel("");
+    }
+  }, [selectedPreviewUrl]);
+
+  const customActionItems = useMemo(() => {
+    if (customActions.length > 0) return customActions;
+    return [];
+  }, [customActions]);
+
+  const handlePreviewAction = (imageUrl: string, label: string) => {
+    setSelectedPreviewUrl(imageUrl);
+    setSelectedPreviewLabel(label);
+  };
+
+  const handleResetPreview = () => {
+    setSelectedPreviewUrl("");
+    setSelectedPreviewLabel("");
+    handleOpenAvatarPanel();
   };
 
   const renderTextField = (
@@ -341,7 +382,7 @@ export default function PetInfo() {
           <>
             <View
               className="detail-avatar-panel"
-              onClick={handleOpenAvatarPanel}
+              onClick={handleResetPreview}
               onLongPress={handleOpenAvatarPanel}
             >
               <View className="detail-avatar-frame">
@@ -357,13 +398,7 @@ export default function PetInfo() {
                 ) : (
                   <Image className="detail-avatar-image" src={avatarCardImage} mode="aspectFit" />
                 )}
-                <Text className="detail-avatar-tip">
-                  {avatarStatus === "done"
-                    ? "长按图片，重新定制宠物动态"
-                    : avatarStatus
-                      ? "动态图像定制中，点击查看详情"
-                      : "上传宠物照片，专属定制宠物动态图像"}
-                </Text>
+                <Text className="detail-avatar-tip">{previewCaption}</Text>
               </View>
             </View>
 
@@ -386,7 +421,16 @@ export default function PetInfo() {
               <Text className="detail-actions-title">系统动作</Text>
               <View className="detail-action-grid">
                 {(systemActions.length > 0 ? systemActions : new Array(8).fill(null)).map((action, index) => (
-                  <View key={action?.id || `system-${index}`} className="detail-action-item">
+                  <View
+                    key={action?.id || `system-${index}`}
+                    className="detail-action-item"
+                    onClick={() =>
+                      handlePreviewAction(
+                        action?.imageUrl || SYSTEM_ACTION_FALLBACKS[index]?.image || avatarCardImage,
+                        action?.actionType || SYSTEM_ACTION_FALLBACKS[index]?.label || "动作"
+                      )
+                    }
+                  >
                     <View className="detail-action-thumb-wrap">
                       <Image
                         className="detail-action-thumb"
@@ -403,20 +447,25 @@ export default function PetInfo() {
 
               <Text className="detail-actions-title detail-actions-title--custom">自定义动作</Text>
               <View className="detail-custom-row">
-                {customActions[0] ? (
-                  <View className="detail-action-item detail-action-item--custom">
+                {customActionItems.map((action) => (
+                  <View
+                    key={action.id}
+                    className="detail-action-item detail-action-item--custom"
+                    onClick={() => handlePreviewAction(action.imageUrl, action.actionType)}
+                  >
                     <View className="detail-action-thumb-wrap">
-                      <Image className="detail-action-thumb" src={customActions[0].imageUrl} mode="aspectFill" />
+                      <Image className="detail-action-thumb" src={action.imageUrl} mode="aspectFill" />
                     </View>
-                    <Text className="detail-action-label">{customActions[0].actionType}</Text>
+                    <Text className="detail-action-label">{action.actionType}</Text>
                   </View>
-                ) : (
+                ))}
+                {customActionItems.length === 0 ? (
                   <View className="detail-action-item detail-action-item--custom">
                     <View className="detail-action-thumb-wrap">
                       <Image className="detail-action-thumb" src={avatarCardImage} mode="aspectFill" />
                     </View>
                   </View>
-                )}
+                ) : null}
                 <View className="detail-add-action" onClick={handleOpenCustomActionUpload}>
                   <Text className="detail-add-action-icon">＋</Text>
                 </View>

@@ -31,6 +31,8 @@ export default function Profile() {
     disconnectWs();
     clearToken();
     Taro.removeStorageSync("userInfo");
+    Taro.removeStorageSync("userId");
+    Taro.removeStorageSync("hasCompletedGuide");
     Taro.reLaunch({ url: "/pages/login/index" });
   };
 
@@ -53,7 +55,7 @@ export default function Profile() {
     <View className="profile-page">
       <View className="profile-top-strip" />
       <View className="profile-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="profile-title">用户信息</Text>
       </View>
 

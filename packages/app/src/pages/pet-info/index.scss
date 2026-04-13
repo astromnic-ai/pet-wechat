@@ -40,8 +40,8 @@
 .detail-header {
   display: flex;
   align-items: center;
-  gap: 18rpx;
-  padding: 20rpx 32rpx 20rpx;
+  gap: 24rpx;
+  padding: 26rpx 32rpx 14rpx;
 }
 
 .detail-header-title {
@@ -70,16 +70,20 @@
 .create-header {
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 24rpx;
   padding: 0 32rpx 56rpx;
 }
 
 .create-header-back {
-  width: 56rpx;
-  height: 56rpx;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .create-header-back-icon {
@@ -174,8 +178,8 @@
 
 .detail-avatar-frame {
   width: 100%;
-  min-height: 660rpx;
-  padding: 22rpx 24rpx 18rpx;
+  min-height: 720rpx;
+  padding: 18rpx 20rpx 20rpx;
   box-sizing: border-box;
   border: 4rpx solid #ddd7ce;
   border-radius: 26rpx;
@@ -187,13 +191,13 @@
 }
 
 .detail-avatar-image {
-  width: 620rpx;
+  width: 660rpx;
   height: 620rpx;
 }
 
 .detail-avatar-tip {
-  margin-top: -4rpx;
-  font-size: 28rpx;
+  margin-top: 8rpx;
+  font-size: 26rpx;
   color: #8a8a8a;
   line-height: 1.4;
   text-align: center;
@@ -243,7 +247,7 @@
   background: #ffffff;
   border: 2rpx solid #ffd86f;
   border-radius: 36rpx;
-  padding: 24rpx 22rpx 30rpx;
+  padding: 28rpx 22rpx 30rpx;
 }
 
 .detail-actions-title {
@@ -272,6 +276,7 @@
 
 .detail-action-item--custom {
   width: 120rpx;
+  flex-shrink: 0;
 }
 
 .detail-action-thumb-wrap {
@@ -300,6 +305,9 @@
   align-items: center;
   gap: 18rpx;
   margin-top: 18rpx;
+  overflow-x: auto;
+  padding-bottom: 4rpx;
+  white-space: nowrap;
 }
 
 .detail-add-action {

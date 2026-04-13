@@ -7,7 +7,7 @@ export default function AboutPage() {
     <View className="settings-subpage">
       <View className="settings-subpage-top-strip" />
       <View className="settings-subpage-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="settings-subpage-title">关于 YEHEY</Text>
       </View>
 

@@ -44,6 +44,7 @@ function calculateAge(birthday?: string | null): string {
 export default function Invite() {
   const router = useRouter();
   const code = typeof router.params.code === "string" ? router.params.code : "";
+  const petId = typeof router.params.petId === "string" ? router.params.petId : "";
   const mode = router.params.mode ?? "invite";
 
   const [pet, setPet] = useState<Pet | null>(null);
@@ -63,16 +64,22 @@ export default function Invite() {
       return;
     }
 
-    request<{ pets: Pet[] }>({ url: "/api/pets" })
+    request<{ pets: Pet[]; authorizedPets?: Pet[] }>({ url: "/api/pets" })
       .then((res) => {
-        if (res.pets.length > 0) {
-          setPet(res.pets[0]);
+        const mergedPets = [...res.pets, ...(res.authorizedPets || [])];
+        if (petId) {
+          const matchedPet = mergedPets.find((item) => item.id === petId) || null;
+          setPet(matchedPet);
+          return;
+        }
+        if (mergedPets.length > 0) {
+          setPet(mergedPets[0]);
         }
       })
       .catch(() => {
         setError("宠物信息加载失败");
       });
-  }, [code]);
+  }, [code, petId]);
 
   const ageText = useMemo(() => {
     return `年龄：${calculateAge(pet?.birthday)}`;
@@ -143,10 +150,25 @@ export default function Invite() {
   };
 
   if (code) {
+    const acceptState = error ? "error" : acceptDone ? "success" : "pending";
+    const acceptIcon =
+      acceptState === "success"
+        ? require("@/assets/images/success-icon.png")
+        : acceptState === "error"
+          ? require("@/assets/images/fail-icon.png")
+          : require("@/assets/images/bell-icon.png");
+
     return (
       <View className="invite-accept-page">
-        <PageBack />
+        <View className="invite-top-strip" />
+        <View className="invite-header">
+          <PageBack inline />
+          <Text className="invite-title">接受授权</Text>
+        </View>
         <View className="accept-card">
+          <View className={`accept-badge accept-badge--${acceptState}`}>
+            <Image className="accept-badge-icon" src={acceptIcon} mode="aspectFit" />
+          </View>
           <Text className="accept-title">
             {acceptDone ? "授权成功" : error ? "邀请异常" : "宠物绑定邀请"}
           </Text>
@@ -157,11 +179,24 @@ export default function Invite() {
                 ? `你已获得查看 ${inviteInfo?.petName ?? "该宠物"} 的权限`
                 : `${inviteInfo?.fromNickname ?? "家人"} 邀请你加入宠物桌面`}
           </Text>
+          {!error ? (
+            <View className="accept-info-card">
+              <Text className="accept-info-label">宠物名称</Text>
+              <Text className="accept-info-value">{inviteInfo?.petName ?? "待确认"}</Text>
+              <Text className="accept-info-label">邀请人</Text>
+              <Text className="accept-info-value">{inviteInfo?.fromNickname ?? "家人"}</Text>
+            </View>
+          ) : null}
           <View className="accept-button" onClick={acceptDone || error ? handleGoHome : handleAccept}>
             <Text className="accept-button-text">
               {acceptDone || error ? "进入主页" : loading ? "处理中..." : "接受邀请"}
             </Text>
           </View>
+          <Text className="accept-footnote">
+            {acceptDone || error
+              ? "返回主页后，你可以在设备管理和主页中查看最新授权状态"
+              : "接受授权后，你将可以查看该宠物的相关设备和展示信息"}
+          </Text>
         </View>
       </View>
     );
@@ -169,34 +204,46 @@ export default function Invite() {
 
   return (
     <View className="invite-share-page">
-      <PageBack />
-      <View className="pet-info-card">
-        <Image
-          className="pet-avatar"
-          src={require("@/assets/images/black-cat.png")}
-          mode="aspectFit"
-        />
-        <View className="pet-tags">
-          <Text className="pet-tag">姓名：{pet?.name ?? "未知"}</Text>
-          <Text className="pet-tag">品种：{pet?.breed || "未知"}</Text>
-          <Text className="pet-tag">{ageText}</Text>
-        </View>
+      <View className="invite-top-strip" />
+      <View className="invite-header">
+        <PageBack inline />
+        <Text className="invite-title">分享授权</Text>
       </View>
 
-      {mode === "pair" ? (
-        <View className="connect-button" onClick={handleGenerateInvite}>
-          <Text className="connect-button-text">一键连接</Text>
+      <View className="invite-share-shell">
+        <View className="pet-info-card">
+          <View className="pet-avatar-wrap">
+            <Image
+              className="pet-avatar"
+              src={pet?.avatarImageUrl || (pet?.species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png"))}
+              mode="aspectFit"
+            />
+          </View>
+          <View className="pet-info-main">
+            <Text className="pet-info-title">{pet?.name ?? "未选择宠物"}</Text>
+            <Text className="pet-info-subtitle">{pet?.breed || "请先完善宠物品种"}</Text>
+            <Text className="pet-info-subtitle">{ageText}</Text>
+          </View>
         </View>
-      ) : (
-        <Button openType="share" className="connect-button" disabled={!canShareInvite}>
-          <Text className="connect-button-text">一键连接</Text>
-        </Button>
-      )}
 
-      <View className="guide-info-card">
-        <Text className="guide-info-text">
-          {error || "生成链接跳转到微信好友列表界面 选择并发送（类比分享）"}
-        </Text>
+        <View className="share-guide-card">
+          <Text className="share-guide-title">授权说明</Text>
+          <Text className="share-guide-text">
+            {error || "点击下方按钮后，将打开微信原生分享面板。选择好友后，对方即可收到当前宠物的查看授权邀请。"}
+          </Text>
+        </View>
+
+        {mode === "pair" ? (
+          <View className="connect-button" onClick={handleGenerateInvite}>
+            <Text className="connect-button-text">发送给微信好友</Text>
+          </View>
+        ) : (
+          <Button openType="share" className="connect-button" disabled={!canShareInvite}>
+            <Text className="connect-button-text">发送给微信好友</Text>
+          </Button>
+        )}
+
+        <Text className="share-footnote">分享弹层为微信原生界面，外观不可自定义</Text>
       </View>
     </View>
   );

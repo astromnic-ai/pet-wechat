@@ -13,7 +13,8 @@
 
 .upload-header {
   margin-bottom: 42rpx;
-  padding-left: 86rpx;
+  padding-left: 112rpx;
+  padding-right: 12rpx;
 }
 
 .upload-page-title {
@@ -140,6 +141,39 @@
   color: #202020;
   line-height: 1.2;
   margin-bottom: 16rpx;
+}
+
+.sample-row {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+}
+
+.sample-card {
+  flex: 1;
+  border-radius: 20rpx;
+  background: #fff;
+  border: 2rpx solid #ececec;
+  padding: 12rpx 10rpx 14rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.sample-card--muted {
+  opacity: 0.56;
+}
+
+.sample-card-image {
+  width: 88rpx;
+  height: 88rpx;
+}
+
+.sample-card-text {
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: #777;
 }
 
 .upload-tip-item {

@@ -84,7 +84,7 @@ export default function PetModePage() {
     <View className="pet-mode-page">
       <View className="pet-mode-top-strip" />
       <View className="pet-mode-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="pet-mode-title">宠物活动模式</Text>
       </View>
 

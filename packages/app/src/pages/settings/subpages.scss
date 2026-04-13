@@ -13,20 +13,30 @@
 .settings-subpage-header {
   display: flex;
   align-items: center;
-  padding: 34rpx 28rpx 14rpx;
+  gap: 24rpx;
+  padding: 26rpx 32rpx 18rpx;
+  min-height: 72rpx;
+  box-sizing: border-box;
 }
 
 .settings-subpage-header :global(.page-back) {
-  position: static;
-  transform: none;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .settings-subpage-title {
-  margin-left: 110rpx;
   font-size: 42rpx;
   font-weight: 700;
   color: #171717;
-  line-height: 1;
+  line-height: 1.2;
+  flex-shrink: 0;
 }
 
 .settings-subpage-content {

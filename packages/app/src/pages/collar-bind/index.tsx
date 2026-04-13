@@ -1,5 +1,5 @@
 import { View, Text, Image } from "@tarojs/components";
-import Taro, { useDidShow } from "@tarojs/taro";
+import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import { request } from "../../utils/request";
 import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
@@ -26,6 +26,8 @@ function getSignalLabel(signal?: number | null) {
 }
 
 export default function CollarBind() {
+  const router = useRouter();
+  const preferredDeviceType = (router.params.deviceType as "collar" | "desktop" | undefined) || "collar";
   const [devices, setDevices] = useState<SearchDevice[]>([]);
   const [loadingId, setLoadingId] = useState("");
 
@@ -55,7 +57,13 @@ export default function CollarBind() {
       .catch(() => setDevices([]));
   });
 
-  const visibleDevices = devices.length > 0 ? devices : FALLBACK_DEVICES;
+  const sourceDevices = devices.length > 0 ? devices : FALLBACK_DEVICES;
+  const visibleDevices = [...sourceDevices].sort((a, b) => {
+    if (a.deviceType === b.deviceType) return 0;
+    if (a.deviceType === preferredDeviceType) return -1;
+    if (b.deviceType === preferredDeviceType) return 1;
+    return 0;
+  });
 
   const handleConnect = async (device: SearchDevice) => {
     if (loadingId) return;

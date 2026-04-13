@@ -1,5 +1,5 @@
-import { View, Text, Image, ScrollView, Button, Input } from "@tarojs/components";
-import Taro, { useDidShow, useShareAppMessage } from "@tarojs/taro";
+import { View, Text, Image, ScrollView, Input } from "@tarojs/components";
+import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BindingType, CollarDevice, DesktopDevice, DeviceStatus, Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
@@ -34,11 +34,6 @@ type DeviceCard = {
 
 const COLLAR_ICON = require("@/assets/images/collar-icon.png");
 const DESKTOP_ICON = require("@/assets/images/desktop-icon.png");
-const DEFAULT_SHARE_MESSAGE = {
-  title: "YEHEY",
-  path: "/pages/index/index",
-};
-
 function getStatusText(status: DeviceStatus) {
   if (status === "online") return "在线";
   if (status === "pairing") return "连接中";
@@ -82,8 +77,6 @@ export default function Devices() {
   const [desktops, setDesktops] = useState<DesktopWithBindings[]>([]);
   const [editingCollarId, setEditingCollarId] = useState("");
   const [collarNameDraft, setCollarNameDraft] = useState("");
-  const sharePetIdRef = useRef("");
-
   const loadPets = async () => {
     try {
       const res = await request<{ pets: Pet[]; authorizedPets: Pet[] }>({ url: "/api/pets" });
@@ -107,6 +100,10 @@ export default function Devices() {
       setCollars([]);
       setDesktops([]);
     }
+  };
+
+  const notifyHomeDevicesChanged = () => {
+    Taro.eventCenter.trigger("devices:changed");
   };
 
   useDidShow(() => {
@@ -184,30 +181,6 @@ export default function Devices() {
     });
   }, [collars, desktops, petMetaMap]);
 
-  useShareAppMessage(() => {
-    const petId = sharePetIdRef.current;
-    if (!petId) {
-      return DEFAULT_SHARE_MESSAGE;
-    }
-
-    return new Promise((resolve) => {
-      request<{ inviteCode: string; petName: string; fromNickname: string }>({
-        url: "/api/devices/invite",
-        method: "POST",
-        data: { petId },
-      })
-        .then((res) => {
-          resolve({
-            title: `${res.fromNickname}邀请你一起查看${res.petName}`,
-            path: `/pages/invite/index?code=${res.inviteCode}`,
-          });
-        })
-        .catch(() => {
-          resolve(DEFAULT_SHARE_MESSAGE);
-        });
-    });
-  });
-
   const handleRenameCollar = async (deviceId: string) => {
     const nextName = collarNameDraft.trim();
     if (!nextName) {
@@ -222,6 +195,7 @@ export default function Devices() {
         data: { name: nextName },
       });
       setCollars((prev) => prev.map((item) => (item.id === collar.id ? collar : item)));
+      notifyHomeDevicesChanged();
       setEditingCollarId("");
       Taro.showToast({ title: "名称已更新", icon: "success" });
     } catch (e: any) {
@@ -238,6 +212,7 @@ export default function Devices() {
       });
       Taro.showToast({ title: "已解除绑定", icon: "success" });
       await loadDevices();
+      notifyHomeDevicesChanged();
     } catch (e: any) {
       Taro.showToast({ title: e.message || "操作失败", icon: "none" });
     }
@@ -263,6 +238,7 @@ export default function Devices() {
       }
       Taro.showToast({ title: "操作成功", icon: "success" });
       await loadDevices();
+      notifyHomeDevicesChanged();
     } catch (e: any) {
       Taro.showToast({ title: e.message || "操作失败", icon: "none" });
     }
@@ -272,7 +248,7 @@ export default function Devices() {
     <View className="devices-page">
       <View className="devices-top-strip" />
       <View className="header">
-        <PageBack />
+        <PageBack inline />
         <Text className="page-title">设备管理</Text>
       </View>
 
@@ -365,15 +341,15 @@ export default function Devices() {
                     </View>
 
                     {canShare ? (
-                      <Button
+                      <View
                         className="device-action-btn"
-                        openType="share"
                         onClick={() => {
-                          sharePetIdRef.current = item.petId || "";
+                          if (!item.petId) return;
+                          Taro.navigateTo({ url: `/pages/invite/index?petId=${item.petId}` });
                         }}
                       >
                         <Text className="device-action-text">分享授权</Text>
-                      </Button>
+                      </View>
                     ) : (
                       <View
                         className="device-action-btn"

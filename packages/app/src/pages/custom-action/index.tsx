@@ -45,7 +45,7 @@ export default function CustomAction() {
     <View className="custom-action-page">
       <View className="custom-action-top-strip" />
       <View className="custom-action-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="custom-action-title">添加自定义动作</Text>
       </View>
 

@@ -33,6 +33,7 @@ export default function AvatarProgress() {
   const avatarId = router.params.avatarId;
   const forcedStatus = router.params.status as AvatarStatus | undefined;
   const customLabel = router.params.label ? decodeURIComponent(router.params.label) : "";
+  const source = router.params.source || "";
   const [pet, setPet] = useState<Pet | null>(null);
   const [avatar, setAvatar] = useState<PetAvatar | null>(null);
   const [actions, setActions] = useState<PetAvatarAction[]>([]);
@@ -143,6 +144,7 @@ export default function AvatarProgress() {
 
   const isSuccess = status === "done";
   const isFailed = status === "failed";
+  const isCustomActionFlow = source === "custom-action";
   const previewAction = actions[0] ?? null;
   const progress = getProgress(status);
   const statusIcon = isFailed
@@ -150,10 +152,6 @@ export default function AvatarProgress() {
     : require("@/assets/images/success-icon.png");
 
   const ringColor = isFailed ? "#ff4d4f" : "#07c160";
-  const handleConfigDesktop = () => {
-    Taro.navigateTo({ url: "/pages/desktop-bind/index" });
-  };
-
   const handleGoHome = () => {
     Taro.switchTab({ url: "/pages/index/index" });
   };
@@ -170,6 +168,15 @@ export default function AvatarProgress() {
     Taro.navigateBack();
   };
 
+  const handlePrimarySuccessAction = () => {
+    if (isCustomActionFlow) {
+      Taro.navigateBack({ delta: 1, fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+      return;
+    }
+
+    handleGoHome();
+  };
+
   return (
     <View className="avatar-progress-page">
       <PageBack />
@@ -179,7 +186,11 @@ export default function AvatarProgress() {
             <Image className="success-badge-icon" src={statusIcon} mode="aspectFit" />
           </View>
           <Text className="success-title">定制成功!</Text>
-          <Text className="success-subtitle">{`${pet?.name || "毛毛"}的新形象已生成`}</Text>
+          <Text className="success-subtitle">
+            {isCustomActionFlow
+              ? `${customLabel || "自定义动作"}已生成`
+              : `${pet?.name || "毛毛"}的新形象已生成`}
+          </Text>
 
           <View className="success-preview-card">
             <View className="success-preview-header">
@@ -195,12 +206,16 @@ export default function AvatarProgress() {
                 src={previewAction?.imageUrl || require("@/assets/images/cat-stand.png")}
                 mode="aspectFit"
               />
-              <Text className="success-preview-label">{customLabel || `${pet?.name || "毛毛"}的定制形象`}</Text>
+              <Text className="success-preview-label">
+                {isCustomActionFlow
+                  ? `${customLabel || "自定义宠物行为"}`
+                  : `${pet?.name || "毛毛"}的定制形象`}
+              </Text>
             </View>
           </View>
 
-          <View className="success-primary-btn" onClick={handleGoHome}>
-            <Text className="success-primary-btn-text">设为头像</Text>
+          <View className="success-primary-btn" onClick={handlePrimarySuccessAction}>
+            <Text className="success-primary-btn-text">{isCustomActionFlow ? "添加自定义" : "设为头像"}</Text>
           </View>
 
           <View className="success-secondary-row">
@@ -212,7 +227,9 @@ export default function AvatarProgress() {
             </View>
           </View>
 
-          <Text className="success-tip">可以随时在宠物信息设置中更换形象</Text>
+          <Text className="success-tip">
+            {isCustomActionFlow ? "可以在宠物信息页继续管理自定义动作" : "可以随时在宠物信息设置中更换形象"}
+          </Text>
         </View>
       ) : isFailed ? (
         <View className="progress-shell">
