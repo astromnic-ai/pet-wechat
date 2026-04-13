@@ -8,6 +8,8 @@ import "./index.scss";
 
 const PHOTO_PLACEHOLDER_IMAGE = require("@/assets/images/upload-icon.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+const CAT_SAMPLE = require("@/assets/images/black cat 3.png");
+const DOG_SAMPLE = require("@/assets/images/husky.png");
 
 function parseQuota(value?: string) {
   const quota = Number(value);
@@ -121,6 +123,7 @@ export default function PetAvatar() {
   };
 
   const previewImage = images[0] || "";
+  const sampleImage = pet?.species === "dog" ? DOG_SAMPLE : CAT_SAMPLE;
 
   return (
     <View className="pet-avatar-page">
@@ -149,6 +152,20 @@ export default function PetAvatar() {
 
         <View className="upload-tips-card">
           <Text className="upload-tips-title">上传建议</Text>
+          <View className="sample-row">
+            <View className="sample-card">
+              <Image className="sample-card-image" src={sampleImage} mode="aspectFit" />
+              <Text className="sample-card-text">清晰正面</Text>
+            </View>
+            <View className="sample-card">
+              <Image className="sample-card-image" src={sampleImage} mode="aspectFit" />
+              <Text className="sample-card-text">完整侧面</Text>
+            </View>
+            <View className="sample-card sample-card--muted">
+              <Image className="sample-card-image" src={sampleImage} mode="aspectFit" />
+              <Text className="sample-card-text">避免模糊</Text>
+            </View>
+          </View>
           <View className="upload-tip-item">
             <View className="upload-tip-dot" />
             <Text className="upload-tip-text">选择清晰、光线充足的照片</Text>

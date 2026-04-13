@@ -1,232 +1,306 @@
-import { View, Text, Image, Input, Button } from "@tarojs/components";
-import Taro from "@tarojs/taro";
-import { useState } from "react";
-import { BASE_URL, clearToken, getToken } from "../../utils/request";
-import type { CollarDevice } from "@pet-wechat/shared";
-import PageBack from "../../components/PageBack";
+import { View, Text, Image } from "@tarojs/components";
+import Taro, { useDidHide, useDidShow, useRouter, useUnload } from "@tarojs/taro";
+import { useMemo, useRef, useState } from "react";
+import { request } from "../../utils/request";
+import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
+import MockBadge from "../../components/MockBadge";
+import { createBluetoothScanner, type BluetoothScanDevice } from "../../utils/bluetooth";
+import { isDevBuild } from "../../utils/env";
 import "./index.scss";
 
-declare const ENABLE_DEV_LOGIN: boolean
+type SearchDevice = {
+  id: string;
+  name: string;
+  macAddress?: string | null;
+  signal?: number | null;
+  deviceType: "collar" | "desktop";
+  source: "mock" | "backend-unowned" | "bluetooth";
+};
 
-function normalizeMac(mac: string) {
-  return mac.replace(/[:\-\s]/g, "").toUpperCase();
+const FALLBACK_DEVICES: SearchDevice[] = [
+  {
+    id: "fallback-collar-001",
+    name: "YEHEY-Collar-001",
+    macAddress: "AA:BB:CC:DD:EE:21",
+    signal: 88,
+    deviceType: "collar",
+    source: "mock",
+  },
+  {
+    id: "fallback-desktop-001",
+    name: "YEHEY-Table-X2",
+    macAddress: "AA:BB:CC:DD:EE:31",
+    signal: 64,
+    deviceType: "desktop",
+    source: "mock",
+  },
+];
+
+const DEV_MODE = isDevBuild();
+
+function getSignalLabel(signal?: number | null) {
+  if (signal == null) return "RSSI --";
+  return signal > 0 ? `RSSI ${signal}` : `RSSI ${signal} dBm`;
 }
 
-function extractMacAddress(raw: string) {
-  const separatedMatch = raw.match(/([0-9a-f]{2}(?:[:\-\s]?[0-9a-f]{2}){5})/i)?.[1];
-  const continuousMatch = raw.match(/([0-9a-f]{12})/i)?.[1];
-  const matched = separatedMatch ?? continuousMatch;
-
-  if (!matched) return null;
-
-  const normalized = normalizeMac(matched);
-  return /^[0-9A-F]{12}$/.test(normalized) ? normalized : null;
+function getBluetoothDeviceType(device: BluetoothScanDevice): "collar" | "desktop" {
+  return device.localName.includes("Collar") ? "collar" : "desktop";
 }
 
-function isScanCancelled(error: unknown) {
-  const message = String((error as { errMsg?: string; message?: string })?.errMsg ?? (error as { message?: string })?.message ?? "");
-  return /cancel/i.test(message);
+function toBluetoothSearchDevice(device: BluetoothScanDevice): SearchDevice {
+  return {
+    id: device.id,
+    name: device.name,
+    macAddress: device.macAddress,
+    signal: device.signal,
+    deviceType: getBluetoothDeviceType(device),
+    source: "bluetooth",
+  };
 }
 
-function isPermissionDenied(error: unknown) {
-  const message = String((error as { errMsg?: string; message?: string })?.errMsg ?? (error as { message?: string })?.message ?? "");
-  return /(auth deny|auth denied|permission denied|scope\.camera|camera)/i.test(message);
+function getLoadingKey(device: SearchDevice) {
+  return `${device.source}:${device.id}`;
 }
 
 export default function CollarBind() {
-  const [device, setDevice] = useState<CollarDevice | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [macAddressInput, setMacAddressInput] = useState("");
+  const router = useRouter();
+  const preferredDeviceType = (router.params.deviceType as "collar" | "desktop" | undefined) || "collar";
+  const [bluetoothDevices, setBluetoothDevices] = useState<SearchDevice[]>([]);
+  const [backendDevices, setBackendDevices] = useState<SearchDevice[]>([]);
+  const [loadingId, setLoadingId] = useState("");
+  const [scanError, setScanError] = useState("");
+  const scannerRef = useRef<ReturnType<typeof createBluetoothScanner> | null>(null);
+  const loadIdRef = useRef(0);
 
-  const registerDevice = async (macAddress: string) => {
-    Taro.showLoading({ title: "绑定中..." });
+  const cleanupScanner = () => {
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
 
-    const token = getToken();
-    const response = await Taro.request<{ collar?: CollarDevice; error?: string }>({
-      url: `${BASE_URL}/api/devices/collars/register`,
-      method: "POST",
-      data: { macAddress },
-      header: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-
-    if (response.statusCode === 401) {
-      clearToken();
-      Taro.redirectTo({ url: "/pages/login/index" });
-      return;
-    }
-
-    if (response.statusCode === 409) {
-      Taro.showToast({ title: "设备已被他人绑定", icon: "none" });
-      return;
-    }
-
-    if (response.statusCode >= 400 || !response.data.collar) {
-      throw new Error(response.data.error ?? `服务器错误 (${response.statusCode})`);
-    }
-
-    setDevice(response.data.collar);
-    setMacAddressInput(response.data.collar.macAddress ?? macAddress);
-    Taro.showToast({ title: "设备绑定成功", icon: "success" });
+    if (!scanner) return;
+    void scanner.cleanup();
   };
 
-  const handleScan = async () => {
-    if (loading) return;
+  const loadBackendDevices = async (loadId: number) => {
+    const [collarRes, desktopRes] = await Promise.all([
+      request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars/unowned" }).catch(() => ({ collars: [] })),
+      request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops/unowned" }).catch(() => ({ desktops: [] })),
+    ]);
 
-    setLoading(true);
+    if (loadIdRef.current !== loadId) return;
+
+    setBackendDevices([
+      ...collarRes.collars.map((device) => ({
+        id: device.id,
+        name: device.name,
+        macAddress: device.macAddress,
+        signal: device.signal,
+        deviceType: "collar" as const,
+        source: "backend-unowned" as const,
+      })),
+      ...desktopRes.desktops.map((device) => ({
+        id: device.id,
+        name: device.name,
+        macAddress: device.macAddress,
+        signal: null,
+        deviceType: "desktop" as const,
+        source: "backend-unowned" as const,
+      })),
+    ]);
+  };
+
+  const startBluetoothScan = async (loadId: number) => {
+    cleanupScanner();
+    setBluetoothDevices([]);
+    setScanError("");
+
+    const scanner = createBluetoothScanner();
+    scannerRef.current = scanner;
 
     try {
-      const scanResult = await Taro.scanCode({
-        scanType: ["qrCode"],
+      await scanner.start((devices) => {
+        if (loadIdRef.current !== loadId) return;
+        setBluetoothDevices(devices.map(toBluetoothSearchDevice));
       });
-
-      const macAddress = extractMacAddress(scanResult.result ?? "");
-
-      if (!macAddress) {
-        Taro.showToast({ title: "二维码无效", icon: "none" });
-        return;
+    } catch (e: any) {
+      await scanner.cleanup();
+      if (scannerRef.current === scanner) {
+        scannerRef.current = null;
       }
 
-      await registerDevice(macAddress);
-    } catch (error) {
-      if (isScanCancelled(error)) {
-        return;
-      }
+      if (loadIdRef.current !== loadId) return;
 
-      if (isPermissionDenied(error)) {
-        Taro.showToast({ title: "请开启相机权限", icon: "none" });
-        return;
-      }
-
-      Taro.showToast({
-        title: error instanceof Error ? error.message : "扫码绑定失败",
-        icon: "none",
-      });
-    } finally {
-      Taro.hideLoading();
-      setLoading(false);
+      const nextError = e.message || "请开启蓝牙";
+      setScanError(nextError);
+      setBluetoothDevices([]);
+      Taro.showToast({ title: nextError, icon: "none" });
     }
   };
 
-  const handleDevBind = async () => {
-    if (loading) return;
+  useDidShow(() => {
+    const loadId = loadIdRef.current + 1;
+    loadIdRef.current = loadId;
 
-    const macAddress = extractMacAddress(macAddressInput);
-    if (!macAddress) {
-      Taro.showToast({ title: "请输入有效 MAC 地址", icon: "none" });
-      return;
-    }
+    void loadBackendDevices(loadId);
+    void startBluetoothScan(loadId);
+  });
 
-    setLoading(true);
-    try {
-      await registerDevice(macAddress);
-    } catch (error) {
-      Taro.showToast({
-        title: error instanceof Error ? error.message : "绑定失败",
-        icon: "none",
-      });
-    } finally {
-      Taro.hideLoading();
-      setLoading(false);
-    }
-  };
+  useDidHide(() => {
+    loadIdRef.current += 1;
+    cleanupScanner();
+  });
 
-  const handleConnect = () => {
-    if (!device) return;
+  useUnload(() => {
+    loadIdRef.current += 1;
+    cleanupScanner();
+  });
 
-    Taro.navigateTo({
-      url: `/pages/wifi-config/index?deviceType=collar&deviceId=${device.id}`,
+  const visibleDevices = useMemo(() => {
+    const merged = [...bluetoothDevices, ...backendDevices, ...(DEV_MODE ? FALLBACK_DEVICES : [])];
+    return merged.sort((a, b) => {
+      if (a.deviceType === b.deviceType) return 0;
+      if (a.deviceType === preferredDeviceType) return -1;
+      if (b.deviceType === preferredDeviceType) return 1;
+      return 0;
     });
+  }, [bluetoothDevices, backendDevices, preferredDeviceType]);
+
+  const handleConnect = async (device: SearchDevice) => {
+    if (loadingId) return;
+    setLoadingId(getLoadingKey(device));
+
+    try {
+      if (device.source === "bluetooth") {
+        Taro.navigateTo({
+          url: `/pages/wifi-config/index?deviceType=${device.deviceType}&deviceId=${encodeURIComponent(device.macAddress || device.id)}&deviceName=${encodeURIComponent(device.name)}`,
+        });
+        return;
+      }
+
+      let nextDeviceId = device.id;
+      let nextDeviceName = device.name;
+
+      if (device.deviceType === "collar") {
+        if (device.source === "mock") {
+          const res = await request<{ collar: CollarDevice }>({
+            url: "/api/devices/collars/register",
+            method: "POST",
+            data: {
+              macAddress: device.macAddress?.replace(/:/g, "") || "AABBCCDDEE21",
+              name: nextDeviceName,
+            },
+          });
+          nextDeviceId = res.collar.id;
+          nextDeviceName = res.collar.name;
+        } else {
+          const res = await request<{ collar: CollarDevice }>({
+            url: `/api/devices/collars/${device.id}/claim`,
+            method: "POST",
+            data: { name: nextDeviceName },
+          });
+          nextDeviceId = res.collar.id;
+          nextDeviceName = res.collar.name;
+        }
+      } else {
+        if (device.source === "mock") {
+          const res = await request<{ desktop: DesktopDevice }>({
+            url: "/api/devices/desktops/register",
+            method: "POST",
+            data: {
+              macAddress: device.macAddress?.replace(/:/g, "") || "AABBCCDDEE31",
+              name: nextDeviceName,
+            },
+          });
+          nextDeviceId = res.desktop.id;
+          nextDeviceName = res.desktop.name;
+        } else {
+          const res = await request<{ desktop: DesktopDevice }>({
+            url: `/api/devices/desktops/${device.id}/claim`,
+            method: "POST",
+            data: { name: nextDeviceName },
+          });
+          nextDeviceId = res.desktop.id;
+          nextDeviceName = res.desktop.name;
+        }
+      }
+
+      Taro.navigateTo({
+        url: `/pages/wifi-config/index?deviceType=${device.deviceType}&deviceId=${encodeURIComponent(nextDeviceId)}&deviceName=${encodeURIComponent(nextDeviceName)}`,
+      });
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || "连接失败", icon: "none" });
+    } finally {
+      setLoadingId("");
+    }
   };
 
   return (
-    <View className="device-guide-page">
-      <PageBack />
-      <Text className="brand">YEHEY</Text>
-      <Image
-        className="outline-image"
-        src={require("@/assets/images/pet-outline.png")}
-        mode="widthFix"
-      />
+    <View className="device-search-page">
+      <View className="device-search-top-strip" />
 
-      <View className="guide-card">
-        <Text className="guide-title">配置宠物项圈</Text>
-
-        <View className="device-hero">
-          <Image
-            className="pet-device-icon pet-icon"
-            src={require("@/assets/images/Group 1.png")}
-            mode="aspectFit"
-          />
-          <Image
-            className="pet-device-icon link-icon"
-            src={require("@/assets/images/link-icon.png")}
-            mode="aspectFit"
-          />
-          <Image
-            className="pet-device-icon device-icon"
-            src={require("@/assets/images/mirror-icon.png")}
-            mode="aspectFit"
-          />
+      <View className="device-search-header">
+        <View className="device-search-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
+          <Text className="device-search-back-text">‹</Text>
         </View>
-
-        <View className="step-block">
-          <Text className="step-title">Step 1：</Text>
-          <Text className="step-text">使用磁吸充电电线给项圈充电以启动设备</Text>
-          <View className="step-panel plug-panel">
-            <Text className="plug-icon">⌁</Text>
-          </View>
-        </View>
-
-        <View className="step-block">
-          <Text className="step-title">Step 2：</Text>
-          <Text className="step-text">
-            {ENABLE_DEV_LOGIN ? "输入设备 MAC 地址完成绑定后进入网络配置" : "扫描设备二维码完成绑定后进入网络配置"}
-          </Text>
-          {ENABLE_DEV_LOGIN ? (
-            <View className="step-panel dev-bind-panel">
-              <Input
-                className="dev-login-input"
-                type="text"
-                maxlength={17}
-                placeholder="请输入设备 MAC 地址"
-                value={macAddressInput}
-                onInput={(e) => setMacAddressInput(e.detail.value)}
-                onConfirm={device ? handleConnect : handleDevBind}
-              />
-              <Button
-                className="dev-bind-button"
-                loading={loading}
-                disabled={loading}
-                onClick={device ? handleConnect : handleDevBind}
-              >
-                {device ? "进入 WiFi 配置" : "绑定设备"}
-              </Button>
-              <Text className="panel-device-id">ID:{device?.macAddress ?? "--"}</Text>
-            </View>
-          ) : (
-            <View
-              className={`step-panel device-panel ${device ? "is-ready" : ""}`}
-              onClick={device ? handleConnect : handleScan}
-            >
-              <Image
-                className="panel-device-image"
-                src={require("@/assets/images/mirror-icon.png")}
-                mode="aspectFit"
-              />
-              <Text className="panel-device-id">ID:{device?.macAddress ?? "--"}</Text>
-              <Text className="panel-tip">
-                {device ? "点击进入 WiFi 配置" : loading ? "扫码绑定中..." : "点击扫码绑定"}
-              </Text>
-            </View>
-          )}
-        </View>
+        <Text className="device-search-title">搜索设备</Text>
       </View>
 
-      <View className="progress-track">
-        <View className="progress-fill progress-step-1" />
+      <View className="device-search-content">
+        {DEV_MODE ? (
+          <View style={{ marginBottom: "20rpx" }}>
+            <MockBadge text="开发 Mock 已开启" />
+          </View>
+        ) : null}
+
+        <View className="step-outline-card">
+          <Text className="step-outline-index">Step 1</Text>
+          <View className="step-circle">
+            <Image className="step-circle-image" src={require("@/assets/images/cat-dog-banner.png")} mode="aspectFit" />
+          </View>
+          <Text className="step-main-copy">确保桌面端/项圈插电</Text>
+          <Text className="step-sub-copy">插电即可开启蓝牙</Text>
+        </View>
+
+        <View className="step-outline-card">
+          <Text className="step-outline-index">Step 2</Text>
+          <View className="step-circle">
+            <Image className="step-circle-icon" src={require("@/assets/images/wifi-icon.png")} mode="aspectFit" />
+          </View>
+          <Text className="step-main-copy">{scanError ? "蓝牙暂不可用" : "正在搜索附近设备..."}</Text>
+          <Text className="step-sub-copy">{scanError || "确保设备已开启蓝牙"}</Text>
+        </View>
+
+        <View className="nearby-device-list">
+          {visibleDevices.map((device) => (
+            <View
+              key={`${device.source}-${device.id}`}
+              className={`nearby-device-row ${loadingId === getLoadingKey(device) ? "nearby-device-row--active" : ""}`}
+            >
+              <View className="nearby-device-leading">
+                <Image
+                  className="nearby-device-leading-image"
+                  src={device.deviceType === "desktop" ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}
+                  mode="aspectFit"
+                />
+              </View>
+              <View className="nearby-device-body">
+                <Text className="nearby-device-name">{device.name}</Text>
+                <Text className="nearby-device-meta">
+                  {(device.macAddress || device.id) + " · " + getSignalLabel(device.signal)}
+                </Text>
+              </View>
+              <View className="nearby-device-action" onClick={() => handleConnect(device)}>
+                <Text className="nearby-device-action-text">{loadingId === getLoadingKey(device) ? "连接中" : "连接"}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {visibleDevices.length === 0 ? (
+          <View className="step-outline-card">
+            <Text className="step-main-copy">暂未发现可用设备</Text>
+            <Text className="step-sub-copy">{scanError || "请确认蓝牙已开启，并让设备靠近手机后重试"}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );

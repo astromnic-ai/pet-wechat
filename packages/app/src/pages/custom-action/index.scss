@@ -1,30 +1,49 @@
 .custom-action-page {
   min-height: 100vh;
-  background: #fffaf1;
+  background: #fff8f0;
   box-sizing: border-box;
-  padding: calc(env(safe-area-inset-top) + 108rpx) 30rpx calc(env(safe-area-inset-bottom) + 28rpx);
+  padding-bottom: calc(env(safe-area-inset-bottom) + 36rpx);
+}
+
+.custom-action-top-strip {
+  width: 100%;
+  height: calc(env(safe-area-inset-top) + 102rpx);
+  background: #ffd86f;
 }
 
 .custom-action-header {
-  padding-left: 72rpx;
-  margin-bottom: 36rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+  padding: 26rpx 32rpx 14rpx;
+}
+
+.custom-action-header :global(.page-back) {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .custom-action-title {
-  display: block;
   font-size: 42rpx;
   font-weight: 700;
   color: #111111;
-  line-height: 1.1;
+  line-height: 1;
 }
 
 .custom-action-card {
-  width: 100%;
+  padding: 18rpx 20rpx 0;
 }
 
 .video-upload-box {
   width: 100%;
-  min-height: 420rpx;
+  min-height: 430rpx;
   border-radius: 36rpx;
   border: 2rpx solid #ece6dd;
   background: #ffffff;
@@ -32,14 +51,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 42rpx 30rpx;
+  padding: 46rpx 30rpx;
   box-sizing: border-box;
 }
 
 .video-upload-placeholder {
-  width: 160rpx;
-  height: 160rpx;
-  border-radius: 44rpx;
+  width: 170rpx;
+  height: 170rpx;
+  border-radius: 48rpx;
   background: #deebff;
   display: flex;
   align-items: center;
@@ -48,19 +67,19 @@
 
 .video-upload-icon,
 .video-upload-preview {
-  width: 82rpx;
-  height: 82rpx;
+  width: 92rpx;
+  height: 92rpx;
 }
 
 .video-upload-text {
   margin-top: 34rpx;
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: 700;
   color: #111111;
 }
 
 .custom-tips {
-  margin-top: 36rpx;
+  margin-top: 34rpx;
 }
 
 .custom-tip-item {
@@ -70,8 +89,8 @@
 }
 
 .custom-tip-check {
-  width: 44rpx;
-  height: 44rpx;
+  width: 46rpx;
+  height: 46rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -93,31 +112,30 @@
 
 .custom-tip-check--pink {
   background: #ffdce5;
-  color: #ffffff;
 }
 
 .custom-tip-text {
-  font-size: 24rpx;
+  font-size: 26rpx;
   color: #6f6b66;
   line-height: 1.35;
 }
 
 .custom-field {
-  margin-top: 30rpx;
+  margin-top: 28rpx;
 }
 
 .custom-field-label {
   display: block;
-  font-size: 28rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #111111;
-  margin-bottom: 16rpx;
+  margin-bottom: 14rpx;
 }
 
 .custom-field-input {
   width: 100%;
-  height: 104rpx;
-  border-radius: 30rpx;
+  height: 98rpx;
+  border-radius: 26rpx;
   border: 2rpx solid #ece6dd;
   background: #ffffff;
   padding: 0 28rpx;
@@ -128,8 +146,8 @@
 
 .custom-submit-btn {
   width: 100%;
-  height: 100rpx;
-  margin-top: 54rpx;
+  height: 104rpx;
+  margin-top: 58rpx;
   border-radius: 999rpx;
   background: #ffd86f;
   display: flex;
@@ -142,7 +160,7 @@
 }
 
 .custom-submit-btn-text {
-  font-size: 34rpx;
+  font-size: 38rpx;
   font-weight: 700;
   color: #111111;
 }

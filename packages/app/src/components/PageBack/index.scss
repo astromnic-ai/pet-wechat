@@ -13,6 +13,18 @@
   z-index: 200;
 }
 
+.page-back--inline {
+  position: relative;
+  left: auto;
+  top: auto;
+  inset: auto;
+  transform: none;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
+}
+
 .page-back-icon {
   width: 32rpx;
   height: 32rpx;

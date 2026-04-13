@@ -52,6 +52,7 @@ export default function PetModePage() {
   const initialMode = (router.params.mode as PetActivityMode) || getPetActivityMode(petId);
   const [selectedMode, setSelectedMode] = useState<PetActivityMode>(initialMode);
   const [hasCollar, setHasCollar] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   useDidShow(() => {
     void request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" })
@@ -59,12 +60,28 @@ export default function PetModePage() {
         setHasCollar(res.collars.some((item) => (petId ? item.petId === petId : true)));
       })
       .catch(() => setHasCollar(false));
+
+    if (!petId) {
+      setSelectedMode(getPetActivityMode(petId));
+      return;
+    }
+
+    void request<{ mode: PetActivityMode }>({ url: `/api/pets/${petId}/mode` })
+      .then((res) => {
+        setSelectedMode(res.mode);
+        setPetActivityMode(petId, res.mode);
+      })
+      .catch(() => {
+        setSelectedMode(getPetActivityMode(petId));
+      });
   });
 
   const orderedModes = useMemo(() => ORDER_MAP[selectedMode], [selectedMode]);
   const current = MODE_CONTENT[selectedMode];
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (saving) return;
+
     if (selectedMode === "custom") {
       Taro.navigateTo({ url: `/pages/pet-mode/custom?petId=${petId}` });
       return;
@@ -75,16 +92,35 @@ export default function PetModePage() {
       return;
     }
 
-    setPetActivityMode(petId, selectedMode);
-    Taro.showToast({ title: "模式已更新", icon: "success" });
-    Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+    if (!petId) {
+      setPetActivityMode(petId, selectedMode);
+      Taro.showToast({ title: "模式已更新", icon: "success" });
+      Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await request({
+        url: `/api/pets/${petId}/mode`,
+        method: "PUT",
+        data: { mode: selectedMode },
+      });
+      setPetActivityMode(petId, selectedMode);
+      Taro.showToast({ title: "模式已更新", icon: "success" });
+      Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || "保存失败", icon: "none" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <View className="pet-mode-page">
       <View className="pet-mode-top-strip" />
       <View className="pet-mode-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="pet-mode-title">宠物活动模式</Text>
       </View>
 
@@ -123,7 +159,7 @@ export default function PetModePage() {
 
         <View className="mode-confirm-btn" onClick={handleConfirm}>
           <Text className="mode-confirm-btn-text">
-            {selectedMode === "real" && hasCollar ? "确认应用模式 →" : current.actionText}
+            {saving ? "保存中..." : selectedMode === "real" && hasCollar ? "确认应用模式 →" : current.actionText}
           </Text>
         </View>
       </View>

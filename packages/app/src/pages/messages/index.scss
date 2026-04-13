@@ -15,20 +15,30 @@
   position: relative;
   display: flex;
   align-items: center;
-  padding: 34rpx 28rpx 18rpx;
+  gap: 24rpx;
+  padding: 26rpx 32rpx 18rpx;
+  min-height: 72rpx;
+  box-sizing: border-box;
 }
 
 .messages-header :global(.page-back) {
-  position: static;
-  transform: none;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .messages-title {
-  margin-left: 112rpx;
   font-size: 42rpx;
   font-weight: 700;
   color: #111111;
-  line-height: 1;
+  line-height: 1.2;
+  flex-shrink: 0;
 }
 
 .messages-scroll {

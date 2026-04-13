@@ -1,7 +1,9 @@
 import { View, Text } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useState } from "react";
+import type { PetModeSchedule } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import { request } from "../../utils/request";
 import { getPetModeSlots, setPetActivityMode, setPetModeSlots, type PetModeSlot } from "../../utils/storage";
 import "./index.scss";
 
@@ -11,26 +13,93 @@ const MODE_CARDS = [
   { key: "real", label: "真实行为" },
 ];
 
+const DEFAULT_SLOT: PetModeSlot = {
+  start: "14:00",
+  end: "16:00",
+  action: "玩耍",
+};
+
+function toUiSlot(schedule: Pick<PetModeSchedule, "startTime" | "endTime" | "actionType">): PetModeSlot {
+  return {
+    start: schedule.startTime,
+    end: schedule.endTime,
+    action: schedule.actionType,
+  };
+}
+
 export default function PetModeCustomPage() {
   const router = useRouter();
   const petId = router.params.petId || "";
   const [slots, setSlots] = useState<PetModeSlot[]>(() => getPetModeSlots(petId));
+  const [adding, setAdding] = useState(false);
 
   useDidShow(() => {
-    setPetActivityMode(petId, "custom");
+    if (!petId) {
+      setPetActivityMode(petId, "custom");
+      setSlots(getPetModeSlots(petId));
+      return;
+    }
+
+    void request({
+      url: `/api/pets/${petId}/mode`,
+      method: "PUT",
+      data: { mode: "custom" },
+    })
+      .then(async () => {
+        setPetActivityMode(petId, "custom");
+        const res = await request<{ schedules: PetModeSchedule[] }>({
+          url: `/api/pets/${petId}/mode/schedules`,
+        });
+        const nextSlots = res.schedules.map(toUiSlot);
+        setSlots(nextSlots);
+        setPetModeSlots(petId, nextSlots);
+      })
+      .catch(() => {
+        setSlots(getPetModeSlots(petId));
+      });
   });
 
-  const handleAddSlot = () => {
-    const nextSlots = [...slots, { start: "14:00", end: "16:00", action: "玩耍" }];
-    setSlots(nextSlots);
-    setPetModeSlots(petId, nextSlots);
+  const handleAddSlot = async () => {
+    if (adding) return;
+
+    if (!petId) {
+      const nextSlots = [...slots, DEFAULT_SLOT];
+      setSlots(nextSlots);
+      setPetActivityMode(petId, "custom");
+      setPetModeSlots(petId, nextSlots);
+      return;
+    }
+
+    setAdding(true);
+    try {
+      await request({
+        url: `/api/pets/${petId}/mode/schedules`,
+        method: "POST",
+        data: {
+          startTime: DEFAULT_SLOT.start,
+          endTime: DEFAULT_SLOT.end,
+          actionType: DEFAULT_SLOT.action,
+        },
+      });
+
+      const res = await request<{ schedules: PetModeSchedule[] }>({
+        url: `/api/pets/${petId}/mode/schedules`,
+      });
+      const nextSlots = res.schedules.map(toUiSlot);
+      setSlots(nextSlots);
+      setPetModeSlots(petId, nextSlots);
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || "添加失败", icon: "none" });
+    } finally {
+      setAdding(false);
+    }
   };
 
   return (
     <View className="pet-mode-custom-page">
       <View className="pet-mode-top-strip" />
       <View className="pet-mode-header">
-        <PageBack fallbackUrl="/pages/index/index" />
+        <PageBack inline fallbackUrl="/pages/index/index" />
         <Text className="pet-mode-title">宠物活动模式</Text>
       </View>
 
@@ -75,7 +144,7 @@ export default function PetModeCustomPage() {
         </View>
 
         <View className="custom-add-slot-btn" onClick={handleAddSlot}>
-          <Text className="custom-add-slot-text">+ 添加时间段</Text>
+          <Text className="custom-add-slot-text">{adding ? "添加中..." : "+ 添加时间段"}</Text>
         </View>
       </View>
     </View>

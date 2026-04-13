@@ -36,6 +36,13 @@ function getBubbleText(pet: Pet | null) {
   return `主人，${pet.name}正在${getBehaviorLabel(pet.latestBehavior.actionType)}`;
 }
 
+function getPetSubtitle(pet: Pet | null) {
+  if (!pet) return "点击开始创建宠物";
+  if (pet.breed?.trim()) return pet.breed.trim();
+  if (pet.latestBehavior?.actionType) return `${getBehaviorLabel(pet.latestBehavior.actionType)}中`;
+  return pet.species === "dog" ? "活泼的小狗狗" : "蓝灰色的小煤球";
+}
+
 export default function Index() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [collars, setCollars] = useState<CollarDevice[]>([]);
@@ -106,6 +113,19 @@ export default function Index() {
     });
   }, []);
 
+  useEffect(() => {
+    const handleDevicesChanged = () => {
+      void loadPets();
+      void loadDevices();
+    };
+
+    Taro.eventCenter.on("devices:changed", handleDevicesChanged);
+
+    return () => {
+      Taro.eventCenter.off("devices:changed", handleDevicesChanged);
+    };
+  }, []);
+
   const loadPets = async () => {
     try {
       const { pets: ownPets, authorizedPets } = await request<{
@@ -157,12 +177,13 @@ export default function Index() {
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
   const hasCompletePetProfile = Boolean(currentPet?.name?.trim() && currentPet?.breed?.trim());
   const bubbleText = currentPet ? "在家开水龙头喝水？" : "点击开始创建宠物";
-  const petHeroImage = currentPet?.avatarImageUrl || require("@/assets/images/pet-collar.png");
-  const petSubtitle = hasPet
-    ? currentPet?.breed || "蓝灰色的小煤球"
-    : "点击开始创建宠物";
+  const defaultPetHeroImage = currentPet?.species === "dog"
+    ? require("@/assets/images/dog.png")
+    : require("@/assets/images/pet-collar.png");
+  const hasCustomPetAvatar = Boolean(currentPet?.avatarImageUrl);
+  const petHeroImage = currentPet?.avatarImageUrl || defaultPetHeroImage;
+  const petSubtitle = getPetSubtitle(currentPet);
 
-  const handleAddPet = () => Taro.navigateTo({ url: "/pages/pet-info/index" });
   const handleOpenPetInfo = () => {
     if (hasPet && hasCompletePetProfile) {
       if (!currentPet) return;
@@ -175,29 +196,28 @@ export default function Index() {
       url: incompletePetId ? `/pages/pet-info/index?petId=${incompletePetId}&edit=1` : "/pages/pet-info/index",
     });
   };
+  const handleAddPet = () => {
+    Taro.navigateTo({ url: "/pages/pet-info/index" });
+  };
   const handleConfigCollar = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
-  const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/desktop-bind/index" });
+  const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/collar-bind/index?deviceType=desktop" });
   const handleManageDevices = () => Taro.switchTab({ url: "/pages/devices/index" });
   const handleOpenMessages = () => Taro.switchTab({ url: "/pages/messages/index" });
-  const handleAddDevice = () =>
-    Taro.showActionSheet({
-      itemList: ["连接项圈", "连接桌面摆台"],
-      success: (res) => {
-        if (res.tapIndex === 0) {
-          handleConfigCollar();
-          return;
-        }
-        if (res.tapIndex === 1) {
-          handleConfigDesktop();
-        }
-      },
-    });
-  const handleOpenPetMode = () => {
-    if (!hasPet) {
+  const handleAddDevice = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
+  const handleOpenPetMode = () =>
+    Taro.navigateTo({ url: `/pages/pet-mode/index?petId=${currentPet?.id || ""}` });
+  const handleOpenPetAvatar = () => {
+    if (!currentPet?.id) {
       handleAddPet();
       return;
     }
-    Taro.navigateTo({ url: `/pages/pet-mode/index?petId=${currentPet?.id || ""}` });
+
+    if (hasCustomPetAvatar) {
+      handleOpenPetInfo();
+      return;
+    }
+
+    Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${currentPet.id}` });
   };
 
   const modeLabelMap = {
@@ -212,21 +232,23 @@ export default function Index() {
 
       <View className="home-content">
         <View className="hero-header">
-          <View className="top-card" onClick={handleOpenPetInfo}>
-            <View className="avatar-shell">
-              {hasPet ? (
-                <Image
-                  className="avatar-image"
-                  src={currentPet?.avatarImageUrl || petHeroImage}
-                  mode="aspectFill"
-                />
-              ) : (
-                <View className="avatar-placeholder" />
-              )}
-            </View>
-            <View className="title-block">
-              <Text className="pet-name">{hasPet ? currentPet?.name ?? "" : "宠物的昵称"}</Text>
-              <Text className="pet-subtitle">{petSubtitle}</Text>
+          <View className="top-card">
+            <View className="top-card-entry" onClick={handleOpenPetInfo}>
+              <View className="avatar-shell">
+                {hasPet ? (
+                  <Image
+                    className="avatar-image"
+                    src={currentPet?.avatarImageUrl || petHeroImage}
+                    mode="aspectFill"
+                  />
+                ) : (
+                  <View className="avatar-placeholder" />
+                )}
+              </View>
+              <View className="title-block">
+                <Text className="pet-name">{hasPet ? currentPet?.name ?? "" : "宠物的昵称"}</Text>
+                <Text className="pet-subtitle">{petSubtitle}</Text>
+              </View>
             </View>
             <View
               className="top-card-plus"
@@ -270,6 +292,7 @@ export default function Index() {
                           className="pet-showcase"
                           src={pet?.avatarImageUrl || require("@/assets/images/pet-collar.png")}
                           mode="widthFix"
+                          onClick={handleOpenPetAvatar}
                         />
                       </View>
                     </SwiperItem>
@@ -312,7 +335,7 @@ export default function Index() {
 
         {hasPet && (
           <>
-            <View className="device-card managed-device-card" onClick={hasManagedDevices ? handleManageDevices : handleAddDevice}>
+            <View className="device-card managed-device-card">
               <Text className="device-card-title visible">设备管理</Text>
               {hasManagedDevices ? (
                 <View className="managed-device-row">
@@ -330,7 +353,9 @@ export default function Index() {
                   <View className="managed-device-status">
                     <Text className="managed-device-status-text">已连接</Text>
                   </View>
-                  <Text className="device-manage-text">›</Text>
+                  <View className="device-manage-btn" onClick={handleManageDevices}>
+                    <Text className="device-manage-text">›</Text>
+                  </View>
                 </View>
               ) : (
                 <View className="device-plus-box managed-empty" onClick={handleAddDevice}>

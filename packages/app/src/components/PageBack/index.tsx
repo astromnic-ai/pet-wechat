@@ -6,9 +6,17 @@ import "./index.scss";
 
 interface PageBackProps {
   fallbackUrl?: string;
+  inline?: boolean;
 }
 
-export default function PageBack({ fallbackUrl = "/pages/index/index" }: PageBackProps) {
+const TABBAR_PAGES = new Set([
+  "/pages/index/index",
+  "/pages/devices/index",
+  "/pages/messages/index",
+  "/pages/profile/index",
+]);
+
+export default function PageBack({ fallbackUrl = "/pages/index/index", inline = false }: PageBackProps) {
   const { statusBarHeight } = useSafeArea();
 
   const handleBack = () => {
@@ -17,13 +25,19 @@ export default function PageBack({ fallbackUrl = "/pages/index/index" }: PageBac
       Taro.navigateBack();
       return;
     }
-    Taro.switchTab({ url: fallbackUrl });
+
+    if (TABBAR_PAGES.has(fallbackUrl)) {
+      Taro.switchTab({ url: fallbackUrl });
+      return;
+    }
+
+    Taro.reLaunch({ url: fallbackUrl });
   };
 
   return (
     <View
-      className="page-back"
-      style={{ top: `${statusBarHeight + 12}px` }}
+      className={`page-back ${inline ? "page-back--inline" : ""}`}
+      style={inline ? undefined : { top: `${statusBarHeight + 12}px` }}
       onClick={handleBack}
     >
       <Image className="page-back-icon" src={ICON_ARROW_LEFT} mode="aspectFit" />

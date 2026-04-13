@@ -8,7 +8,7 @@ import prodConfig from './prod'
 export default defineConfig(async (merge, { command, mode }) => {
   const apiBaseUrl =
     process.env.API_BASE_URL ||
-    (process.env.NODE_ENV === 'production'
+    (mode === 'production'
       ? 'https://pet-wechat.yangl.com.cn'
       : 'http://localhost:9527')
 
@@ -30,7 +30,7 @@ export default defineConfig(async (merge, { command, mode }) => {
     ],
     defineConstants: {
       API_BASE_URL: JSON.stringify(apiBaseUrl),
-      ENABLE_DEV_LOGIN: JSON.stringify(process.env.NODE_ENV !== 'production'),
+      ENABLE_DEV_LOGIN: JSON.stringify(mode !== 'production'),
     },
     copy: {
       patterns: [],
@@ -104,7 +104,7 @@ export default defineConfig(async (merge, { command, mode }) => {
       },
     },
   }
-  if (process.env.NODE_ENV === 'development') {
+  if (mode === 'development') {
     return merge({}, baseConfig, devConfig)
   }
   return merge({}, baseConfig, prodConfig)

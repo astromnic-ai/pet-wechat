@@ -42,6 +42,12 @@ export default function MessagesPage() {
     try {
       const list = await request<Message[]>({ url: "/api/messages" });
       setMessages(list);
+      if (list.some((item) => item.isRead === false)) {
+        void request({
+          url: "/api/messages/read-all",
+          method: "PUT",
+        }).catch(() => {});
+      }
     } catch {
       setMessages([]);
     }
@@ -64,7 +70,7 @@ export default function MessagesPage() {
     <View className="messages-page">
       <View className="messages-top-strip" />
       <View className="messages-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="messages-title">消息</Text>
       </View>
 
