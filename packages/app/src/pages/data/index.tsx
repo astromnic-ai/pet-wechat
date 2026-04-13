@@ -68,7 +68,7 @@ export default function DataPage() {
     <View className="data-page">
       <View className="data-top-strip" />
       <View className="data-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="data-title">宠物记录</Text>
       </View>
 

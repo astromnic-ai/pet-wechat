@@ -3,6 +3,8 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import "./index.scss";
 
+const NEARBY_NETWORKS = ["MyHomeWiFi", "YEHEY-LivingRoom", "TP-LINK_5G_802"];
+
 export default function WifiConfig() {
   const router = useRouter();
   const deviceType = router.params.deviceType as "collar" | "desktop" | undefined;
@@ -53,19 +55,34 @@ export default function WifiConfig() {
       </View>
 
       <View className="device-wifi-content">
-        <View className="device-card">
-          <View className="device-card-icon-wrap">
-            <Image className="device-card-icon" src={deviceImage} mode="aspectFit" />
+        <View className="device-wifi-device-card">
+          <View className="device-wifi-device-icon-wrap">
+            <Image className="device-wifi-device-icon" src={deviceImage} mode="aspectFit" />
           </View>
-          <Text className="device-card-name">{deviceName || "YEHEY-Collar-001"}</Text>
-          <View className="device-card-status">
-            <Text className="device-card-status-dot">•</Text>
-            <Text className="device-card-status-text">已连接</Text>
+          <Text className="device-wifi-device-name">{deviceName || "YEHEY-Collar-001"}</Text>
+          <View className="device-wifi-device-status">
+            <Text className="device-wifi-device-status-dot">•</Text>
+            <Text className="device-wifi-device-status-text">已连接</Text>
           </View>
         </View>
 
         <View className="wifi-panel">
           <Text className="wifi-panel-title">WiFi 设置</Text>
+
+          <View className="wifi-network-block">
+            <Text className="wifi-block-caption">可用网络</Text>
+            <View className="wifi-network-list">
+              {NEARBY_NETWORKS.map((item) => (
+                <View
+                  key={item}
+                  className={`wifi-network-row ${ssid === item ? "wifi-network-row--active" : ""}`}
+                  onClick={() => setSsid(item)}
+                >
+                  <Text className="wifi-network-row-text">{item}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
 
           <View className="wifi-input-box wifi-input-box--highlight">
             <Text className="wifi-input-label">网络名称 (SSID)</Text>
@@ -91,7 +108,7 @@ export default function WifiConfig() {
 
         <View className="wifi-hint-panel">
           <Text className="wifi-hint-title">提示</Text>
-          <Text className="wifi-hint-text">请确保设备已靠近手机，且 WiFi 信号良好</Text>
+          <Text className="wifi-hint-text">请确保设备已靠近手机，并连接 2.4G WiFi，输入完成后点击确认再进入下一步</Text>
         </View>
 
         <View className="wifi-submit-btn" onClick={handleConnectWifi}>

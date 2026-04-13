@@ -1,5 +1,5 @@
 import { View, Text, Image } from "@tarojs/components";
-import Taro, { useDidHide, useDidShow, useUnload } from "@tarojs/taro";
+import Taro, { useDidHide, useDidShow, useRouter, useUnload } from "@tarojs/taro";
 import { useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
@@ -63,6 +63,8 @@ function getLoadingKey(device: SearchDevice) {
 }
 
 export default function CollarBind() {
+  const router = useRouter();
+  const preferredDeviceType = (router.params.deviceType as "collar" | "desktop" | undefined) || "collar";
   const [bluetoothDevices, setBluetoothDevices] = useState<SearchDevice[]>([]);
   const [backendDevices, setBackendDevices] = useState<SearchDevice[]>([]);
   const [loadingId, setLoadingId] = useState("");
@@ -152,10 +154,15 @@ export default function CollarBind() {
     cleanupScanner();
   });
 
-  const visibleDevices = useMemo(
-    () => [...bluetoothDevices, ...backendDevices, ...(DEV_MODE ? FALLBACK_DEVICES : [])],
-    [bluetoothDevices, backendDevices]
-  );
+  const visibleDevices = useMemo(() => {
+    const merged = [...bluetoothDevices, ...backendDevices, ...(DEV_MODE ? FALLBACK_DEVICES : [])];
+    return merged.sort((a, b) => {
+      if (a.deviceType === b.deviceType) return 0;
+      if (a.deviceType === preferredDeviceType) return -1;
+      if (b.deviceType === preferredDeviceType) return 1;
+      return 0;
+    });
+  }, [bluetoothDevices, backendDevices, preferredDeviceType]);
 
   const handleConnect = async (device: SearchDevice) => {
     if (loadingId) return;

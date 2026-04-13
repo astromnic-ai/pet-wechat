@@ -99,7 +99,7 @@ export default function PetModeCustomPage() {
     <View className="pet-mode-custom-page">
       <View className="pet-mode-top-strip" />
       <View className="pet-mode-header">
-        <PageBack fallbackUrl="/pages/index/index" />
+        <PageBack inline fallbackUrl="/pages/index/index" />
         <Text className="pet-mode-title">宠物活动模式</Text>
       </View>
 

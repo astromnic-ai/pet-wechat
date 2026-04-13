@@ -15,19 +15,29 @@
   display: flex;
   align-items: center;
   gap: 24rpx;
-  padding: 26rpx 32rpx 0;
+  padding: 26rpx 32rpx 18rpx;
+  min-height: 72rpx;
+  box-sizing: border-box;
 }
 
 .header :global(.page-back) {
-  position: static;
-  transform: none;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .page-title {
   font-size: 42rpx;
-  line-height: 1;
+  line-height: 1.2;
   font-weight: 700;
   color: #1f1f1f;
+  flex-shrink: 0;
 }
 
 .page-scroll {
@@ -36,7 +46,7 @@
 }
 
 .page-content {
-  padding: 34rpx 28rpx calc(env(safe-area-inset-bottom) + 36rpx);
+  padding: 24rpx 28rpx calc(env(safe-area-inset-bottom) + 36rpx);
   box-sizing: border-box;
 }
 
@@ -64,18 +74,19 @@
 }
 
 .device-card {
-  border-radius: 34rpx;
-  padding: 30rpx;
-  margin-bottom: 28rpx;
+  border-radius: 38rpx;
+  padding: 34rpx 30rpx;
+  margin-bottom: 30rpx;
   box-sizing: border-box;
+  box-shadow: 0 12rpx 26rpx rgba(35, 35, 35, 0.05);
 }
 
 .device-card--yellow {
-  background: #ffd86f;
+  background: linear-gradient(180deg, #ffd86f 0%, #ffd463 100%);
 }
 
 .device-card--blue {
-  background: #4aa3ff;
+  background: linear-gradient(180deg, #4aa3ff 0%, #4198f0 100%);
 }
 
 .device-card--white {
@@ -90,9 +101,9 @@
 }
 
 .device-card-icon-wrap {
-  width: 108rpx;
-  height: 108rpx;
-  border-radius: 28rpx;
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 32rpx;
   background: rgba(255, 255, 255, 0.24);
   display: flex;
   align-items: center;
@@ -105,8 +116,8 @@
 }
 
 .device-card-icon {
-  width: 80rpx;
-  height: 80rpx;
+  width: 88rpx;
+  height: 88rpx;
 }
 
 .device-card-main {
@@ -123,7 +134,7 @@
 .device-card-name {
   flex: 1;
   min-width: 0;
-  font-size: 32rpx;
+  font-size: 34rpx;
   line-height: 1.2;
   font-weight: 700;
   color: #fff;
@@ -159,16 +170,16 @@
 }
 
 .device-card-meta-row {
-  margin-top: 16rpx;
+  margin-top: 18rpx;
   display: flex;
   align-items: center;
-  gap: 18rpx;
+  gap: 20rpx;
   flex-wrap: wrap;
 }
 
 .device-status-pill {
-  min-width: 116rpx;
-  height: 42rpx;
+  min-width: 126rpx;
+  height: 46rpx;
   padding: 0 18rpx;
   border-radius: 24rpx;
   background: #fff;
@@ -191,13 +202,13 @@
 }
 
 .device-status-pill-text {
-  font-size: 20rpx;
+  font-size: 22rpx;
   font-weight: 700;
   color: #49a4ff;
 }
 
 .device-signal {
-  font-size: 20rpx;
+  font-size: 22rpx;
   font-weight: 700;
   color: rgba(255, 255, 255, 0.92);
 }
@@ -208,8 +219,9 @@
 
 .device-note {
   display: block;
-  margin-top: 14rpx;
+  margin-top: 16rpx;
   font-size: 24rpx;
+  line-height: 1.45;
   color: rgba(255, 255, 255, 0.94);
 }
 
@@ -218,17 +230,17 @@
 }
 
 .device-card-actions {
-  margin-top: 28rpx;
+  margin-top: 30rpx;
   display: flex;
   gap: 20rpx;
 }
 
 .device-action-btn {
   flex: 1;
-  height: 74rpx;
+  height: 78rpx;
   margin: 0;
   border: none;
-  border-radius: 22rpx;
+  border-radius: 24rpx;
   background: rgba(255, 255, 255, 0.22);
   display: flex;
   align-items: center;
@@ -265,10 +277,11 @@
   height: 104rpx;
   border-radius: 52rpx;
   background: #ffd86f;
-  margin-top: 80rpx;
+  margin-top: 94rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 12rpx 26rpx rgba(255, 216, 111, 0.28);
 }
 
 .add-device-text {

@@ -14,21 +14,27 @@
 .pet-mode-header {
   display: flex;
   align-items: center;
-  padding: 34rpx 28rpx 0;
+  gap: 24rpx;
+  padding: 26rpx 32rpx 14rpx;
 }
 
 .pet-mode-header :global(.page-back) {
-  position: static;
-  transform: none;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .pet-mode-title {
-  margin-left: 98rpx;
   font-size: 42rpx;
   font-weight: 700;
   color: #1a1a1a;
   line-height: 1.1;
-  transform: translateY(18rpx);
 }
 
 .pet-mode-shell {

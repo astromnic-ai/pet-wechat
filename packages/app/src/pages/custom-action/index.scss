@@ -14,16 +14,23 @@
 .custom-action-header {
   display: flex;
   align-items: center;
-  padding: 34rpx 28rpx 18rpx;
+  gap: 24rpx;
+  padding: 26rpx 32rpx 14rpx;
 }
 
 .custom-action-header :global(.page-back) {
-  position: static;
-  transform: none;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .custom-action-title {
-  margin-left: 78rpx;
   font-size: 42rpx;
   font-weight: 700;
   color: #111111;

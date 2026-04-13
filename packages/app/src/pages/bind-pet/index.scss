@@ -15,14 +15,15 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
-  padding: 26rpx 40rpx 0;
+  padding: 26rpx 32rpx 14rpx;
 }
 
 .bind-pet-back {
   width: 56rpx;
   height: 56rpx;
   border-radius: 16rpx;
-  background: #f2f2f2;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -91,7 +92,7 @@
 .bind-section-title {
   display: block;
   margin-top: 40rpx;
-  font-size: 48rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: #202020;
 }
@@ -112,6 +113,29 @@
   flex-direction: column;
   gap: 20rpx;
   margin-top: 18rpx;
+}
+
+.empty-pets-card {
+  margin-top: 18rpx;
+  padding: 34rpx 28rpx;
+  border-radius: 30rpx;
+  background: #ffffff;
+  border: 2rpx dashed #d8dde6;
+  text-align: center;
+}
+
+.empty-pets-title {
+  display: block;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #404040;
+}
+
+.empty-pets-meta {
+  display: block;
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #888888;
 }
 
 .pet-option-card {

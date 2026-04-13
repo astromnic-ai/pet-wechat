@@ -16,10 +16,11 @@ export default function BindPet() {
   const [loading, setLoading] = useState(false);
 
   useDidShow(() => {
-    void request<{ pets: Pet[] }>({ url: "/api/pets" })
+    void request<{ pets: Pet[]; authorizedPets?: Pet[] }>({ url: "/api/pets" })
       .then((res) => {
-        setPets(res.pets);
-        setSelectedPetId((current) => current || res.pets[0]?.id || "");
+        const mergedPets = [...res.pets, ...(res.authorizedPets || [])];
+        setPets(mergedPets);
+        setSelectedPetId((current) => current || mergedPets[0]?.id || "");
       })
       .catch(() => setPets([]));
   });
@@ -64,7 +65,9 @@ export default function BindPet() {
       }
 
       Taro.showToast({ title: "绑定成功", icon: "success" });
-      Taro.switchTab({ url: "/pages/index/index" });
+      setTimeout(() => {
+        Taro.switchTab({ url: "/pages/index/index" });
+      }, 120);
     } catch (e: any) {
       Taro.showToast({ title: e.message || "绑定失败", icon: "none" });
     } finally {
@@ -97,33 +100,45 @@ export default function BindPet() {
         <Text className="bind-section-title">选择宠物形象</Text>
         <Text className="bind-section-subtitle">我的宠物</Text>
 
-        <View className="pet-option-list">
-          {pets.map((pet) => {
-            const active = selectedPetId === pet.id;
-            return (
-              <View
-                key={pet.id}
-                className={`pet-option-card ${active ? "pet-option-card--active" : ""}`}
-                onClick={() => setSelectedPetId(pet.id)}
-              >
-                <View className={`pet-option-avatar ${active ? "pet-option-avatar--active" : ""}`}>
-                  <Image
-                    className="pet-option-image"
-                    src={pet.species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png")}
-                    mode="aspectFit"
-                  />
+        {pets.length > 0 ? (
+          <View className="pet-option-list">
+            {pets.map((pet) => {
+              const active = selectedPetId === pet.id;
+              return (
+                <View
+                  key={pet.id}
+                  className={`pet-option-card ${active ? "pet-option-card--active" : ""}`}
+                  onClick={() => setSelectedPetId(pet.id)}
+                >
+                  <View className={`pet-option-avatar ${active ? "pet-option-avatar--active" : ""}`}>
+                    <Image
+                      className="pet-option-image"
+                      src={
+                        pet.avatarImageUrl ||
+                        (pet.species === "dog"
+                          ? require("@/assets/images/husky.png")
+                          : require("@/assets/images/black cat 3.png"))
+                      }
+                      mode="aspectFit"
+                    />
+                  </View>
+                  <View className="pet-option-body">
+                    <Text className="pet-option-name">{pet.name}</Text>
+                    <Text className="pet-option-meta">{`${pet.breed || "未设置品种"} · ${pet.birthday || "年龄待补充"}`}</Text>
+                  </View>
+                  <View className={`pet-option-check ${active ? "pet-option-check--active" : ""}`}>
+                    <Text className="pet-option-check-text">{active ? "✓" : ""}</Text>
+                  </View>
                 </View>
-                <View className="pet-option-body">
-                  <Text className="pet-option-name">{pet.name}</Text>
-                  <Text className="pet-option-meta">{`${pet.breed || "未设置品种"} · ${pet.birthday || "3岁半"}`}</Text>
-                </View>
-                <View className={`pet-option-check ${active ? "pet-option-check--active" : ""}`}>
-                  <Text className="pet-option-check-text">{active ? "✓" : ""}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+              );
+            })}
+          </View>
+        ) : (
+          <View className="empty-pets-card">
+            <Text className="empty-pets-title">还没有可绑定的宠物</Text>
+            <Text className="empty-pets-meta">先创建一只宠物，再回来完成设备绑定</Text>
+          </View>
+        )}
 
         <Text className="bind-section-subtitle bind-section-subtitle--spaced">或创建新宠物</Text>
 

@@ -113,6 +113,19 @@ export default function Index() {
     });
   }, []);
 
+  useEffect(() => {
+    const handleDevicesChanged = () => {
+      void loadPets();
+      void loadDevices();
+    };
+
+    Taro.eventCenter.on("devices:changed", handleDevicesChanged);
+
+    return () => {
+      Taro.eventCenter.off("devices:changed", handleDevicesChanged);
+    };
+  }, []);
+
   const loadPets = async () => {
     try {
       const { pets: ownPets, authorizedPets } = await request<{
@@ -187,7 +200,7 @@ export default function Index() {
     Taro.navigateTo({ url: "/pages/pet-info/index" });
   };
   const handleConfigCollar = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });
-  const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/desktop-bind/index" });
+  const handleConfigDesktop = () => Taro.navigateTo({ url: "/pages/collar-bind/index?deviceType=desktop" });
   const handleManageDevices = () => Taro.switchTab({ url: "/pages/devices/index" });
   const handleOpenMessages = () => Taro.switchTab({ url: "/pages/messages/index" });
   const handleAddDevice = () => Taro.navigateTo({ url: "/pages/collar-bind/index" });

@@ -70,7 +70,7 @@ export default function MessagesPage() {
     <View className="messages-page">
       <View className="messages-top-strip" />
       <View className="messages-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="messages-title">消息</Text>
       </View>
 

@@ -14,19 +14,29 @@
   display: flex;
   align-items: center;
   gap: 24rpx;
-  padding: 26rpx 32rpx 0;
+  padding: 26rpx 32rpx 18rpx;
+  min-height: 72rpx;
+  box-sizing: border-box;
 }
 
 .data-header :global(.page-back) {
-  position: static;
-  transform: none;
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .data-title {
   font-size: 42rpx;
   font-weight: 700;
-  line-height: 1;
+  line-height: 1.2;
   color: #1f1f1f;
+  flex-shrink: 0;
 }
 
 .data-shell {

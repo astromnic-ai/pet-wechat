@@ -19,7 +19,7 @@ export default function Settings() {
     <View className="settings-page">
       <View className="settings-top-strip" />
       <View className="settings-header">
-        <PageBack />
+        <PageBack inline />
         <Text className="settings-title">设置</Text>
       </View>
 
