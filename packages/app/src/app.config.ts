@@ -12,6 +12,8 @@ export default defineAppConfig({
     { root: "pages/wifi-config", pages: ["index"] },
     { root: "pages/pet-info", pages: ["index"] },
     { root: "pages/pet-avatar", pages: ["index"] },
+    { root: "pages/pets", pages: ["index"] },
+    { root: "pages/profile-edit", pages: ["index"] },
     { root: "pages/bind-pet", pages: ["index"] },
     { root: "pages/custom-action", pages: ["index"] },
     { root: "pages/avatar-progress", pages: ["index"] },

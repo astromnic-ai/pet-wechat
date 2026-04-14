@@ -1,6 +1,6 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Pet, User } from "@pet-wechat/shared";
 import { clearToken, request } from "../../utils/request";
 import { disconnectWs } from "../../utils/ws";
@@ -15,12 +15,8 @@ export default function Profile() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [deviceCount, setDeviceCount] = useState(0);
 
-  useDidShow(() => {
-    Taro.hideTabBar();
-  });
-
-  useEffect(() => {
-    void Promise.all([
+  const loadProfileData = async () => {
+    const [userRes, petRes, collarRes, desktopRes] = await Promise.all([
       request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null })),
       request<{ pets: Pet[] }>({ url: "/api/pets" }).catch(() => ({ pets: [] as Pet[] })),
       request<{ collars: Array<{ id: string }> }>({ url: "/api/devices/collars" }).catch(
@@ -29,12 +25,17 @@ export default function Profile() {
       request<{ desktops: Array<{ id: string }> }>({ url: "/api/devices/desktops" }).catch(
         () => ({ desktops: [] as Array<{ id: string }> })
       ),
-    ]).then(([userRes, petRes, collarRes, desktopRes]) => {
-      setUser(userRes.user);
-      setPets(petRes.pets);
-      setDeviceCount(collarRes.collars.length + desktopRes.desktops.length);
-    });
-  }, []);
+    ]);
+
+    setUser(userRes.user);
+    setPets(petRes.pets);
+    setDeviceCount(collarRes.collars.length + desktopRes.desktops.length);
+  };
+
+  useDidShow(() => {
+    Taro.hideTabBar();
+    void loadProfileData();
+  });
 
   const isPlaceholderNickname = (value?: string | null) => {
     const trimmed = value?.trim() || "";
@@ -70,6 +71,14 @@ export default function Profile() {
     ? String(user.createdAt).slice(0, 10)
     : "--";
 
+  const handleEditProfile = () => {
+    Taro.navigateTo({ url: "/pages/profile-edit/index" });
+  };
+
+  const handleOpenPetList = () => {
+    Taro.navigateTo({ url: "/pages/pets/index" });
+  };
+
   const handleOpenPet = (petId?: string) => {
     if (!petId) {
       Taro.navigateTo({ url: "/pages/pet-info/index" });
@@ -90,7 +99,7 @@ export default function Profile() {
       <ScrollView className="profile-scroll" scrollY>
         <View className="profile-shell">
           <View className="user-card">
-            <View className="user-card-top">
+            <View className="user-card-top" onClick={handleEditProfile}>
               <Image
                 className="user-card-avatar"
                 src={user?.avatarUrl || DEFAULT_AVATAR}
@@ -117,11 +126,7 @@ export default function Profile() {
             <Text className="section-title">我的宠物</Text>
             <Text
               className="section-more"
-              onClick={() =>
-                pets[0]?.id
-                  ? handleOpenPet(pets[0].id)
-                  : Taro.navigateTo({ url: "/pages/pet-info/index" })
-              }
+              onClick={handleOpenPetList}
             >
               查看全部 〉
             </Text>
