@@ -1,6 +1,6 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Pet, User } from "@pet-wechat/shared";
 import { clearToken, request } from "../../utils/request";
 import { disconnectWs } from "../../utils/ws";
@@ -15,12 +15,8 @@ export default function Profile() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [deviceCount, setDeviceCount] = useState(0);
 
-  useDidShow(() => {
-    Taro.hideTabBar();
-  });
-
-  useEffect(() => {
-    void Promise.all([
+  const loadProfile = async () => {
+    const [userRes, petRes, collarRes, desktopRes] = await Promise.all([
       request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null })),
       request<{ pets: Pet[] }>({ url: "/api/pets" }).catch(() => ({ pets: [] as Pet[] })),
       request<{ collars: Array<{ id: string }> }>({ url: "/api/devices/collars" }).catch(
@@ -29,12 +25,17 @@ export default function Profile() {
       request<{ desktops: Array<{ id: string }> }>({ url: "/api/devices/desktops" }).catch(
         () => ({ desktops: [] as Array<{ id: string }> })
       ),
-    ]).then(([userRes, petRes, collarRes, desktopRes]) => {
-      setUser(userRes.user);
-      setPets(petRes.pets);
-      setDeviceCount(collarRes.collars.length + desktopRes.desktops.length);
-    });
-  }, []);
+    ]);
+
+    setUser(userRes.user);
+    setPets(petRes.pets);
+    setDeviceCount(collarRes.collars.length + desktopRes.desktops.length);
+  };
+
+  useDidShow(() => {
+    Taro.hideTabBar();
+    void loadProfile();
+  });
 
   const isPlaceholderNickname = (value?: string | null) => {
     const trimmed = value?.trim() || "";
