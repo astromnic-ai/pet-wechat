@@ -81,4 +81,42 @@ export const api = {
   getBehaviors: (limit?: number) => request<{ behaviors: any[] }>(`/behaviors?limit=${limit ?? 50}`),
   createBehavior: (data: any) => request<{ behavior: any }>("/behaviors", { method: "POST", body: JSON.stringify(data) }),
   autoBehaviors: (data: any) => request<{ behaviors: any[]; count: number }>("/behaviors/auto", { method: "POST", body: JSON.stringify(data) }),
+
+  // Schedules
+  getSchedules: () => request<{ schedules: any[] }>("/schedules"),
+  createSchedule: (data: any) => request<{ schedule: any }>("/schedules", { method: "POST", body: JSON.stringify(data) }),
+  updateSchedule: (id: string, data: any) => request<{ schedule: any }>(`/schedules/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteSchedule: (id: string) => request(`/schedules/${id}`, { method: "DELETE" }),
+  activateSchedule: (id: string) => request<{ schedule: any }>(`/schedules/${id}/activate`, { method: "POST" }),
+
+  // Avatars (Review + Customization)
+  getAvatars: (status?: string) => request<{ avatars: any[] }>(`/avatars${status ? `?status=${status}` : ""}`),
+  getAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}`),
+  approveAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/approve`, { method: "PUT" }),
+  rejectAvatar: (id: string, reason: string) => request<{ avatar: any }>(`/avatars/${id}/reject`, { method: "PUT", body: JSON.stringify({ reason }) }),
+  getAvatarActions: (id: string) => request<{ actions: any[] }>(`/avatars/${id}/actions`),
+  createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
+    request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
+  deleteAvatarAction: (id: string, actionId: string) => request(`/avatars/${id}/actions/${actionId}`, { method: "DELETE" }),
+  syncAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/sync`, { method: "POST" }),
+
+  // Enhanced Stats
+  getEnhancedStats: () => request<any>("/stats/enhanced"),
+
+  // Analytics
+  getAnalytics: () => request<any>("/analytics"),
+
+  // Enhanced Users
+  getEnhancedUsers: () => request<{ users: any[] }>("/users/enhanced"),
+  getUserDetail: (id: string) => request<any>(`/users/${id}/detail`),
+
+  // Enhanced Devices (with filters)
+  getFilteredCollars: (params?: Record<string, string>) => {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+    return request<{ collars: any[] }>(`/collars${qs}`);
+  },
+  getFilteredDesktops: (params?: Record<string, string>) => {
+    const qs = params ? "?" + new URLSearchParams(params).toString() : "";
+    return request<{ desktops: any[] }>(`/desktops${qs}`);
+  },
 };

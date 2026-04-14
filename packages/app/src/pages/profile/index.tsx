@@ -15,7 +15,7 @@ export default function Profile() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [deviceCount, setDeviceCount] = useState(0);
 
-  const loadProfile = async () => {
+  const loadProfileData = async () => {
     const [userRes, petRes, collarRes, desktopRes] = await Promise.all([
       request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null })),
       request<{ pets: Pet[] }>({ url: "/api/pets" }).catch(() => ({ pets: [] as Pet[] })),
@@ -34,7 +34,7 @@ export default function Profile() {
 
   useDidShow(() => {
     Taro.hideTabBar();
-    void loadProfile();
+    void loadProfileData();
   });
 
   const isPlaceholderNickname = (value?: string | null) => {
@@ -71,6 +71,14 @@ export default function Profile() {
     ? String(user.createdAt).slice(0, 10)
     : "--";
 
+  const handleEditProfile = () => {
+    Taro.navigateTo({ url: "/pages/profile-edit/index" });
+  };
+
+  const handleOpenPetList = () => {
+    Taro.navigateTo({ url: "/pages/pets/index" });
+  };
+
   const handleOpenPet = (petId?: string) => {
     if (!petId) {
       Taro.navigateTo({ url: "/pages/pet-info/index" });
@@ -91,7 +99,7 @@ export default function Profile() {
       <ScrollView className="profile-scroll" scrollY>
         <View className="profile-shell">
           <View className="user-card">
-            <View className="user-card-top">
+            <View className="user-card-top" onClick={handleEditProfile}>
               <Image
                 className="user-card-avatar"
                 src={user?.avatarUrl || DEFAULT_AVATAR}
@@ -118,11 +126,7 @@ export default function Profile() {
             <Text className="section-title">我的宠物</Text>
             <Text
               className="section-more"
-              onClick={() =>
-                pets[0]?.id
-                  ? handleOpenPet(pets[0].id)
-                  : Taro.navigateTo({ url: "/pages/pet-info/index" })
-              }
+              onClick={handleOpenPetList}
             >
               查看全部 〉
             </Text>

@@ -1,6 +1,6 @@
 {
-  "id": "003797ef-b74c-4ef0-bbfc-0cf127a015ec",
-  "prevId": "8bc85b81-86e2-462c-88b9-2e811f4c642d",
+  "id": "0fad1e01-2b8f-4177-b355-63c1d045a7e2",
+  "prevId": "4f202d52-2679-47db-8cb3-897372ececc9",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -47,11 +47,38 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "behavior_schedule_blocks_schedule_id_behavior_schedules_id_fk": {
+          "name": "behavior_schedule_blocks_schedule_id_behavior_schedules_id_fk",
+          "tableFrom": "behavior_schedule_blocks",
+          "tableTo": "behavior_schedules",
+          "columnsFrom": [
+            "schedule_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "behavior_schedule_blocks_start_minutes_check": {
+          "name": "behavior_schedule_blocks_start_minutes_check",
+          "value": "\"behavior_schedule_blocks\".\"start_minutes\" >= 0 AND \"behavior_schedule_blocks\".\"start_minutes\" < 1440"
+        },
+        "behavior_schedule_blocks_end_minutes_check": {
+          "name": "behavior_schedule_blocks_end_minutes_check",
+          "value": "\"behavior_schedule_blocks\".\"end_minutes\" > 0 AND \"behavior_schedule_blocks\".\"end_minutes\" <= 1440"
+        },
+        "behavior_schedule_blocks_range_check": {
+          "name": "behavior_schedule_blocks_range_check",
+          "value": "\"behavior_schedule_blocks\".\"start_minutes\" < \"behavior_schedule_blocks\".\"end_minutes\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.behavior_schedules": {
@@ -106,7 +133,30 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "behavior_schedules_active_unique": {
+          "name": "behavior_schedules_active_unique",
+          "columns": [
+            {
+              "expression": "species",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"behavior_schedules\".\"is_active\" = true",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -173,6 +223,29 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "claim_status": {
+          "name": "claim_status",
+          "type": "device_claim_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'occupied'"
+        },
+        "usage_duration_minutes": {
+          "name": "usage_duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "upgrade_status": {
+          "name": "upgrade_status",
+          "type": "device_upgrade_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'idle'"
         },
         "last_online_at": {
           "name": "last_online_at",
@@ -252,6 +325,29 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "claim_status": {
+          "name": "claim_status",
+          "type": "device_claim_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'occupied'"
+        },
+        "usage_duration_minutes": {
+          "name": "usage_duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "upgrade_status": {
+          "name": "upgrade_status",
+          "type": "device_upgrade_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'idle'"
         },
         "last_online_at": {
           "name": "last_online_at",
@@ -399,6 +495,241 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.firmware_releases": {
+      "name": "firmware_releases",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "device_type": {
+          "name": "device_type",
+          "type": "device_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "release_notes": {
+          "name": "release_notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "released_at": {
+          "name": "released_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "uq_firmware_releases_device_type_version": {
+          "name": "uq_firmware_releases_device_type_version",
+          "columns": [
+            {
+              "expression": "device_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "version",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_firmware_releases_device_type_released_at": {
+          "name": "idx_firmware_releases_device_type_released_at",
+          "columns": [
+            {
+              "expression": "device_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "released_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.interaction_events": {
+      "name": "interaction_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pet_id": {
+          "name": "pet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action_type": {
+          "name": "action_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_interaction_events_pet_occurred_at": {
+          "name": "idx_interaction_events_pet_occurred_at",
+          "columns": [
+            {
+              "expression": "pet_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_interaction_events_user_occurred_at": {
+          "name": "idx_interaction_events_user_occurred_at",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_interaction_events_device_occurred_at": {
+          "name": "idx_interaction_events_device_occurred_at",
+          "columns": [
+            {
+              "expression": "device_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "interaction_events_user_id_users_id_fk": {
+          "name": "interaction_events_user_id_users_id_fk",
+          "tableFrom": "interaction_events",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "interaction_events_pet_id_pets_id_fk": {
+          "name": "interaction_events_pet_id_pets_id_fk",
+          "tableFrom": "interaction_events",
+          "tableTo": "pets",
+          "columnsFrom": [
+            "pet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -762,6 +1093,76 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.user_settings": {
+      "name": "user_settings",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "message_enabled": {
+          "name": "message_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "sound_enabled": {
+          "name": "sound_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "theme": {
+          "name": "theme",
+          "type": "user_setting_theme",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'system'"
+        },
+        "language": {
+          "name": "language",
+          "type": "user_setting_language",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'zh-CN'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_settings_user_id_users_id_fk": {
+          "name": "user_settings_user_id_users_id_fk",
+          "tableFrom": "user_settings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.users": {
       "name": "users",
       "schema": "",
@@ -781,6 +1182,12 @@
         "phone": {
           "name": "phone",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email": {
+          "name": "email",
+          "type": "varchar(255)",
           "primaryKey": false,
           "notNull": false
         },
@@ -818,7 +1225,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "users_email_unique": {
+          "name": "users_email_unique",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
@@ -872,6 +1295,15 @@
         "authorized"
       ]
     },
+    "public.device_claim_status": {
+      "name": "device_claim_status",
+      "schema": "public",
+      "values": [
+        "occupied",
+        "available",
+        "reset_required"
+      ]
+    },
     "public.device_status": {
       "name": "device_status",
       "schema": "public",
@@ -879,6 +1311,24 @@
         "online",
         "offline",
         "pairing"
+      ]
+    },
+    "public.device_type": {
+      "name": "device_type",
+      "schema": "public",
+      "values": [
+        "collar",
+        "desktop"
+      ]
+    },
+    "public.device_upgrade_status": {
+      "name": "device_upgrade_status",
+      "schema": "public",
+      "values": [
+        "idle",
+        "pending",
+        "success",
+        "failed"
       ]
     },
     "public.gender": {
@@ -912,6 +1362,25 @@
       "values": [
         "cat",
         "dog"
+      ]
+    },
+    "public.user_setting_language": {
+      "name": "user_setting_language",
+      "schema": "public",
+      "values": [
+        "zh-CN",
+        "zh-TW",
+        "en-US"
+      ]
+    },
+    "public.user_setting_theme": {
+      "name": "user_setting_theme",
+      "schema": "public",
+      "values": [
+        "system",
+        "light",
+        "dark",
+        "blue"
       ]
     }
   },

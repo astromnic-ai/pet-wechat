@@ -1,0 +1,5 @@
+ALTER TABLE "behavior_schedule_blocks" ADD CONSTRAINT "behavior_schedule_blocks_schedule_id_behavior_schedules_id_fk" FOREIGN KEY ("schedule_id") REFERENCES "public"."behavior_schedules"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE UNIQUE INDEX "behavior_schedules_active_unique" ON "behavior_schedules" USING btree ("species","effective_type") WHERE "behavior_schedules"."is_active" = true;--> statement-breakpoint
+ALTER TABLE "behavior_schedule_blocks" ADD CONSTRAINT "behavior_schedule_blocks_start_minutes_check" CHECK ("behavior_schedule_blocks"."start_minutes" >= 0 AND "behavior_schedule_blocks"."start_minutes" < 1440);--> statement-breakpoint
+ALTER TABLE "behavior_schedule_blocks" ADD CONSTRAINT "behavior_schedule_blocks_end_minutes_check" CHECK ("behavior_schedule_blocks"."end_minutes" > 0 AND "behavior_schedule_blocks"."end_minutes" <= 1440);--> statement-breakpoint
+ALTER TABLE "behavior_schedule_blocks" ADD CONSTRAINT "behavior_schedule_blocks_range_check" CHECK ("behavior_schedule_blocks"."start_minutes" < "behavior_schedule_blocks"."end_minutes");

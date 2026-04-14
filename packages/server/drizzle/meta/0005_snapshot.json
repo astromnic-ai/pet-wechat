@@ -1,6 +1,6 @@
 {
-  "id": "003797ef-b74c-4ef0-bbfc-0cf127a015ec",
-  "prevId": "8bc85b81-86e2-462c-88b9-2e811f4c642d",
+  "id": "4f202d52-2679-47db-8cb3-897372ececc9",
+  "prevId": "003797ef-b74c-4ef0-bbfc-0cf127a015ec",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -47,11 +47,38 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "behavior_schedule_blocks_schedule_id_behavior_schedules_id_fk": {
+          "name": "behavior_schedule_blocks_schedule_id_behavior_schedules_id_fk",
+          "tableFrom": "behavior_schedule_blocks",
+          "tableTo": "behavior_schedules",
+          "columnsFrom": [
+            "schedule_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "behavior_schedule_blocks_start_minutes_check": {
+          "name": "behavior_schedule_blocks_start_minutes_check",
+          "value": "\"behavior_schedule_blocks\".\"start_minutes\" >= 0 AND \"behavior_schedule_blocks\".\"start_minutes\" < 1440"
+        },
+        "behavior_schedule_blocks_end_minutes_check": {
+          "name": "behavior_schedule_blocks_end_minutes_check",
+          "value": "\"behavior_schedule_blocks\".\"end_minutes\" > 0 AND \"behavior_schedule_blocks\".\"end_minutes\" <= 1440"
+        },
+        "behavior_schedule_blocks_range_check": {
+          "name": "behavior_schedule_blocks_range_check",
+          "value": "\"behavior_schedule_blocks\".\"start_minutes\" < \"behavior_schedule_blocks\".\"end_minutes\""
+        }
+      },
       "isRLSEnabled": false
     },
     "public.behavior_schedules": {
@@ -106,7 +133,30 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "behavior_schedules_active_unique": {
+          "name": "behavior_schedules_active_unique",
+          "columns": [
+            {
+              "expression": "species",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "effective_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"behavior_schedules\".\"is_active\" = true",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

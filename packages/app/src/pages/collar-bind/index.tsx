@@ -12,11 +12,29 @@ type BleDevice = {
   RSSI?: number;
 };
 
+function getRawDeviceName(device: any) {
+  return device?.name?.trim() || device?.localName?.trim() || "";
+}
+
+function isTargetBleDevice(device: any) {
+  const normalized = getRawDeviceName(device).toLowerCase();
+  if (!normalized) return false;
+
+  return (
+    normalized.includes("yehey") ||
+    normalized.startsWith("collar") ||
+    normalized.startsWith("table") ||
+    normalized.startsWith("desktop")
+  );
+}
+
 function normalizeDevice(device: any): BleDevice | null {
   const deviceId = device?.deviceId || "";
   if (!deviceId) return null;
 
-  const name = device?.name?.trim() || device?.localName?.trim() || "未命名设备";
+  const name = getRawDeviceName(device);
+  if (!name || !isTargetBleDevice(device)) return null;
+
   return {
     deviceId,
     name,
@@ -90,7 +108,7 @@ export default function CollarBind() {
         next.set(device.deviceId, {
           ...previous,
           ...device,
-          name: device.name || previous?.name || "未命名设备",
+          name: device.name || previous?.name || "",
         });
       });
 
@@ -123,8 +141,8 @@ export default function CollarBind() {
       const onFound = (result: any) => {
         const found = Array.isArray(result?.devices) ? result.devices : [];
         if (found.length > 0) {
-          setSearchMessage("已搜索到附近设备，请点击连接");
           mergeDevices(found);
+          setSearchMessage("已搜索到附近 YEHEY 设备，请点击连接");
         }
       };
 
@@ -136,8 +154,8 @@ export default function CollarBind() {
       const currentDevices = await (Taro as any).getBluetoothDevices?.();
       const existing = Array.isArray(currentDevices?.devices) ? currentDevices.devices : [];
       if (existing.length > 0) {
-        setSearchMessage("已搜索到附近设备，请点击连接");
         mergeDevices(existing);
+        setSearchMessage("已搜索到附近 YEHEY 设备，请点击连接");
       }
     } catch (error) {
       setSearchMessage(getBluetoothErrorMessage(error));
@@ -253,7 +271,7 @@ export default function CollarBind() {
           ) : (
             <View className="nearby-device-empty">
               <Text className="nearby-device-empty-title">{searching ? "正在搜索…" : "暂未发现设备"}</Text>
-              <Text className="nearby-device-empty-text">请确认桌面端或项圈已上电，并靠近手机后重试</Text>
+              <Text className="nearby-device-empty-text">请确认 YEHEY 桌面端或项圈已上电，并靠近手机后重试</Text>
             </View>
           )}
         </View>

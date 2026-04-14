@@ -7,7 +7,7 @@ import { authMiddleware } from "./middleware/auth";
 import { adminMiddleware } from "./middleware/admin";
 import { verifyToken } from "./middleware/auth";
 import authRoute from "./routes/auth";
-import adminRoute from "./routes/admin";
+import adminRoute from "./routes/admin/index";
 import petsRoute from "./routes/pets";
 import avatarsRoute from "./routes/avatars";
 import devicesRoute from "./routes/devices";
@@ -21,6 +21,7 @@ import contentRoute from "./routes/content";
 import debugRoute from "./routes/debug";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
+import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -47,6 +48,7 @@ export function createApp() {
   // 公开路由（登录接口 + 邀请预览）
   app.route("/api/auth", authRoute);
   app.route("/api/invite", invitePublicRoute);
+  app.route("/api/schedules", schedulesRoute);
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);
