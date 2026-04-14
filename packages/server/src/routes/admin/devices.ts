@@ -3,7 +3,7 @@ import { and, asc, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
 import { db } from "../../db";
 import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petBehaviors } from "../../db/schema";
 import { createId } from "../../utils/id";
-import { pick } from "./index";
+import { pick } from "./utils";
 
 async function validateCollarPetBinding(collarDeviceId: string, petId: string) {
   const [collar] = await db.select().from(collarDevices).where(eq(collarDevices.id, collarDeviceId));
@@ -17,6 +17,48 @@ async function validateCollarPetBinding(collarDeviceId: string, petId: string) {
 }
 
 const devicesRoute = new Hono();
+
+type AdminDesktopRow = {
+  desktop: typeof desktopDevices.$inferSelect;
+  ownerNickname: string | null;
+  bindingId: string | null;
+  bindingPetId: string | null;
+  bindingPetName: string | null;
+};
+
+function mapDesktopRows(rows: AdminDesktopRow[]) {
+  const desktops = new Map<
+    string,
+    typeof desktopDevices.$inferSelect & {
+      ownerNickname: string | null;
+      bindingPetNames: string[];
+      activeBindingCount: number;
+    }
+  >();
+
+  for (const row of rows) {
+    const bindingPetLabel = row.bindingPetName ?? row.bindingPetId ?? "已绑定宠物";
+    const existing = desktops.get(row.desktop.id);
+    if (existing) {
+      if (row.bindingId && !existing.bindingPetNames.includes(bindingPetLabel)) {
+        existing.bindingPetNames.push(bindingPetLabel);
+      }
+      continue;
+    }
+
+    desktops.set(row.desktop.id, {
+      ...row.desktop,
+      ownerNickname: row.ownerNickname,
+      bindingPetNames: row.bindingId ? [bindingPetLabel] : [],
+      activeBindingCount: 0,
+    });
+  }
+
+  return Array.from(desktops.values()).map((desktop) => ({
+    ...desktop,
+    activeBindingCount: desktop.bindingPetNames.length,
+  }));
+}
 
 devicesRoute.get("/collars", async (c) => {
   const status = c.req.query("status");
@@ -115,9 +157,9 @@ devicesRoute.get("/desktops", async (c) => {
   }
 
   if (bound === "true") {
-    filters.push(isNotNull(desktopDevices.userId));
+    filters.push(isNotNull(desktopPetBindings.id));
   } else if (bound === "false") {
-    filters.push(isNull(desktopDevices.userId));
+    filters.push(isNull(desktopPetBindings.id));
   }
 
   const sortField = sort === "lastOnlineAt" ? desktopDevices.lastOnlineAt : desktopDevices.createdAt;
@@ -127,16 +169,24 @@ devicesRoute.get("/desktops", async (c) => {
     .select({
       desktop: desktopDevices,
       ownerNickname: users.nickname,
+      bindingId: desktopPetBindings.id,
+      bindingPetId: desktopPetBindings.petId,
+      bindingPetName: pets.name,
     })
     .from(desktopDevices)
     .leftJoin(users, eq(desktopDevices.userId, users.id))
+    .leftJoin(
+      desktopPetBindings,
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktopDevices.id),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
+    .leftJoin(pets, eq(desktopPetBindings.petId, pets.id))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
   return c.json({
-    desktops: result.map((row) => ({
-      ...row.desktop,
-      ownerNickname: row.ownerNickname,
-    })),
+    desktops: mapDesktopRows(result as AdminDesktopRow[]),
   });
 });
 

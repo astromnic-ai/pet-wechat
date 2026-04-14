@@ -91,6 +91,14 @@ function isTodayInShanghai(value?: string | null) {
   return toShanghaiDayKey(value) === toShanghaiDayKey(new Date());
 }
 
+function enteredCustomizationToday(avatar: CustomizationAvatar) {
+  if (!TASK_STATUSES.includes(avatar.status as CustomizationStatus)) {
+    return false;
+  }
+
+  return isTodayInShanghai(avatar.reviewedAt);
+}
+
 function getSpeciesLabel(species?: string | null) {
   if (!species) {
     return "未知";
@@ -183,7 +191,7 @@ export default function Customization() {
   );
 
   const todayNewApprovedCount = useMemo(
-    () => avatars.filter((avatar) => avatar.status === "approved" && isTodayInShanghai(avatar.createdAt)).length,
+    () => avatars.filter((avatar) => enteredCustomizationToday(avatar)).length,
     [avatars],
   );
 

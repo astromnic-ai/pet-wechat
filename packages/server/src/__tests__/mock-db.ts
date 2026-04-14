@@ -189,10 +189,10 @@ export function createMockDb(): MockDb {
       } as any;
     },
 
-    execute(_sql: unknown) {
+    execute<T = unknown>(_sql: unknown) {
       const idx = db._calls.execute.length;
       db._calls.execute.push({});
-      return Promise.resolve(db._results.execute[idx] ?? []);
+      return Promise.resolve((db._results.execute[idx] ?? []) as T[]);
     },
 
     transaction<T>(callback: (tx: MockDb) => Promise<T>) {

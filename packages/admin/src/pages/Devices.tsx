@@ -33,6 +33,10 @@ interface CollarDevice extends BaseDevice {
 }
 
 interface DesktopDevice extends BaseDevice {}
+interface DesktopDevice extends BaseDevice {
+  bindingPetNames: string[];
+  activeBindingCount: number;
+}
 
 interface CollarFilters {
   status: OnlineStatusFilter;
@@ -113,6 +117,14 @@ function renderStatus(value: string) {
 
 function renderBoundUser(value: string | null) {
   return value ?? <Tag color="orange">未绑定</Tag>;
+}
+
+function renderBindingPets(names?: string[]) {
+  if (!names || names.length === 0) {
+    return "-";
+  }
+
+  return names.join(" / ");
 }
 
 function buildCollarParams(filters: CollarFilters) {
@@ -317,6 +329,13 @@ export default function DevicesPage() {
       render: (value: string | null) => renderBoundUser(value),
     },
     {
+      title: "绑定宠物",
+      dataIndex: "bindingPetNames",
+      key: "bindingPetNames",
+      width: 180,
+      render: (value: string[] | undefined) => renderBindingPets(value),
+    },
+    {
       title: "最后在线时间",
       dataIndex: "lastOnlineAt",
       key: "lastOnlineAt",
@@ -518,9 +537,14 @@ export default function DevicesPage() {
                       {
                         key: "bound",
                         label: "绑定状态",
-                        children: selectedDevice.record.userId ? "已绑定" : "未绑定",
+                        children: selectedDevice.record.activeBindingCount > 0 ? "已绑定" : "未绑定",
                       },
                       { key: "owner", label: "绑定用户", children: selectedDevice.record.ownerNickname ?? "-" },
+                      {
+                        key: "pets",
+                        label: "绑定宠物",
+                        children: renderBindingPets(selectedDevice.record.bindingPetNames),
+                      },
                       { key: "firmware", label: "固件版本", children: selectedDevice.record.firmwareVersion ?? "-" },
                       { key: "lastOnlineAt", label: "最后在线时间", children: formatTime(selectedDevice.record.lastOnlineAt) },
                       { key: "createdAt", label: "注册时间", children: formatTime(selectedDevice.record.createdAt) },

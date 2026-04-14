@@ -11,7 +11,7 @@ import {
   petAvatarActions,
   deviceAuthorizations,
 } from "../../db/schema";
-import { pick } from "./index";
+import { pick } from "./utils";
 
 const petsRoute = new Hono();
 
