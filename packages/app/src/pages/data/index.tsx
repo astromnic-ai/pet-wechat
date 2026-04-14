@@ -1,13 +1,12 @@
 import { ScrollView, View, Text } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
-import type { CollarDevice, DesktopDevice, Pet, PetBehavior } from "@pet-wechat/shared";
+import type { CollarDevice, InteractionStats, Pet, PetBehavior } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
 import "./index.scss";
 
 const WEEK_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
-const DAY_BUCKET_LABELS = ["0", "4", "8", "12", "16", "20", "24"];
 const MONTH_BUCKET_LABELS = ["1-4", "5-8", "9-12", "13-16", "17-20", "21-24", "25-28"];
 const ACTION_LABELS: Record<string, string> = {
   sleeping: "睡觉",
@@ -54,7 +53,7 @@ function buildDayBuckets(behaviors: PetBehavior[]) {
   });
 
   return {
-    labels: DAY_BUCKET_LABELS,
+    labels: ["0", "4", "8", "12", "16", "20", "24"],
     raw: values,
     bars: normalizeBars(values),
   };
@@ -103,6 +102,30 @@ function buildMonthBuckets(behaviors: PetBehavior[]) {
   };
 }
 
+function buildInteractionChart(range: "day" | "week" | "month", stats: InteractionStats | null) {
+  const expectedLength = range === "day" ? 24 : range === "week" ? 7 : 30;
+  const buckets =
+    stats?.buckets && stats.buckets.length > 0
+      ? stats.buckets
+      : Array.from({ length: expectedLength }, (_, index) => ({
+          label: range === "day" ? `${String(index).padStart(2, "0")}:00` : `${index + 1}`,
+          count: 0,
+        }));
+
+  const raw = buckets.map((item) => item.count);
+  const labels = buckets.map((item, index) => {
+    if (range === "day") return index % 4 === 0 ? item.label.slice(0, 2) : "";
+    if (range === "month") return index % 5 === 0 || index === buckets.length - 1 ? item.label : "";
+    return item.label;
+  });
+
+  return {
+    labels,
+    raw,
+    bars: normalizeBars(raw),
+  };
+}
+
 function formatActionStats(behaviors: PetBehavior[]) {
   const counts = new Map<string, number>();
   behaviors.forEach((behavior) => {
@@ -127,24 +150,23 @@ export default function DataPage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
   const [collars, setCollars] = useState<CollarDevice[]>([]);
-  const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
   const [selectedPetId, setSelectedPetId] = useState("");
   const [activeTab, setActiveTab] = useState<"interaction" | "activity">("interaction");
   const [range, setRange] = useState<"day" | "week" | "month">("day");
   const [behaviors, setBehaviors] = useState<PetBehavior[]>([]);
+  const [interactionStats, setInteractionStats] = useState<InteractionStats | null>(null);
+  const [interactionLoading, setInteractionLoading] = useState(false);
 
   useDidShow(() => {
     Taro.hideTabBar();
     void Promise.all([
       request<{ pets: Pet[]; authorizedPets: Pet[] }>({ url: "/api/pets" }).catch(() => ({ pets: [], authorizedPets: [] })),
       request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }).catch(() => ({ collars: [] })),
-      request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops" }).catch(() => ({ desktops: [] })),
-    ]).then(([petRes, collarRes, desktopRes]) => {
+    ]).then(([petRes, collarRes]) => {
       const mergedPets = [...petRes.pets, ...petRes.authorizedPets];
       setPets(petRes.pets);
       setAuthorizedPets(petRes.authorizedPets);
       setCollars(collarRes.collars);
-      setDesktops(desktopRes.desktops);
       setSelectedPetId((prev) => prev || mergedPets[0]?.id || "");
     });
   });
@@ -155,7 +177,6 @@ export default function DataPage() {
     [mergedPets, selectedPetId]
   );
   const hasCollar = Boolean(currentPet && collars.some((item) => item.petId === currentPet.id));
-  const connectedDesktopCount = desktops.length;
 
   useEffect(() => {
     if (!currentPet?.id) {
@@ -168,15 +189,43 @@ export default function DataPage() {
       .catch(() => setBehaviors([]));
   }, [currentPet?.id]);
 
+  useEffect(() => {
+    if (!currentPet?.id) {
+      setInteractionStats(null);
+      return;
+    }
+
+    setInteractionLoading(true);
+    request<InteractionStats>({
+      url: `/api/pets/${currentPet.id}/interaction-stats?range=${range}`,
+    })
+      .then((res) => setInteractionStats(res))
+      .catch(() =>
+        setInteractionStats({
+          totalCount: 0,
+          todayCount: 0,
+          weekCount: 0,
+          monthCount: 0,
+          buckets: [],
+        })
+      )
+      .finally(() => setInteractionLoading(false));
+  }, [currentPet?.id, range]);
+
   const dayData = useMemo(() => buildDayBuckets(behaviors), [behaviors]);
   const weekData = useMemo(() => buildWeekBuckets(behaviors), [behaviors]);
   const monthData = useMemo(() => buildMonthBuckets(behaviors), [behaviors]);
-  const chartData = range === "day" ? dayData : range === "week" ? weekData : monthData;
+  const activityChartData = range === "day" ? dayData : range === "week" ? weekData : monthData;
+  const interactionChartData = useMemo(
+    () => buildInteractionChart(range, interactionStats),
+    [interactionStats, range]
+  );
+  const chartData = activeTab === "interaction" ? interactionChartData : activityChartData;
   const activityStats = useMemo(() => formatActionStats(behaviors), [behaviors]);
   const todayBehaviorCount = useMemo(() => dayData.raw.reduce((sum, item) => sum + item, 0), [dayData]);
 
   const headerDescription =
-    activeTab === "interaction" ? "顶部可切换查看不同宠物的桌面互动记录" : "查看佩戴项圈后的真实活跃表现";
+    activeTab === "interaction" ? "查看真实互动事件聚合结果" : "查看佩戴项圈后的真实活跃表现";
 
   return (
     <View className="data-page">
@@ -251,7 +300,7 @@ export default function DataPage() {
                 </Text>
                 <View className="today-score-row">
                   <Text className="today-score">
-                    {activeTab === "interaction" ? 0 : currentPet.activityScore}
+                    {activeTab === "interaction" ? interactionStats?.totalCount ?? 0 : currentPet.activityScore}
                   </Text>
                   <Text className="today-score-unit">{activeTab === "interaction" ? "次" : "/100"}</Text>
                 </View>
@@ -259,14 +308,14 @@ export default function DataPage() {
               <View className="today-badge">
                 <Text className="today-badge-top">
                   {activeTab === "interaction"
-                    ? `桌面端${connectedDesktopCount}台`
+                    ? `今日${interactionStats?.todayCount ?? 0}次`
                     : hasCollar
                     ? `今日${todayBehaviorCount}条`
                     : "未连接项圈"}
                 </Text>
                 <Text className="today-badge-bottom">
                   {activeTab === "interaction"
-                    ? "互动接口待接入"
+                    ? `本周${interactionStats?.weekCount ?? 0}次`
                     : hasCollar
                     ? "真实行为同步"
                     : "活跃数据受限"}
@@ -279,20 +328,20 @@ export default function DataPage() {
             </View>
 
             <View className="chart-card">
-              {activeTab === "interaction" ? (
-                <View className="empty-state">
-                  <Text className="empty-state-title">桌面端互动记录待接入</Text>
-                  <Text className="empty-state-desc">当前后端还未返回用户主动触发的互动次数，这里先不展示假数据</Text>
-                </View>
-              ) : !hasCollar ? (
+              {activeTab === "activity" && !hasCollar ? (
                 <View className="empty-state">
                   <Text className="empty-state-title">需要连接项圈后查看活跃表现</Text>
                   <Text className="empty-state-desc">当前可以先查看设备管理，完成项圈连接后这里会显示真实行为趋势</Text>
                 </View>
+              ) : interactionLoading && activeTab === "interaction" ? (
+                <View className="empty-state">
+                  <Text className="empty-state-title">互动数据加载中</Text>
+                  <Text className="empty-state-desc">正在拉取当前宠物的互动事件聚合结果</Text>
+                </View>
               ) : (
-                <View className="chart-wrap">
+                <View className={`chart-wrap ${activeTab === "interaction" ? "chart-wrap--dense" : ""}`}>
                   {chartData.bars.map((value, index) => (
-                    <View key={`${index}-${value}`} className="chart-item">
+                    <View key={`${index}-${value}`} className={`chart-item ${activeTab === "interaction" ? "chart-item--dense" : ""}`}>
                       <View
                         className={`chart-bar ${index % 2 === 0 ? "chart-bar--yellow" : "chart-bar--blue"}`}
                         style={{ height: `${value}%` }}
@@ -309,9 +358,21 @@ export default function DataPage() {
             <View className="stats-card">
               <Text className="stats-title">{activeTab === "interaction" ? "互动统计" : "活动类型统计"}</Text>
               {activeTab === "interaction" ? (
-                <View className="empty-state empty-state--compact">
-                  <Text className="empty-state-title">暂无真实互动累计数据</Text>
-                  <Text className="empty-state-desc">需要后端补充桌面端主动互动事件记录后，才能展示真实累计次数</Text>
+                <View className="stats-summary-grid">
+                  {[
+                    { label: "累计互动", value: interactionStats?.totalCount ?? 0, unit: "次" },
+                    { label: "今日互动", value: interactionStats?.todayCount ?? 0, unit: "次" },
+                    { label: "近 7 天", value: interactionStats?.weekCount ?? 0, unit: "次" },
+                    { label: "近 30 天", value: interactionStats?.monthCount ?? 0, unit: "次" },
+                  ].map((item) => (
+                    <View key={item.label} className="stats-summary-card">
+                      <Text className="stats-summary-label">{item.label}</Text>
+                      <Text className="stats-summary-value">
+                        {item.value}
+                        <Text className="stats-summary-unit">{item.unit}</Text>
+                      </Text>
+                    </View>
+                  ))}
                 </View>
               ) : activityStats.length > 0 ? (
                 activityStats.map((item) => (

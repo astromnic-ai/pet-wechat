@@ -5,12 +5,14 @@ import {
   petAvatars,
   petAvatarActions,
   petBehaviors,
+  interactionEvents,
   collarDevices,
   desktopPetBindings,
   deviceAuthorizations,
 } from "../db/schema";
 import { eq, and, isNull, inArray, gte, desc } from "drizzle-orm";
 import type { PetLatestBehavior } from "shared";
+import { interactionRangeSchema } from "../validators/user-end";
 
 const petsRoute = new Hono();
 
@@ -133,6 +135,106 @@ function attachPetSummary<T extends typeof pets.$inferSelect>(
   }));
 }
 
+function getStartOfLocalDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+}
+
+function getLocalDateKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function formatMonthDay(date: Date) {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseOccurredAt(occurredAt: Date | string) {
+  const next = new Date(occurredAt);
+  if (Number.isNaN(next.getTime())) {
+    return null;
+  }
+
+  return next;
+}
+
+function buildInteractionBuckets(
+  range: "day" | "week" | "month",
+  occurredAtList: Date[],
+) {
+  const now = new Date();
+
+  if (range === "day") {
+    const todayStart = getStartOfLocalDay(now);
+    const counts = new Array(24).fill(0);
+
+    occurredAtList.forEach((occurredAt) => {
+      if (occurredAt < todayStart || occurredAt > now) return;
+      counts[occurredAt.getHours()] += 1;
+    });
+
+    return counts.map((count, hour) => ({
+      label: `${String(hour).padStart(2, "0")}:00`,
+      count,
+    }));
+  }
+
+  const bucketCount = range === "week" ? 7 : 30;
+  const startDate = getStartOfLocalDay(now);
+  startDate.setDate(startDate.getDate() - (bucketCount - 1));
+
+  const keys = Array.from({ length: bucketCount }, (_, index) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + index);
+    return {
+      key: getLocalDateKey(date),
+      label: formatMonthDay(date),
+    };
+  });
+
+  const countMap = new Map(keys.map((item) => [item.key, 0]));
+
+  occurredAtList.forEach((occurredAt) => {
+    if (occurredAt > now) return;
+    const key = getLocalDateKey(occurredAt);
+    if (!countMap.has(key)) return;
+    countMap.set(key, (countMap.get(key) ?? 0) + 1);
+  });
+
+  return keys.map((item) => ({
+    label: item.label,
+    count: countMap.get(item.key) ?? 0,
+  }));
+}
+
+async function getPetAccessState(userId: string, petId: string) {
+  const [pet] = await db.select().from(pets).where(eq(pets.id, petId)).limit(1);
+  if (!pet) {
+    return { pet: null, hasAccess: false };
+  }
+
+  if (pet.userId === userId) {
+    return { pet, hasAccess: true };
+  }
+
+  const [authorization] = await db
+    .select({ id: deviceAuthorizations.id })
+    .from(deviceAuthorizations)
+    .where(
+      and(
+        eq(deviceAuthorizations.petId, petId),
+        eq(deviceAuthorizations.toUserId, userId),
+        eq(deviceAuthorizations.status, "accepted"),
+      ),
+    )
+    .limit(1);
+
+  return {
+    pet,
+    hasAccess: Boolean(authorization),
+  };
+}
+
 // 获取当前用户的所有宠物（含被授权的宠物）
 petsRoute.get("/", async (c) => {
   const userId = c.get("userId" as never) as string;
@@ -176,6 +278,64 @@ petsRoute.get("/", async (c) => {
       latestBehaviorMap,
       latestAvatarImageMap,
     ),
+  });
+});
+
+petsRoute.get("/:petId/interaction-stats", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const petId = c.req.param("petId");
+  const rawRange = c.req.query("range");
+  let range: "day" | "week" | "month" | undefined;
+
+  if (rawRange) {
+    const parsedRange = interactionRangeSchema.safeParse(rawRange);
+    if (!parsedRange.success) {
+      return c.json({ error: "Invalid range" }, 400);
+    }
+    range = parsedRange.data;
+  }
+
+  const { pet, hasAccess } = await getPetAccessState(userId, petId);
+  if (!pet) return c.json({ error: "Pet not found" }, 404);
+  if (!hasAccess) return c.json({ error: "Unauthorized" }, 403);
+
+  const events = await db
+    .select({
+      occurredAt: interactionEvents.occurredAt,
+    })
+    .from(interactionEvents)
+    .where(eq(interactionEvents.petId, petId));
+
+  const now = new Date();
+  const todayStart = getStartOfLocalDay(now);
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - 6);
+  const monthStart = new Date(todayStart);
+  monthStart.setDate(monthStart.getDate() - 29);
+  const occurredAtList = events
+    .map((event) => parseOccurredAt(event.occurredAt))
+    .filter((occurredAt): occurredAt is Date => occurredAt !== null);
+
+  const todayCount = occurredAtList.filter(
+    (occurredAt) => occurredAt >= todayStart && occurredAt <= now,
+  ).length;
+  const weekCount = occurredAtList.filter(
+    (occurredAt) => occurredAt >= weekStart && occurredAt <= now,
+  ).length;
+  const monthCount = occurredAtList.filter(
+    (occurredAt) => occurredAt >= monthStart && occurredAt <= now,
+  ).length;
+
+  return c.json({
+    totalCount: events.length,
+    todayCount,
+    weekCount,
+    monthCount,
+    ...(range
+      ? {
+          buckets: buildInteractionBuckets(range, occurredAtList),
+        }
+      : {}),
   });
 });
 

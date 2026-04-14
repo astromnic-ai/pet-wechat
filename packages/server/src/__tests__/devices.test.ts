@@ -130,6 +130,7 @@ describe("Device Routes", () => {
   describe("DELETE /api/devices/collars/:id", () => {
     it("deletes own collar", async () => {
       mockDb._results.select = [[fakeCollar()]];
+      mockDb._results.update = [[fakeCollar({ userId: null, petId: null, claimStatus: "available" })]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -232,6 +233,7 @@ describe("Device Routes", () => {
   describe("DELETE /api/devices/desktops/:id", () => {
     it("deletes own desktop", async () => {
       mockDb._results.select = [[fakeDesktop()]];
+      mockDb._results.update = [[], [fakeDesktop({ userId: null, claimStatus: "available" })]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -248,6 +250,88 @@ describe("Device Routes", () => {
         jsonReq("DELETE", "/api/devices/desktops/desktop-1", { headers })
       );
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe("GET /api/devices", () => {
+    it("returns enhanced device summaries", async () => {
+      mockDb._results.select = [
+        [fakeCollar({ usageDurationMinutes: 180, lastOnlineAt: new Date(Date.now() - 31 * 24 * 60 * 60 * 1000) })],
+        [],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(jsonReq("GET", "/api/devices", { headers }));
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.devices).toHaveLength(1);
+      expect(json.devices[0].usageDurationMinutes).toBe(180);
+      expect(json.devices[0].isInactive).toBe(true);
+      expect(json.devices[0].claimStatus).toBe("occupied");
+    });
+  });
+
+  describe("GET /api/devices/firmware/status", () => {
+    it("returns firmware comparison status", async () => {
+      mockDb._results.select = [
+        [fakeCollar({ firmwareVersion: "1.0.0" })],
+        [],
+        [
+          {
+            id: "release-1",
+            deviceType: "collar",
+            version: "1.1.0",
+            releaseNotes: "Bug fixes",
+            releasedAt: new Date(),
+          },
+        ],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/devices/firmware/status", { headers })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.devices[0]).toMatchObject({
+        deviceId: "collar-1",
+        latestVersion: "1.1.0",
+        hasUpdate: true,
+        upgradeStatus: "idle",
+      });
+    });
+  });
+
+  describe("POST /api/devices/:deviceType/:deviceId/firmware/upgrade", () => {
+    it("marks collar upgrade status as pending", async () => {
+      mockDb._results.select = [[fakeCollar()]];
+      mockDb._results.update = [[]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/devices/collar/collar-1/firmware/upgrade", {
+          headers,
+        })
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        accepted: true,
+        upgradeStatus: "pending",
+      });
+    });
+  });
+
+  describe("DELETE /api/devices/:type/:id", () => {
+    it("returns 400 for invalid device type", async () => {
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("DELETE", "/api/devices/unknown/device-1", { headers })
+      );
+
+      expect(res.status).toBe(400);
     });
   });
 

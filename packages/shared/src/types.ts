@@ -16,6 +16,12 @@ export type MessageType = "authorization" | "system";
 export type BindingType = "owner" | "authorized";
 export type AuthorizationStatus = "pending" | "accepted" | "rejected";
 export type ScheduleEffectiveType = "everyday" | "weekday";
+export type DeviceType = "collar" | "desktop";
+export type DeviceClaimStatus = "occupied" | "available" | "reset_required";
+export type DeviceUpgradeStatus = "idle" | "pending" | "success" | "failed";
+export type UserSettingTheme = "system" | "light" | "dark" | "blue";
+export type UserSettingLanguage = "zh-CN" | "zh-TW" | "en-US";
+export type ContentSlug = "help" | "about" | "privacy" | "user-agreement";
 
 // ===== 用户 =====
 
@@ -23,6 +29,7 @@ export interface User {
   id: string;
   wechatOpenid: string | null;
   phone: string | null;
+  email: string | null;
   nickname: string;
   avatarUrl: string | null;
   avatarQuota: number;
@@ -65,6 +72,9 @@ export interface CollarDevice {
   battery: number | null;
   signal: number | null;
   firmwareVersion: string | null;
+  claimStatus: DeviceClaimStatus;
+  usageDurationMinutes: number;
+  upgradeStatus: DeviceUpgradeStatus;
   lastOnlineAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -77,9 +87,44 @@ export interface DesktopDevice {
   macAddress: string;
   status: DeviceStatus;
   firmwareVersion: string | null;
+  claimStatus: DeviceClaimStatus;
+  usageDurationMinutes: number;
+  upgradeStatus: DeviceUpgradeStatus;
   lastOnlineAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface DeviceSummaryBinding {
+  id: string;
+  petId: string;
+  bindingType: BindingType;
+}
+
+export interface DeviceSummary {
+  deviceId: string;
+  deviceType: DeviceType;
+  name: string;
+  status: DeviceStatus;
+  firmwareVersion: string | null;
+  claimStatus: DeviceClaimStatus;
+  usageDurationMinutes: number;
+  upgradeStatus: DeviceUpgradeStatus;
+  lastOnlineAt: string | null;
+  inactiveDays: number | null;
+  isInactive: boolean;
+  petId?: string | null;
+  bindings?: DeviceSummaryBinding[];
+}
+
+export interface DeviceFirmwareStatus {
+  deviceId: string;
+  deviceType: DeviceType;
+  currentVersion: string | null;
+  latestVersion: string | null;
+  hasUpdate: boolean;
+  releaseNotes: string | null;
+  upgradeStatus: DeviceUpgradeStatus;
 }
 
 export interface DesktopPetBinding {
@@ -191,6 +236,47 @@ export interface InvitePayload {
   petId: string;
   petName: string;
   fromNickname: string;
+}
+
+// ===== 用户设置 =====
+
+export interface UserSettings {
+  messageEnabled: boolean;
+  soundEnabled: boolean;
+  theme: UserSettingTheme;
+  language: UserSettingLanguage;
+}
+
+// ===== 互动统计 =====
+
+export interface InteractionStatsBucket {
+  label: string;
+  count: number;
+}
+
+export interface InteractionStats {
+  totalCount: number;
+  todayCount: number;
+  weekCount: number;
+  monthCount: number;
+  buckets?: InteractionStatsBucket[];
+}
+
+// ===== 内容页 =====
+
+export interface ContentPage {
+  slug: ContentSlug;
+  title: string;
+  body: string;
+  version: string;
+  updatedAt: string;
+}
+
+// ===== 账号绑定 =====
+
+export interface BindCodeSendResponse {
+  accepted: boolean;
+  mockCode: string;
 }
 
 // ===== 消息 =====

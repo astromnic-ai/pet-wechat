@@ -16,6 +16,9 @@ import behaviorsRoute from "../routes/behaviors";
 import statsRoute from "../routes/stats";
 import messagesRoute from "../routes/messages";
 import meRoute from "../routes/me";
+import settingsRoute from "../routes/settings";
+import accountRoute from "../routes/account";
+import contentRoute from "../routes/content";
 import debugRoute from "../routes/debug";
 import uploadRoute from "../routes/upload";
 import invitePublicRoute from "../routes/invite-public";
@@ -46,6 +49,9 @@ export function createApp(): InstanceType<typeof Hono> {
   app.route("/api/messages", messagesRoute);
   app.route("/api/upload", uploadRoute);
   app.route("/api/debug", debugRoute);
+  app.route("/api/settings", settingsRoute);
+  app.route("/api/account", accountRoute);
+  app.route("/api/content", contentRoute);
 
   return app;
 }
@@ -81,6 +87,7 @@ export function fakeUser(overrides: Record<string, unknown> = {}) {
     id: "user-1",
     wechatOpenid: null,
     phone: null,
+    email: null,
     nickname: "Test User",
     avatarUrl: null,
     avatarQuota: 2,
@@ -118,6 +125,9 @@ export function fakeCollar(overrides: Record<string, unknown> = {}) {
     battery: null,
     signal: null,
     firmwareVersion: null,
+    claimStatus: "occupied",
+    usageDurationMinutes: 0,
+    upgradeStatus: "idle",
     lastOnlineAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -133,6 +143,9 @@ export function fakeDesktop(overrides: Record<string, unknown> = {}) {
     macAddress: "11:22:33:44:55:66",
     status: "offline",
     firmwareVersion: null,
+    claimStatus: "occupied",
+    usageDurationMinutes: 0,
+    upgradeStatus: "idle",
     lastOnlineAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -171,6 +184,19 @@ export function fakeBehavior(overrides: Record<string, unknown> = {}) {
     collarDeviceId: "collar-1",
     actionType: "walking",
     timestamp: new Date(),
+    ...overrides,
+  };
+}
+
+export function fakeInteractionEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "interaction-1",
+    userId: "user-1",
+    petId: "pet-1",
+    deviceId: "desktop-1",
+    actionType: "tap",
+    occurredAt: new Date(),
+    createdAt: new Date(),
     ...overrides,
   };
 }

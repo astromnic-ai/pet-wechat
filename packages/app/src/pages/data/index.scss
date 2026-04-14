@@ -258,11 +258,21 @@
   justify-content: space-between;
 }
 
+.chart-wrap--dense {
+  gap: 8rpx;
+}
+
 .chart-item {
   width: 12%;
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.chart-item--dense {
+  width: auto;
+  flex: 1;
+  min-width: 0;
 }
 
 .chart-bar {
@@ -299,6 +309,41 @@
   align-items: center;
   gap: 16rpx;
   margin-top: 16rpx;
+}
+
+.stats-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.stats-summary-card {
+  border-radius: 24rpx;
+  background: #faf7f1;
+  border: 2rpx solid #efe7da;
+  padding: 22rpx 20rpx;
+}
+
+.stats-summary-label {
+  display: block;
+  font-size: 22rpx;
+  color: #8c8479;
+}
+
+.stats-summary-value {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 38rpx;
+  line-height: 1;
+  font-weight: 700;
+  color: #2a2a2a;
+}
+
+.stats-summary-unit {
+  margin-left: 8rpx;
+  font-size: 20rpx;
+  color: #a79f94;
 }
 
 .stats-label {

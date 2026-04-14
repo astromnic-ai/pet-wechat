@@ -1,19 +1,30 @@
 import { View, Text } from "@tarojs/components";
+import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
-import Taro from "@tarojs/taro";
+import type { UserSettingTheme } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import {
+  fetchUserSettings,
+  readCachedUserSettings,
+  saveUserSettings,
+  THEME_OPTIONS,
+} from "../../utils/userSettings";
 import "./subpages.scss";
 
-type ThemeMode = "light" | "dark" | "blue";
-
-const THEMES: Array<{ key: ThemeMode; label: string; color: string }> = [
-  { key: "light", label: "浅色模式", color: "#fff3cf" },
-  { key: "dark", label: "深色模式", color: "#2f2f33" },
-  { key: "blue", label: "蓝色模式", color: "#a9adb3" },
-];
-
 export default function ThemeSettings() {
-  const [theme, setTheme] = useState<ThemeMode>(() => Taro.getStorageSync("settings:theme") || "light");
+  const [theme, setTheme] = useState<UserSettingTheme>(() => readCachedUserSettings().theme);
+
+  useDidShow(() => {
+    void fetchUserSettings().then((result) => setTheme(result.settings.theme));
+  });
+
+  const handleThemeChange = async (nextTheme: UserSettingTheme) => {
+    const result = await saveUserSettings({ theme: nextTheme });
+    setTheme(result.settings.theme);
+    if (!result.persisted) {
+      Taro.showToast({ title: "网络异常，已保存在本地", icon: "none" });
+    }
+  };
 
   return (
     <View className="settings-subpage">
@@ -24,15 +35,14 @@ export default function ThemeSettings() {
       </View>
 
       <View className="settings-subpage-content">
-        {THEMES.map((item) => {
+        {THEME_OPTIONS.map((item) => {
           const active = item.key === theme;
           return (
             <View
               key={item.key}
               className={`theme-option-card ${active ? "theme-option-card--active" : ""}`}
               onClick={() => {
-                setTheme(item.key);
-                Taro.setStorageSync("settings:theme", item.key);
+                void handleThemeChange(item.key);
               }}
             >
               <View className="theme-option-left">
