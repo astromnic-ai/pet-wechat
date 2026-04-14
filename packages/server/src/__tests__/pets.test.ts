@@ -117,6 +117,31 @@ describe("Pet Routes", () => {
       expect(json.buckets).toHaveLength(7);
     });
 
+    it("excludes future events from day and rolling window counts", async () => {
+      const now = new Date();
+      const todayEvent = fakeInteractionEvent({
+        occurredAt: new Date(now.getTime() - 60 * 60 * 1000),
+      });
+      const futureEvent = fakeInteractionEvent({
+        id: "interaction-future",
+        occurredAt: new Date(now.getTime() + 5 * 60 * 1000),
+      });
+
+      mockDb._results.select = [[fakePet()], [todayEvent, futureEvent]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/pets/pet-1/interaction-stats?range=day", { headers })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.todayCount).toBe(1);
+      expect(json.weekCount).toBe(1);
+      expect(json.monthCount).toBe(1);
+      expect(json.buckets.reduce((sum: number, item: { count: number }) => sum + item.count, 0)).toBe(1);
+    });
+
     it("returns 403 when pet exists but user is unauthorized", async () => {
       mockDb._results.select = [[fakePet({ userId: "user-1" })], []];
 

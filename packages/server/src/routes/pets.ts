@@ -149,9 +149,18 @@ function formatMonthDay(date: Date) {
   return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+function parseOccurredAt(occurredAt: Date | string) {
+  const next = new Date(occurredAt);
+  if (Number.isNaN(next.getTime())) {
+    return null;
+  }
+
+  return next;
+}
+
 function buildInteractionBuckets(
   range: "day" | "week" | "month",
-  events: Array<{ occurredAt: Date | string }>,
+  occurredAtList: Date[],
 ) {
   const now = new Date();
 
@@ -159,10 +168,8 @@ function buildInteractionBuckets(
     const todayStart = getStartOfLocalDay(now);
     const counts = new Array(24).fill(0);
 
-    events.forEach((event) => {
-      const occurredAt = new Date(event.occurredAt);
-      if (Number.isNaN(occurredAt.getTime())) return;
-      if (occurredAt < todayStart) return;
+    occurredAtList.forEach((occurredAt) => {
+      if (occurredAt < todayStart || occurredAt > now) return;
       counts[occurredAt.getHours()] += 1;
     });
 
@@ -187,9 +194,8 @@ function buildInteractionBuckets(
 
   const countMap = new Map(keys.map((item) => [item.key, 0]));
 
-  events.forEach((event) => {
-    const occurredAt = new Date(event.occurredAt);
-    if (Number.isNaN(occurredAt.getTime())) return;
+  occurredAtList.forEach((occurredAt) => {
+    if (occurredAt > now) return;
     const key = getLocalDateKey(occurredAt);
     if (!countMap.has(key)) return;
     countMap.set(key, (countMap.get(key) ?? 0) + 1);
@@ -306,10 +312,19 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
   weekStart.setDate(weekStart.getDate() - 6);
   const monthStart = new Date(todayStart);
   monthStart.setDate(monthStart.getDate() - 29);
+  const occurredAtList = events
+    .map((event) => parseOccurredAt(event.occurredAt))
+    .filter((occurredAt): occurredAt is Date => occurredAt !== null);
 
-  const todayCount = events.filter((event) => new Date(event.occurredAt) >= todayStart).length;
-  const weekCount = events.filter((event) => new Date(event.occurredAt) >= weekStart).length;
-  const monthCount = events.filter((event) => new Date(event.occurredAt) >= monthStart).length;
+  const todayCount = occurredAtList.filter(
+    (occurredAt) => occurredAt >= todayStart && occurredAt <= now,
+  ).length;
+  const weekCount = occurredAtList.filter(
+    (occurredAt) => occurredAt >= weekStart && occurredAt <= now,
+  ).length;
+  const monthCount = occurredAtList.filter(
+    (occurredAt) => occurredAt >= monthStart && occurredAt <= now,
+  ).length;
 
   return c.json({
     totalCount: events.length,
@@ -318,7 +333,7 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
     monthCount,
     ...(range
       ? {
-          buckets: buildInteractionBuckets(range, events),
+          buckets: buildInteractionBuckets(range, occurredAtList),
         }
       : {}),
   });
