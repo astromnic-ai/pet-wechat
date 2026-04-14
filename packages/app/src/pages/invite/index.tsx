@@ -223,7 +223,7 @@ export default function Invite() {
           <View className="pet-avatar-wrap">
             <Image
               className="pet-avatar"
-              src={pet?.avatarImageUrl || (pet?.species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png"))}
+              src={pet?.avatarImageUrl || (pet?.species === "dog" ? require("@/assets/images/dog.png") : require("@/assets/images/black cat 3.png"))}
               mode="aspectFit"
             />
           </View>

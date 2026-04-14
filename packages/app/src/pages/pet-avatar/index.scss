@@ -2,19 +2,35 @@
   height: 100vh;
   background: #ffffff;
   box-sizing: border-box;
-  padding: calc(env(safe-area-inset-top) + 126rpx) 24rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  padding: calc(env(safe-area-inset-top) + 24rpx) 24rpx calc(env(safe-area-inset-bottom) + 18rpx);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.pet-avatar-page :global(.page-back) {
-  top: calc(env(safe-area-inset-top) + 58rpx);
+.upload-page-header {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  min-height: 72rpx;
+  margin-bottom: 18rpx;
+}
+
+.upload-page-header :global(.page-back) {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
+  z-index: 1;
 }
 
 .upload-header {
-  margin-bottom: 18rpx;
-  padding-left: 112rpx;
+  flex: 1;
+  min-width: 0;
   padding-right: 12rpx;
 }
 

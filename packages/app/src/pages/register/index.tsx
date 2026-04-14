@@ -70,9 +70,7 @@ export default function Register() {
 
       <View className="register-shell">
         <View className="register-header">
-          <View className="register-back-wrap">
-            <PageBack fallbackUrl="/pages/login/index" />
-          </View>
+          <PageBack inline fallbackUrl="/pages/login/index" />
           <Text className="register-top-title">注册账号</Text>
         </View>
         <Text className="register-title">加入 YEHEY</Text>

@@ -24,19 +24,19 @@
 }
 
 .register-header {
-  position: relative;
-  min-height: 72rpx;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  padding-left: 88rpx;
+  gap: 20rpx;
+  min-height: 72rpx;
 }
 
-.register-back-wrap :global(.page-back) {
-  position: absolute;
-  left: 0;
-  top: 50% !important;
-  transform: translateY(-50%);
+.register-header :global(.page-back) {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  inset: auto !important;
+  transform: none !important;
+  flex: 0 0 64rpx;
   width: 64rpx;
   height: 64rpx;
   border-radius: 50%;
@@ -44,7 +44,7 @@
   box-shadow: none;
 }
 
-.register-back-wrap :global(.page-back-icon) {
+.register-header :global(.page-back-icon) {
   width: 30rpx;
   height: 30rpx;
   filter: brightness(0);

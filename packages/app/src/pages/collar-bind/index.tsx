@@ -10,6 +10,7 @@ type BleDevice = {
   name: string;
   localName?: string;
   RSSI?: number;
+  isTarget?: boolean;
 };
 
 function getRawDeviceName(device: any) {
@@ -22,10 +23,19 @@ function isTargetBleDevice(device: any) {
 
   return (
     normalized.includes("yehey") ||
-    normalized.startsWith("collar") ||
-    normalized.startsWith("table") ||
-    normalized.startsWith("desktop")
+    normalized.includes("collar") ||
+    normalized.includes("table") ||
+    normalized.includes("desktop")
   );
+}
+
+function getDevicePriority(device: Pick<BleDevice, "name" | "localName">) {
+  const normalized = `${device.name || ""} ${device.localName || ""}`.toLowerCase();
+
+  if (normalized.includes("yehey")) return 0;
+  if (normalized.includes("collar")) return 1;
+  if (normalized.includes("table") || normalized.includes("desktop")) return 2;
+  return 9;
 }
 
 function normalizeDevice(device: any): BleDevice | null {
@@ -33,13 +43,14 @@ function normalizeDevice(device: any): BleDevice | null {
   if (!deviceId) return null;
 
   const name = getRawDeviceName(device);
-  if (!name || !isTargetBleDevice(device)) return null;
+  const resolvedName = name || "未命名设备";
 
   return {
     deviceId,
-    name,
+    name: resolvedName,
     localName: device?.localName || "",
     RSSI: typeof device?.RSSI === "number" ? device.RSSI : undefined,
+    isTarget: isTargetBleDevice(device),
   };
 }
 
@@ -94,6 +105,7 @@ export default function CollarBind() {
   const [searching, setSearching] = useState(false);
   const [connectingId, setConnectingId] = useState("");
   const [searchMessage, setSearchMessage] = useState("正在搜索附近设备…");
+  const [showAllDevices, setShowAllDevices] = useState(false);
   const discoveryHandlerRef = useRef<((res: any) => void) | null>(null);
 
   const mergeDevices = (incoming: any[]) => {
@@ -109,10 +121,19 @@ export default function CollarBind() {
           ...previous,
           ...device,
           name: device.name || previous?.name || "",
+          isTarget: device.isTarget ?? previous?.isTarget ?? false,
         });
       });
 
-      return Array.from(next.values()).sort((a, b) => (b.RSSI ?? -999) - (a.RSSI ?? -999));
+      return Array.from(next.values()).sort((a, b) => {
+        const targetWeight = Number(Boolean(b.isTarget)) - Number(Boolean(a.isTarget));
+        if (targetWeight !== 0) return targetWeight;
+
+        const priorityDiff = getDevicePriority(a) - getDevicePriority(b);
+        if (priorityDiff !== 0) return priorityDiff;
+
+        return (b.RSSI ?? -999) - (a.RSSI ?? -999);
+      });
     });
   };
 
@@ -131,6 +152,7 @@ export default function CollarBind() {
     setDevices([]);
     setSearching(true);
     setSearchMessage("正在搜索附近设备…");
+    setShowAllDevices(false);
 
     try {
       await (Taro as any).openBluetoothAdapter();
@@ -142,7 +164,8 @@ export default function CollarBind() {
         const found = Array.isArray(result?.devices) ? result.devices : [];
         if (found.length > 0) {
           mergeDevices(found);
-          setSearchMessage("已搜索到附近 YEHEY 设备，请点击连接");
+          const hasTarget = found.some((item) => isTargetBleDevice(item));
+          setSearchMessage(hasTarget ? "已搜索到附近 YEHEY 设备，请点击连接" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
         }
       };
 
@@ -155,7 +178,8 @@ export default function CollarBind() {
       const existing = Array.isArray(currentDevices?.devices) ? currentDevices.devices : [];
       if (existing.length > 0) {
         mergeDevices(existing);
-        setSearchMessage("已搜索到附近 YEHEY 设备，请点击连接");
+        const hasTarget = existing.some((item) => isTargetBleDevice(item));
+        setSearchMessage(hasTarget ? "已搜索到附近 YEHEY 设备，请点击连接" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
       }
     } catch (error) {
       setSearchMessage(getBluetoothErrorMessage(error));
@@ -191,23 +215,76 @@ export default function CollarBind() {
   const handleConnect = async (device: BleDevice) => {
     if (connectingId) return;
 
-    const deviceType = inferDeviceType(device.name);
-    setConnectingId(device.deviceId);
-    try {
-      await (Taro as any).createBLEConnection({ deviceId: device.deviceId, timeout: 12000 });
-      await stopDiscovery();
+    const proceedConnect = async () => {
+      const deviceType = inferDeviceType(device.name);
+      setConnectingId(device.deviceId);
+      try {
+        await (Taro as any).createBLEConnection({ deviceId: device.deviceId, timeout: 12000 });
+        await stopDiscovery();
 
-      Taro.navigateTo({
-        url: `/pages/wifi-config/index?deviceType=${deviceType}&bleDeviceId=${encodeURIComponent(
-          device.deviceId
-        )}&deviceName=${encodeURIComponent(device.name)}`,
+        Taro.navigateTo({
+          url: `/pages/wifi-config/index?deviceType=${deviceType}&bleDeviceId=${encodeURIComponent(
+            device.deviceId
+          )}&deviceName=${encodeURIComponent(device.name)}`,
+        });
+      } catch (error) {
+        Taro.showToast({ title: getBluetoothErrorMessage(error), icon: "none" });
+      } finally {
+        setConnectingId("");
+      }
+    };
+
+    if (!device.isTarget) {
+      Taro.showModal({
+        title: "这是未识别设备",
+        content: "该设备名称不符合 YEHEY 规则，可能不是项圈或桌面端。是否仍继续连接排查？",
+        confirmText: "继续连接",
+        success: (res) => {
+          if (res.confirm) {
+            void proceedConnect();
+          }
+        },
       });
-    } catch (error) {
-      Taro.showToast({ title: getBluetoothErrorMessage(error), icon: "none" });
-    } finally {
-      setConnectingId("");
+      return;
     }
+
+    void proceedConnect();
   };
+
+  const targetDevices = devices.filter((item) => item.isTarget);
+  const visibleDevices = showAllDevices ? devices : targetDevices;
+  const hasRawDevices = devices.length > 0;
+  const hasOnlyNonTargetDevices = targetDevices.length === 0 && hasRawDevices;
+  const renderDeviceType = (device: BleDevice) => inferDeviceType(device.name);
+
+  const renderDeviceList = (list: BleDevice[]) =>
+    list.map((item, index) => (
+      <View key={item.deviceId} className={`nearby-device-row ${index === 0 ? "nearby-device-row--active" : ""}`}>
+        <View className="nearby-device-leading">
+          <Image
+            className="nearby-device-leading-image"
+            src={
+              renderDeviceType(item) === "desktop"
+                ? require("@/assets/images/desktop-icon.png")
+                : require("@/assets/images/collar-icon.png")
+            }
+            mode="aspectFit"
+          />
+        </View>
+
+        <View className="nearby-device-body">
+          <Text className="nearby-device-name">{item.name}</Text>
+          <Text className="nearby-device-meta">
+            {getSignalText(item.RSSI)}
+            {!item.isTarget ? " · 未识别设备" : ""}
+          </Text>
+        </View>
+
+        <View className="nearby-device-action" onClick={() => handleConnect(item)}>
+          <Text className="nearby-device-action-text">{connectingId === item.deviceId ? "连接中" : "连接"}</Text>
+        </View>
+      </View>
+    ));
 
   return (
     <View className="device-search-page">
@@ -243,38 +320,31 @@ export default function CollarBind() {
         </View>
 
         <View className="nearby-device-list">
-          {devices.length > 0 ? (
-            devices.map((item, index) => (
-              <View key={item.deviceId} className={`nearby-device-row ${index === 0 ? "nearby-device-row--active" : ""}`}>
-                <View className="nearby-device-leading">
-                  <Image
-                    className="nearby-device-leading-image"
-                    src={
-                      inferDeviceType(item.name) === "desktop"
-                        ? require("@/assets/images/desktop-icon.png")
-                        : require("@/assets/images/collar-icon.png")
-                    }
-                    mode="aspectFit"
-                  />
-                </View>
-
-                <View className="nearby-device-body">
-                  <Text className="nearby-device-name">{item.name}</Text>
-                  <Text className="nearby-device-meta">{getSignalText(item.RSSI)}</Text>
-                </View>
-
-                <View className="nearby-device-action" onClick={() => handleConnect(item)}>
-                  <Text className="nearby-device-action-text">{connectingId === item.deviceId ? "连接中" : "连接"}</Text>
-                </View>
-              </View>
-            ))
+          {visibleDevices.length > 0 ? (
+            <>{renderDeviceList(visibleDevices)}</>
           ) : (
             <View className="nearby-device-empty">
               <Text className="nearby-device-empty-title">{searching ? "正在搜索…" : "暂未发现设备"}</Text>
-              <Text className="nearby-device-empty-text">请确认 YEHEY 桌面端或项圈已上电，并靠近手机后重试</Text>
+              <Text className="nearby-device-empty-text">
+                {hasOnlyNonTargetDevices
+                  ? "已搜索到蓝牙设备，但没有识别出 YEHEY 设备。你可以查看全部设备继续排查。"
+                  : "请确认 YEHEY 桌面端或项圈已上电，并靠近手机后重试"}
+              </Text>
             </View>
           )}
         </View>
+
+        {hasOnlyNonTargetDevices && !showAllDevices ? (
+          <View className="scan-secondary-btn" onClick={() => setShowAllDevices(true)}>
+            <Text className="scan-secondary-btn-text">查看全部蓝牙设备</Text>
+          </View>
+        ) : null}
+
+        {showAllDevices ? (
+          <View className="scan-secondary-btn scan-secondary-btn--light" onClick={() => setShowAllDevices(false)}>
+            <Text className="scan-secondary-btn-text scan-secondary-btn-text--dark">只看 YEHEY 设备</Text>
+          </View>
+        ) : null}
 
         <View className="scan-primary-btn" onClick={startDiscovery}>
           <Text className="scan-primary-btn-text">{searching ? "搜索中..." : "重新搜索"}</Text>

@@ -3,7 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
-import type { CollarDevice, DesktopDevice, Pet, PetAvatarAction } from "@pet-wechat/shared";
+import type { AvatarStatus, CollarDevice, DesktopDevice, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModeSlots } from "../../utils/storage";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import QuickNav from "../../components/QuickNav";
@@ -42,6 +42,10 @@ function getPetSubtitle(pet: Pet | null) {
   if (pet.breed?.trim()) return pet.breed.trim();
   if (pet.latestBehavior?.actionType) return `${getBehaviorLabel(pet.latestBehavior.actionType)}中`;
   return "待完善宠物资料";
+}
+
+function resolveLatestAvatar(avatars: PetAvatar[] = []) {
+  return [...avatars].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
 }
 
 function normalizeActionKeyword(value?: string | null) {
@@ -111,10 +115,14 @@ export default function Index() {
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
   const [petActionMap, setPetActionMap] = useState<Record<string, PetAvatarAction[]>>({});
+  const [petAvatarTaskMap, setPetAvatarTaskMap] = useState<
+    Record<string, { avatarId: string; status: AvatarStatus | null }>
+  >({});
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
   const [frameIndex, setFrameIndex] = useState(0);
+  const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
   const skipNextDidShowRef = useRef(true);
   const petTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -129,6 +137,7 @@ export default function Index() {
     void loadPets();
     void loadUnreadCount();
     void loadDevices();
+    setPetDetailRefreshKey((prev) => prev + 1);
     setPetMode(getPetActivityMode(pets[currentPetIndex]?.id));
   });
 
@@ -151,22 +160,54 @@ export default function Index() {
   }, [currentPet?.id]);
 
   useEffect(() => {
-    if (!currentPet?.id || petActionMap[currentPet.id]) return;
+    if (!currentPet?.id) return;
 
-    void request<{ actions: PetAvatarAction[] }>({ url: `/api/pets/${currentPet.id}` })
+    let cancelled = false;
+
+    void request<{ pet: Pet; avatars: PetAvatar[]; actions: PetAvatarAction[] }>({
+      url: `/api/pets/${currentPet.id}`,
+    })
       .then((res) => {
+        if (cancelled) return;
+
+        const latestAvatar = resolveLatestAvatar(res.avatars);
+
         setPetActionMap((prev) => ({
           ...prev,
-          [currentPet.id]: [...res.actions].sort((a, b) => a.sortOrder - b.sortOrder),
+          [currentPet.id]: [...res.actions]
+            .filter((item) => item.petAvatarId === latestAvatar?.id)
+            .sort((a, b) => a.sortOrder - b.sortOrder),
+        }));
+
+        setPetAvatarTaskMap((prev) => ({
+          ...prev,
+          [currentPet.id]: {
+            avatarId: latestAvatar?.id || "",
+            status: latestAvatar?.status ?? null,
+          },
         }));
       })
       .catch(() => {
+        if (cancelled) return;
+
         setPetActionMap((prev) => ({
           ...prev,
           [currentPet.id]: [],
         }));
+
+        setPetAvatarTaskMap((prev) => ({
+          ...prev,
+          [currentPet.id]: {
+            avatarId: "",
+            status: null,
+          },
+        }));
       });
-  }, [currentPet?.id, petActionMap]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentPet?.id, petDetailRefreshKey]);
 
   useEffect(() => {
     void loadUnreadCount();
@@ -270,12 +311,37 @@ export default function Index() {
     : "";
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
   const hasCompletePetProfile = Boolean(currentPet?.name?.trim() && currentPet?.breed?.trim());
-  const bubbleText = currentPet ? "在家开水龙头喝水？" : "点击开始创建宠物";
   const defaultPetHeroImage = currentPet?.species === "dog"
-    ? require("@/assets/images/dog.png")
+    ? require("@/assets/images/dog-hero.png")
     : require("@/assets/images/pet-collar.png");
+  const currentPetAvatarTask = currentPet?.id ? petAvatarTaskMap[currentPet.id] : null;
+  const currentPetAvatarStatus = currentPetAvatarTask?.status ?? null;
+  const isAvatarGenerating =
+    currentPetAvatarStatus === "pending" ||
+    currentPetAvatarStatus === "processing" ||
+    currentPetAvatarStatus === "approved";
+  const isAvatarUnavailable =
+    !currentPetAvatarStatus ||
+    currentPetAvatarStatus === "failed" ||
+    currentPetAvatarStatus === "rejected";
   const hasCustomPetAvatar = Boolean(currentPet?.avatarImageUrl);
-  const petHeroImage = currentPet?.avatarImageUrl || defaultPetHeroImage;
+  const homeHeroState = !currentPet
+    ? "empty"
+    : hasCustomPetAvatar
+      ? "done"
+      : isAvatarGenerating
+        ? "processing"
+        : isAvatarUnavailable
+          ? "upload"
+          : "upload";
+  const bubbleText = !currentPet
+    ? "点击开始创建宠物"
+    : homeHeroState === "processing"
+      ? "正在生成您的宠物定制形象"
+      : homeHeroState === "upload"
+        ? "上传您的宠物照片"
+        : "在家开水龙头喝水？";
+  const petHeroImage = homeHeroState === "done" ? currentPet?.avatarImageUrl || defaultPetHeroImage : defaultPetHeroImage;
   const petSubtitle = getPetSubtitle(currentPet);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
 
@@ -343,8 +409,13 @@ export default function Index() {
       return;
     }
 
-    if (hasCustomPetAvatar) {
+    if (homeHeroState === "done") {
       handleOpenPetInfo();
+      return;
+    }
+
+    if (homeHeroState === "processing" && currentPetAvatarTask?.avatarId) {
+      Taro.navigateTo({ url: `/pages/avatar-progress/index?avatarId=${currentPetAvatarTask.avatarId}` });
       return;
     }
 
@@ -453,7 +524,7 @@ export default function Index() {
                               ? currentFrameImage
                               : pet?.avatarImageUrl ||
                                 (pet?.species === "dog"
-                                  ? require("@/assets/images/dog.png")
+                                  ? require("@/assets/images/dog-hero.png")
                                   : require("@/assets/images/pet-collar.png"))
                           }
                           mode="widthFix"

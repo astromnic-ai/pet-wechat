@@ -6,7 +6,7 @@ import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarActio
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-const SYSTEM_ACTION_FALLBACKS = [
+const CAT_SYSTEM_ACTION_FALLBACKS = [
   { label: "蹲坐", image: require("./images/action-sit.png") },
   { label: "趴卧", image: require("./images/action-lie.png") },
   { label: "吃饭", image: require("./images/action-eat.png") },
@@ -15,6 +15,17 @@ const SYSTEM_ACTION_FALLBACKS = [
   { label: "走", image: require("./images/action-walk.png") },
   { label: "舔爪子", image: require("./images/action-lick.png") },
   { label: "睡觉", image: require("./images/action-sleep.png") },
+];
+
+const DOG_SYSTEM_ACTION_FALLBACKS = [
+  { label: "蹲坐", image: require("./images/dog-action-sit.png") },
+  { label: "趴卧", image: require("./images/dog-action-lie.png") },
+  { label: "吃饭", image: require("./images/dog-action-eat.png") },
+  { label: "睡觉", image: require("./images/dog-action-sleep.png") },
+  { label: "跑", image: require("./images/dog-action-run.png") },
+  { label: "走", image: require("./images/dog-action-walk.png") },
+  { label: "舔爪子", image: require("./images/dog-action-lick.png") },
+  { label: "睡觉", image: require("./images/dog-action-sleep.png") },
 ];
 
 function calculateAgeLabel(birthday?: string | null) {
@@ -213,7 +224,12 @@ export default function PetInfo() {
   const handleOpenAvatarPanel = () => {
     if (!petId) return;
 
-    if (avatarId && avatarStatus && avatarStatus !== "done") {
+    const isAvatarGenerating =
+      avatarStatus === "pending" ||
+      avatarStatus === "processing" ||
+      avatarStatus === "approved";
+
+    if (avatarId && isAvatarGenerating) {
       Taro.navigateTo({ url: `/pages/avatar-progress/index?avatarId=${avatarId}` });
       return;
     }
@@ -222,17 +238,29 @@ export default function PetInfo() {
   };
 
   const fallbackPetImage =
-    species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png");
-  const avatarCardImage = selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
+    species === "dog" ? require("@/assets/images/dog-hero.png") : require("@/assets/images/black cat 3.png");
+  const isAvatarGenerating =
+    avatarStatus === "pending" ||
+    avatarStatus === "processing" ||
+    avatarStatus === "approved";
+  const isAvatarFailed =
+    avatarStatus === "failed" ||
+    avatarStatus === "rejected";
+  const avatarCardImage = isAvatarGenerating
+    ? fallbackPetImage
+    : selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
   const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
   const customActions = avatarActions.slice(8);
+  const systemActionFallbacks = species === "dog" ? DOG_SYSTEM_ACTION_FALLBACKS : CAT_SYSTEM_ACTION_FALLBACKS;
   const detailTipText =
     avatarStatus === "done"
       ? "长按图片，重新定制宠物动态"
-      : avatarStatus
-        ? "动态图像定制中，点击查看详情"
-        : "上传宠物照片，专属定制宠物动态图像";
+      : isAvatarGenerating
+        ? "正在生成您的宠物定制形象"
+        : isAvatarFailed
+          ? "上传宠物照片，专属定制宠物动态图像"
+          : "上传宠物照片，专属定制宠物动态图像";
   const previewCaption = selectedPreviewLabel || detailTipText;
 
   const breedOptions =
@@ -476,20 +504,20 @@ export default function PetInfo() {
                     className="detail-action-item"
                     onClick={() =>
                       handlePreviewAction(
-                        action?.imageUrl || SYSTEM_ACTION_FALLBACKS[index]?.image || avatarCardImage,
-                        action?.actionType || SYSTEM_ACTION_FALLBACKS[index]?.label || "动作"
+                        action?.imageUrl || systemActionFallbacks[index]?.image || avatarCardImage,
+                        action?.actionType || systemActionFallbacks[index]?.label || "动作"
                       )
                     }
                   >
                     <View className="detail-action-thumb-wrap">
                       <Image
                         className="detail-action-thumb"
-                        src={action?.imageUrl || SYSTEM_ACTION_FALLBACKS[index]?.image || avatarCardImage}
+                        src={action?.imageUrl || systemActionFallbacks[index]?.image || avatarCardImage}
                         mode="aspectFill"
                       />
                     </View>
                     <Text className="detail-action-label">
-                      {action?.actionType || SYSTEM_ACTION_FALLBACKS[index]?.label || "动作"}
+                      {action?.actionType || systemActionFallbacks[index]?.label || "动作"}
                     </Text>
                   </View>
                 ))}
@@ -546,7 +574,7 @@ export default function PetInfo() {
               >
                 <Image
                   className="species-avatar"
-                  src={require("@/assets/images/husky.png")}
+                  src={require("@/assets/images/dog-hero.png")}
                   mode="aspectFit"
                 />
                 <Text className="species-face-label">狗</Text>

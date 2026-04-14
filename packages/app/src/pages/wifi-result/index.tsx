@@ -35,7 +35,10 @@ export default function WifiResult() {
 
   return (
     <View className="result-page">
-      <PageBack />
+      <View className="result-header">
+        <PageBack inline />
+        <Text className="result-header-title">{title}</Text>
+      </View>
       <Text className="result-title">{title}</Text>
       <Image
         className="result-icon"

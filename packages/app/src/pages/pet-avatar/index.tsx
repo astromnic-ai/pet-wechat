@@ -132,10 +132,12 @@ export default function PetAvatar() {
   const previewImage = images[0] || "";
   return (
     <View className="pet-avatar-page">
-      <PageBack />
-      <View className="upload-header">
-        <Text className="upload-page-title">上传您的宠物照片</Text>
-        <Text className="upload-page-subtitle">我们将为您生成专属的宠物定制形象</Text>
+      <View className="upload-page-header">
+        <PageBack inline />
+        <View className="upload-header">
+          <Text className="upload-page-title">上传您的宠物照片</Text>
+          <Text className="upload-page-subtitle">我们将为您生成专属的宠物定制形象</Text>
+        </View>
       </View>
 
       <View className="main-card">
