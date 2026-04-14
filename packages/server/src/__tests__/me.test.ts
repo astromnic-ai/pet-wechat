@@ -65,6 +65,24 @@ describe("Me Routes", () => {
       expect(json.user.avatarUrl).toBe("https://example.com/new.jpg");
     });
 
+    it("clears avatarUrl when null is provided", async () => {
+      const existing = fakeUser({ avatarUrl: "https://example.com/existing.jpg" });
+      const updated = fakeUser({ avatarUrl: null });
+      mockDb._results.select = [[existing]];
+      mockDb._results.update = [[updated]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("PUT", "/api/me", {
+          headers,
+          body: { avatarUrl: null },
+        })
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.user.avatarUrl).toBeNull();
+    });
+
     it("returns 404 when user not found", async () => {
       mockDb._results.select = [[]];
 

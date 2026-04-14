@@ -31,7 +31,7 @@ meRoute.put("/", async (c) => {
     .update(users)
     .set({
       nickname: body.nickname ?? existing.nickname,
-      avatarUrl: body.avatarUrl ?? existing.avatarUrl,
+      avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existing.avatarUrl,
     })
     .where(eq(users.id, userId))
     .returning();
