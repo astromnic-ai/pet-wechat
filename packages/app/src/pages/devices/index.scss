@@ -254,6 +254,58 @@
   color: #888888;
 }
 
+.device-firmware-note {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.device-card--white .device-firmware-note {
+  color: #7aa6d6;
+}
+
+.device-card--offline .device-firmware-note {
+  color: #8f8f8f;
+}
+
+.device-tag {
+  min-height: 42rpx;
+  padding: 0 16rpx;
+  border-radius: 22rpx;
+  background: rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.device-tag--accent {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.device-card--white .device-tag {
+  background: #d9ecff;
+}
+
+.device-card--offline .device-tag {
+  background: rgba(255, 255, 255, 0.54);
+}
+
+.device-tag-text {
+  font-size: 20rpx;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.device-card--white .device-tag-text {
+  color: #6ea5db;
+}
+
+.device-card--offline .device-tag-text {
+  color: #8f8f8f;
+}
+
 .device-card-actions {
   margin-top: 30rpx;
   display: flex;

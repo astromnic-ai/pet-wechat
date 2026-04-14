@@ -6,13 +6,14 @@ import {
   desktopDevices,
   desktopPetBindings,
   deviceAuthorizations,
+  firmwareReleases,
   inviteCodes,
-  petBehaviors,
   pets,
   users,
 } from "../db/schema";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, desc } from "drizzle-orm";
 import { generateInviteCode, verifyInviteCode } from "../utils/invite";
+import { deviceTypeSchema } from "../validators/user-end";
 
 const devicesRoute = new Hono();
 
@@ -42,6 +43,148 @@ async function findDesktopByMac(macAddress: string) {
     .where(eq(desktopDevices.macAddress, macAddress));
 
   return desktop;
+}
+
+function getInactiveMeta(lastOnlineAt: Date | string | null) {
+  if (!lastOnlineAt) {
+    return {
+      inactiveDays: null,
+      isInactive: false,
+    };
+  }
+
+  const lastOnlineTime = new Date(lastOnlineAt);
+  if (Number.isNaN(lastOnlineTime.getTime())) {
+    return {
+      inactiveDays: null,
+      isInactive: false,
+    };
+  }
+
+  const inactiveDays = Math.max(
+    0,
+    Math.floor((Date.now() - lastOnlineTime.getTime()) / (24 * 60 * 60 * 1000)),
+  );
+
+  return {
+    inactiveDays,
+    isInactive: inactiveDays > 30,
+  };
+}
+
+async function getOwnedDesktops(userId: string) {
+  const result = await db
+    .select({
+      desktop: desktopDevices,
+      bindingId: desktopPetBindings.id,
+      bindingPetId: desktopPetBindings.petId,
+      bindingType: desktopPetBindings.bindingType,
+    })
+    .from(desktopDevices)
+    .leftJoin(
+      desktopPetBindings,
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktopDevices.id),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
+    .where(eq(desktopDevices.userId, userId));
+
+  const desktops = new Map<
+    string,
+    typeof desktopDevices.$inferSelect & {
+      bindings: Array<{
+        id: string;
+        petId: string;
+        bindingType: (typeof desktopPetBindings.$inferSelect)["bindingType"];
+      }>;
+    }
+  >();
+
+  for (const row of result) {
+    const existing = desktops.get(row.desktop.id);
+    if (existing) {
+      if (row.bindingId && row.bindingPetId && row.bindingType) {
+        existing.bindings.push({
+          id: row.bindingId,
+          petId: row.bindingPetId,
+          bindingType: row.bindingType,
+        });
+      }
+      continue;
+    }
+
+    desktops.set(row.desktop.id, {
+      ...row.desktop,
+      bindings:
+        row.bindingId && row.bindingPetId && row.bindingType
+          ? [
+              {
+                id: row.bindingId,
+                petId: row.bindingPetId,
+                bindingType: row.bindingType,
+              },
+            ]
+          : [],
+    });
+  }
+
+  return Array.from(desktops.values());
+}
+
+async function releaseCollarOwnership(userId: string, id: string) {
+  const [existing] = await db
+    .select()
+    .from(collarDevices)
+    .where(and(eq(collarDevices.id, id), eq(collarDevices.userId, userId)));
+  if (!existing) return null;
+
+  const [collar] = await db
+    .update(collarDevices)
+    .set({
+      userId: null,
+      petId: null,
+      claimStatus: "available",
+      upgradeStatus: "idle",
+      status: "offline",
+      updatedAt: new Date(),
+    })
+    .where(eq(collarDevices.id, id))
+    .returning();
+
+  return collar ?? null;
+}
+
+async function releaseDesktopOwnership(userId: string, id: string) {
+  const [existing] = await db
+    .select()
+    .from(desktopDevices)
+    .where(and(eq(desktopDevices.id, id), eq(desktopDevices.userId, userId)));
+  if (!existing) return null;
+
+  await db
+    .update(desktopPetBindings)
+    .set({ unboundAt: new Date() })
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, id),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    );
+
+  const [desktop] = await db
+    .update(desktopDevices)
+    .set({
+      userId: null,
+      claimStatus: "available",
+      upgradeStatus: "idle",
+      status: "offline",
+      updatedAt: new Date(),
+    })
+    .where(eq(desktopDevices.id, id))
+    .returning();
+
+  return desktop ?? null;
 }
 
 // ===== 无主设备（模拟蓝牙搜索） =====
@@ -106,6 +249,7 @@ devicesRoute.post("/collars/register", async (c) => {
         userId,
         name: body.name ?? existing.name,
         status: "online" as const,
+        claimStatus: "occupied" as const,
         updatedAt: new Date(),
       })
       .where(and(eq(collarDevices.id, existing.id), isNull(collarDevices.userId)))
@@ -174,6 +318,7 @@ devicesRoute.post("/desktops/register", async (c) => {
         userId,
         name: body.name ?? existing.name,
         status: "online" as const,
+        claimStatus: "occupied" as const,
         updatedAt: new Date(),
       })
       .where(and(eq(desktopDevices.id, existing.id), isNull(desktopDevices.userId)))
@@ -212,6 +357,7 @@ devicesRoute.post("/collars/:id/claim", async (c) => {
       userId,
       name: body.name ?? "我的项圈",
       status: "online" as const,
+      claimStatus: "occupied" as const,
       updatedAt: new Date(),
     })
     .where(and(eq(collarDevices.id, id), isNull(collarDevices.userId)))
@@ -232,6 +378,7 @@ devicesRoute.post("/desktops/:id/claim", async (c) => {
       userId,
       name: body.name ?? "我的桌面端",
       status: "online" as const,
+      claimStatus: "occupied" as const,
       updatedAt: new Date(),
     })
     .where(and(eq(desktopDevices.id, id), isNull(desktopDevices.userId)))
@@ -312,15 +459,8 @@ devicesRoute.put("/collars/:id", async (c) => {
 devicesRoute.delete("/collars/:id", async (c) => {
   const userId = c.get("userId" as never) as string;
   const id = c.req.param("id");
-  const [existing] = await db
-    .select()
-    .from(collarDevices)
-    .where(and(eq(collarDevices.id, id), eq(collarDevices.userId, userId)));
-  if (!existing) return c.json({ error: "Collar not found" }, 404);
-
-  // 级联删除关联的行为记录
-  await db.delete(petBehaviors).where(eq(petBehaviors.collarDeviceId, id));
-  await db.delete(collarDevices).where(eq(collarDevices.id, id));
+  const collar = await releaseCollarOwnership(userId, id);
+  if (!collar) return c.json({ error: "Collar not found" }, 404);
   return c.json({ success: true });
 });
 
@@ -328,63 +468,8 @@ devicesRoute.delete("/collars/:id", async (c) => {
 
 devicesRoute.get("/desktops", async (c) => {
   const userId = c.get("userId" as never) as string;
-  const result = await db
-    .select({
-      desktop: desktopDevices,
-      bindingId: desktopPetBindings.id,
-      bindingPetId: desktopPetBindings.petId,
-      bindingType: desktopPetBindings.bindingType,
-    })
-    .from(desktopDevices)
-    .leftJoin(
-      desktopPetBindings,
-      and(
-        eq(desktopPetBindings.desktopDeviceId, desktopDevices.id),
-        isNull(desktopPetBindings.unboundAt),
-      ),
-    )
-    .where(eq(desktopDevices.userId, userId));
-
-  const desktops = new Map<
-    string,
-    typeof desktopDevices.$inferSelect & {
-      bindings: Array<{
-        id: string;
-        petId: string;
-        bindingType: (typeof desktopPetBindings.$inferSelect)["bindingType"];
-      }>;
-    }
-  >();
-
-  for (const row of result) {
-    const existing = desktops.get(row.desktop.id);
-    if (existing) {
-      if (row.bindingId && row.bindingPetId && row.bindingType) {
-        existing.bindings.push({
-          id: row.bindingId,
-          petId: row.bindingPetId,
-          bindingType: row.bindingType,
-        });
-      }
-      continue;
-    }
-
-    desktops.set(row.desktop.id, {
-      ...row.desktop,
-      bindings:
-        row.bindingId && row.bindingPetId && row.bindingType
-          ? [
-              {
-                id: row.bindingId,
-                petId: row.bindingPetId,
-                bindingType: row.bindingType,
-              },
-            ]
-          : [],
-    });
-  }
-
-  return c.json({ desktops: Array.from(desktops.values()) });
+  const desktops = await getOwnedDesktops(userId);
+  return c.json({ desktops });
 });
 
 devicesRoute.post("/desktops", async (c) => {
@@ -404,18 +489,163 @@ devicesRoute.post("/desktops", async (c) => {
 devicesRoute.delete("/desktops/:id", async (c) => {
   const userId = c.get("userId" as never) as string;
   const id = c.req.param("id");
-  const [existing] = await db
-    .select()
-    .from(desktopDevices)
-    .where(and(eq(desktopDevices.id, id), eq(desktopDevices.userId, userId)));
-  if (!existing) return c.json({ error: "Desktop not found" }, 404);
+  const desktop = await releaseDesktopOwnership(userId, id);
+  if (!desktop) return c.json({ error: "Desktop not found" }, 404);
+  return c.json({ success: true });
+});
 
-  // 软删除关联的绑定记录
-  await db
-    .update(desktopPetBindings)
-    .set({ unboundAt: new Date() })
-    .where(and(eq(desktopPetBindings.desktopDeviceId, id), isNull(desktopPetBindings.unboundAt)));
-  await db.delete(desktopDevices).where(eq(desktopDevices.id, id));
+devicesRoute.get("/", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const [collars, desktops] = await Promise.all([
+    db.select().from(collarDevices).where(eq(collarDevices.userId, userId)),
+    getOwnedDesktops(userId),
+  ]);
+
+  const devices = [
+    ...collars.map((collar) => ({
+      deviceId: collar.id,
+      deviceType: "collar" as const,
+      name: collar.name,
+      status: collar.status,
+      firmwareVersion: collar.firmwareVersion,
+      claimStatus: collar.claimStatus,
+      usageDurationMinutes: collar.usageDurationMinutes,
+      upgradeStatus: collar.upgradeStatus,
+      lastOnlineAt: collar.lastOnlineAt,
+      ...getInactiveMeta(collar.lastOnlineAt),
+      petId: collar.petId,
+      bindings: [],
+    })),
+    ...desktops.map((desktop) => ({
+      deviceId: desktop.id,
+      deviceType: "desktop" as const,
+      name: desktop.name,
+      status: desktop.status,
+      firmwareVersion: desktop.firmwareVersion,
+      claimStatus: desktop.claimStatus,
+      usageDurationMinutes: desktop.usageDurationMinutes,
+      upgradeStatus: desktop.upgradeStatus,
+      lastOnlineAt: desktop.lastOnlineAt,
+      ...getInactiveMeta(desktop.lastOnlineAt),
+      petId: desktop.bindings[0]?.petId ?? null,
+      bindings: desktop.bindings,
+    })),
+  ];
+
+  return c.json({ devices });
+});
+
+devicesRoute.get("/firmware/status", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const [collars, desktops, releases] = await Promise.all([
+    db.select().from(collarDevices).where(eq(collarDevices.userId, userId)),
+    db.select().from(desktopDevices).where(eq(desktopDevices.userId, userId)),
+    db.select().from(firmwareReleases).orderBy(desc(firmwareReleases.releasedAt)),
+  ]);
+
+  const latestReleaseByType = new Map<string, typeof firmwareReleases.$inferSelect>();
+  for (const release of releases) {
+    if (latestReleaseByType.has(release.deviceType)) continue;
+    latestReleaseByType.set(release.deviceType, release);
+  }
+
+  const devices = [
+    ...collars.map((collar) => {
+      const latestRelease = latestReleaseByType.get("collar");
+      return {
+        deviceId: collar.id,
+        deviceType: "collar" as const,
+        currentVersion: collar.firmwareVersion,
+        latestVersion: latestRelease?.version ?? collar.firmwareVersion ?? null,
+        hasUpdate: Boolean(
+          latestRelease?.version &&
+            latestRelease.version !== (collar.firmwareVersion ?? null),
+        ),
+        releaseNotes: latestRelease?.releaseNotes ?? null,
+        upgradeStatus: collar.upgradeStatus,
+      };
+    }),
+    ...desktops.map((desktop) => {
+      const latestRelease = latestReleaseByType.get("desktop");
+      return {
+        deviceId: desktop.id,
+        deviceType: "desktop" as const,
+        currentVersion: desktop.firmwareVersion,
+        latestVersion: latestRelease?.version ?? desktop.firmwareVersion ?? null,
+        hasUpdate: Boolean(
+          latestRelease?.version &&
+            latestRelease.version !== (desktop.firmwareVersion ?? null),
+        ),
+        releaseNotes: latestRelease?.releaseNotes ?? null,
+        upgradeStatus: desktop.upgradeStatus,
+      };
+    }),
+  ];
+
+  return c.json({ devices });
+});
+
+devicesRoute.post("/:deviceType/:deviceId/firmware/upgrade", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const parsedDeviceType = deviceTypeSchema.safeParse(c.req.param("deviceType"));
+  if (!parsedDeviceType.success) {
+    return c.json({ error: "Invalid deviceType" }, 400);
+  }
+
+  const deviceId = c.req.param("deviceId");
+  const deviceType = parsedDeviceType.data;
+
+  if (deviceType === "collar") {
+    const [device] = await db
+      .select()
+      .from(collarDevices)
+      .where(and(eq(collarDevices.id, deviceId), eq(collarDevices.userId, userId)));
+    if (!device) return c.json({ error: "Device not found" }, 404);
+
+    await db
+      .update(collarDevices)
+      .set({
+        upgradeStatus: "pending",
+        updatedAt: new Date(),
+      })
+      .where(eq(collarDevices.id, deviceId));
+  } else {
+    const [device] = await db
+      .select()
+      .from(desktopDevices)
+      .where(and(eq(desktopDevices.id, deviceId), eq(desktopDevices.userId, userId)));
+    if (!device) return c.json({ error: "Device not found" }, 404);
+
+    await db
+      .update(desktopDevices)
+      .set({
+        upgradeStatus: "pending",
+        updatedAt: new Date(),
+      })
+      .where(eq(desktopDevices.id, deviceId));
+  }
+
+  return c.json({ accepted: true, upgradeStatus: "pending" as const });
+});
+
+devicesRoute.delete("/:type/:id", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const parsedType = deviceTypeSchema.safeParse(c.req.param("type"));
+  if (!parsedType.success) {
+    return c.json({ error: "Invalid device type" }, 400);
+  }
+
+  const id = c.req.param("id");
+  const type = parsedType.data;
+  const device =
+    type === "collar"
+      ? await releaseCollarOwnership(userId, id)
+      : await releaseDesktopOwnership(userId, id);
+
+  if (!device) {
+    return c.json({ error: type === "collar" ? "Collar not found" : "Desktop not found" }, 404);
+  }
+
   return c.json({ success: true });
 });
 
