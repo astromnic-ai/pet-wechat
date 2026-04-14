@@ -9,6 +9,19 @@ describe("Me Routes", () => {
     mockDb._reset();
   });
 
+  describe("GET /api/me", () => {
+    it("returns email in current user payload", async () => {
+      mockDb._results.select = [[fakeUser({ email: "user@example.com" })]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(jsonReq("GET", "/api/me", { headers }));
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.user.email).toBe("user@example.com");
+    });
+  });
+
   describe("PUT /api/me", () => {
     it("returns 401 without token", async () => {
       const res = await app.request(jsonReq("PUT", "/api/me"));
