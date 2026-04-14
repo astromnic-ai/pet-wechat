@@ -10,6 +10,7 @@ export default function BindPet() {
   const deviceType = router.params.deviceType as "collar" | "desktop" | undefined;
   const deviceId = router.params.deviceId || "";
   const deviceName = decodeURIComponent(router.params.deviceName || "");
+  const preferredPetId = router.params.selectedPetId || "";
 
   const [pets, setPets] = useState<Pet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState("");
@@ -19,7 +20,7 @@ export default function BindPet() {
     void request<{ pets: Pet[]; authorizedPets?: Pet[] }>({ url: "/api/pets" })
       .then((res) => {
         setPets(res.pets);
-        setSelectedPetId((current) => current || res.pets[0]?.id || "");
+        setSelectedPetId((current) => current || preferredPetId || res.pets[0]?.id || "");
       })
       .catch(() => setPets([]));
   });

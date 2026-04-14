@@ -1,19 +1,126 @@
-import { View, Text } from "@tarojs/components";
+import { ScrollView, View, Text } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useMemo, useState } from "react";
-import type { CollarDevice, DesktopDevice, Pet } from "@pet-wechat/shared";
+import { useEffect, useMemo, useState } from "react";
+import type { CollarDevice, DesktopDevice, Pet, PetBehavior } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
 import "./index.scss";
 
 const WEEK_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
+const DAY_BUCKET_LABELS = ["0", "4", "8", "12", "16", "20", "24"];
+const MONTH_BUCKET_LABELS = ["1-4", "5-8", "9-12", "13-16", "17-20", "21-24", "25-28"];
+const ACTION_LABELS: Record<string, string> = {
+  sleeping: "睡觉",
+  eating: "吃饭",
+  playing: "玩耍",
+  walking: "散步",
+  running: "奔跑",
+  resting: "休息",
+  jumping: "跳跃",
+  idle: "发呆",
+};
 
-function buildWeekBars(seed: number) {
-  return [38, 56, 44, 82, 63, 54, 70].map((item, index) => Math.max(24, Math.min(100, item + ((seed + index * 7) % 13) - 6)));
+function startOfDay(date: Date) {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
 }
 
-function buildDayBars(seed: number) {
-  return [18, 14, 32, 72, 58, 40, 22].map((item, index) => Math.max(16, Math.min(100, item + ((seed + index * 5) % 11) - 5)));
+function startOfWeek(date: Date) {
+  const next = startOfDay(date);
+  const day = next.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  next.setDate(next.getDate() - diff);
+  return next;
+}
+
+function normalizeBars(values: number[]) {
+  const max = Math.max(...values, 1);
+  return values.map((value) => Math.max(value > 0 ? 18 : 12, Math.round((value / max) * 100)));
+}
+
+function buildDayBuckets(behaviors: PetBehavior[]) {
+  const now = new Date();
+  const todayStart = startOfDay(now).getTime();
+  const values = new Array(7).fill(0);
+
+  behaviors.forEach((behavior) => {
+    const time = new Date(behavior.timestamp).getTime();
+    if (Number.isNaN(time) || time < todayStart) return;
+
+    const hour = new Date(time).getHours();
+    const index = Math.min(6, Math.floor(hour / 4));
+    values[index] += 1;
+  });
+
+  return {
+    labels: DAY_BUCKET_LABELS,
+    raw: values,
+    bars: normalizeBars(values),
+  };
+}
+
+function buildWeekBuckets(behaviors: PetBehavior[]) {
+  const weekStart = startOfWeek(new Date()).getTime();
+  const values = new Array(7).fill(0);
+
+  behaviors.forEach((behavior) => {
+    const time = new Date(behavior.timestamp);
+    if (Number.isNaN(time.getTime()) || time.getTime() < weekStart) return;
+
+    const jsDay = time.getDay();
+    const index = jsDay === 0 ? 6 : jsDay - 1;
+    values[index] += 1;
+  });
+
+  return {
+    labels: WEEK_LABELS,
+    raw: values,
+    bars: normalizeBars(values),
+  };
+}
+
+function buildMonthBuckets(behaviors: PetBehavior[]) {
+  const values = new Array(7).fill(0);
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  behaviors.forEach((behavior) => {
+    const time = new Date(behavior.timestamp);
+    if (Number.isNaN(time.getTime())) return;
+    if (time.getFullYear() !== year || time.getMonth() !== month) return;
+
+    const day = time.getDate();
+    const index = Math.min(6, Math.floor((day - 1) / 4));
+    values[index] += 1;
+  });
+
+  return {
+    labels: MONTH_BUCKET_LABELS,
+    raw: values,
+    bars: normalizeBars(values),
+  };
+}
+
+function formatActionStats(behaviors: PetBehavior[]) {
+  const counts = new Map<string, number>();
+  behaviors.forEach((behavior) => {
+    const label = ACTION_LABELS[behavior.actionType] || behavior.actionType || "其他";
+    counts.set(label, (counts.get(label) || 0) + 1);
+  });
+
+  const total = behaviors.length;
+  if (total === 0) return [];
+
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([label, count]) => ({
+      label,
+      count,
+      value: Math.max(10, Math.round((count / total) * 100)),
+    }));
 }
 
 export default function DataPage() {
@@ -24,6 +131,7 @@ export default function DataPage() {
   const [selectedPetId, setSelectedPetId] = useState("");
   const [activeTab, setActiveTab] = useState<"interaction" | "activity">("interaction");
   const [range, setRange] = useState<"day" | "week" | "month">("day");
+  const [behaviors, setBehaviors] = useState<PetBehavior[]>([]);
 
   useDidShow(() => {
     Taro.hideTabBar();
@@ -48,21 +156,27 @@ export default function DataPage() {
   );
   const hasCollar = Boolean(currentPet && collars.some((item) => item.petId === currentPet.id));
   const connectedDesktopCount = desktops.length;
-  const weekBars = buildWeekBars(currentPet?.activityScore ?? 60);
-  const dayBars = buildDayBars(currentPet?.activityScore ?? 60);
-  const interactionScore = Math.min(100, 60 + connectedDesktopCount * 8 + (currentPet?.activityScore ?? 0) / 5);
 
-  const activityStats = useMemo(
-    () => [
-      { label: "睡觉", value: 70, hours: "10小时" },
-      { label: "吃饭", value: 10, hours: "1小时" },
-      { label: "玩耍", value: 10, hours: "1小时" },
-    ],
-    []
-  );
+  useEffect(() => {
+    if (!currentPet?.id) {
+      setBehaviors([]);
+      return;
+    }
+
+    request<{ behaviors: PetBehavior[] }>({ url: `/api/behaviors/${currentPet.id}?limit=500` })
+      .then((res) => setBehaviors(res.behaviors || []))
+      .catch(() => setBehaviors([]));
+  }, [currentPet?.id]);
+
+  const dayData = useMemo(() => buildDayBuckets(behaviors), [behaviors]);
+  const weekData = useMemo(() => buildWeekBuckets(behaviors), [behaviors]);
+  const monthData = useMemo(() => buildMonthBuckets(behaviors), [behaviors]);
+  const chartData = range === "day" ? dayData : range === "week" ? weekData : monthData;
+  const activityStats = useMemo(() => formatActionStats(behaviors), [behaviors]);
+  const todayBehaviorCount = useMemo(() => dayData.raw.reduce((sum, item) => sum + item, 0), [dayData]);
 
   const headerDescription =
-    activeTab === "interaction" ? "查看这只宠物的互动和活跃数据" : "查看佩戴项圈后的活跃表现";
+    activeTab === "interaction" ? "顶部可切换查看不同宠物的桌面互动记录" : "查看佩戴项圈后的真实活跃表现";
 
   return (
     <View className="data-page">
@@ -75,21 +189,29 @@ export default function DataPage() {
       <View className="data-shell">
         {currentPet ? (
           <>
-            <View className="pet-tabs">
-              <View className="pet-tab pet-tab--active">
-                <Text className="pet-tab-title">{currentPet.name}的记录</Text>
-                <Text className="pet-tab-desc">{headerDescription}</Text>
+            <ScrollView className="pet-tabs-scroll" scrollX enhanced showScrollbar={false}>
+              <View className="pet-tabs">
+                {mergedPets.map((item) => {
+                  const active = item.id === currentPet.id;
+                  return (
+                    <View
+                      key={item.id}
+                      className={`pet-tab ${active ? "pet-tab--active" : "pet-tab--small"}`}
+                      onClick={() => setSelectedPetId(item.id)}
+                    >
+                      {active ? (
+                        <>
+                          <Text className="pet-tab-title">{item.name}的记录</Text>
+                          <Text className="pet-tab-desc">{headerDescription}</Text>
+                        </>
+                      ) : (
+                        <Text className="pet-tab-name">{item.name}</Text>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
-              {mergedPets
-                .filter((item) => item.id !== currentPet.id)
-                .slice(0, 1)
-                .map((item) => (
-                  <View key={item.id} className="pet-tab pet-tab--small" onClick={() => setSelectedPetId(item.id)}>
-                    <Text className="pet-tab-name">{item.name}</Text>
-                  </View>
-                ))}
-              {mergedPets.length > 1 ? <View className="pet-switch-arrow">〉</View> : null}
-            </View>
+            </ScrollView>
 
             <View className="segment-wrap">
               <View
@@ -125,21 +247,29 @@ export default function DataPage() {
             <View className="today-card">
               <View className="today-main">
                 <Text className="today-title">
-                  {activeTab === "interaction" ? "今日互动指数" : "今日活跃值"}
+                  {activeTab === "interaction" ? "累计互动次数" : "今日活跃值"}
                 </Text>
                 <View className="today-score-row">
                   <Text className="today-score">
-                    {activeTab === "interaction" ? Math.round(interactionScore) : currentPet.activityScore}
+                    {activeTab === "interaction" ? 0 : currentPet.activityScore}
                   </Text>
-                  <Text className="today-score-unit">/100</Text>
+                  <Text className="today-score-unit">{activeTab === "interaction" ? "次" : "/100"}</Text>
                 </View>
               </View>
               <View className="today-badge">
                 <Text className="today-badge-top">
-                  {activeTab === "interaction" ? `桌面端${connectedDesktopCount}台` : hasCollar ? "已连接项圈" : "未连接项圈"}
+                  {activeTab === "interaction"
+                    ? `桌面端${connectedDesktopCount}台`
+                    : hasCollar
+                    ? `今日${todayBehaviorCount}条`
+                    : "未连接项圈"}
                 </Text>
                 <Text className="today-badge-bottom">
-                  {activeTab === "interaction" ? "互动来源" : hasCollar ? "实时同步" : "活跃数据受限"}
+                  {activeTab === "interaction"
+                    ? "互动接口待接入"
+                    : hasCollar
+                    ? "真实行为同步"
+                    : "活跃数据受限"}
                 </Text>
               </View>
             </View>
@@ -149,21 +279,26 @@ export default function DataPage() {
             </View>
 
             <View className="chart-card">
-              {activeTab === "activity" && !hasCollar ? (
+              {activeTab === "interaction" ? (
+                <View className="empty-state">
+                  <Text className="empty-state-title">桌面端互动记录待接入</Text>
+                  <Text className="empty-state-desc">当前后端还未返回用户主动触发的互动次数，这里先不展示假数据</Text>
+                </View>
+              ) : !hasCollar ? (
                 <View className="empty-state">
                   <Text className="empty-state-title">需要连接项圈后查看活跃表现</Text>
-                  <Text className="empty-state-desc">当前可以先查看互动记录，或去设备管理里完成项圈连接</Text>
+                  <Text className="empty-state-desc">当前可以先查看设备管理，完成项圈连接后这里会显示真实行为趋势</Text>
                 </View>
               ) : (
                 <View className="chart-wrap">
-                  {(range === "day" ? dayBars : weekBars).map((value, index) => (
+                  {chartData.bars.map((value, index) => (
                     <View key={`${index}-${value}`} className="chart-item">
                       <View
                         className={`chart-bar ${index % 2 === 0 ? "chart-bar--yellow" : "chart-bar--blue"}`}
                         style={{ height: `${value}%` }}
                       />
-                      <Text className={`chart-label ${index === 6 ? "chart-label--active" : ""}`}>
-                        {WEEK_LABELS[index]}
+                      <Text className={`chart-label ${index === chartData.bars.length - 1 ? "chart-label--active" : ""}`}>
+                        {chartData.labels[index]}
                       </Text>
                     </View>
                   ))}
@@ -172,16 +307,28 @@ export default function DataPage() {
             </View>
 
             <View className="stats-card">
-              <Text className="stats-title">活动类型统计</Text>
-              {activityStats.map((item) => (
-                <View key={item.label} className="stats-row">
-                  <Text className="stats-label">{item.label}</Text>
-                  <View className="stats-track">
-                    <View className="stats-fill" style={{ width: `${item.value}%` }} />
-                  </View>
-                  <Text className="stats-value">{item.hours}</Text>
+              <Text className="stats-title">{activeTab === "interaction" ? "互动统计" : "活动类型统计"}</Text>
+              {activeTab === "interaction" ? (
+                <View className="empty-state empty-state--compact">
+                  <Text className="empty-state-title">暂无真实互动累计数据</Text>
+                  <Text className="empty-state-desc">需要后端补充桌面端主动互动事件记录后，才能展示真实累计次数</Text>
                 </View>
-              ))}
+              ) : activityStats.length > 0 ? (
+                activityStats.map((item) => (
+                  <View key={item.label} className="stats-row">
+                    <Text className="stats-label">{item.label}</Text>
+                    <View className="stats-track">
+                      <View className="stats-fill" style={{ width: `${item.value}%` }} />
+                    </View>
+                    <Text className="stats-value">{item.count}次</Text>
+                  </View>
+                ))
+              ) : (
+                <View className="empty-state empty-state--compact">
+                  <Text className="empty-state-title">暂无行为记录</Text>
+                  <Text className="empty-state-desc">项圈开始同步行为后，这里会按真实数据汇总活动类型</Text>
+                </View>
+              )}
             </View>
           </>
         ) : (

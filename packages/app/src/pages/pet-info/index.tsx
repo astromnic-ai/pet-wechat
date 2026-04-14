@@ -187,30 +187,18 @@ export default function PetInfo() {
 
       applyPetToForm(pet);
 
-      if (collarId || (bindDeviceType === "collar" && bindDeviceId)) {
-        const targetCollarId = collarId || bindDeviceId;
-        const { collar } = await request<{ collar: CollarDevice }>({
-          url: `/api/devices/collars/${targetCollarId}`,
-          method: "PUT",
-          data: { petId: pet.id },
-        });
-        applyCollarToForm(collar);
-      }
-
-      if (bindDeviceType === "desktop" && bindDeviceId) {
-        await request({
-          url: `/api/devices/desktops/${bindDeviceId}/bind`,
-          method: "POST",
-          data: {
-            petId: pet.id,
-            bindingType: "owner",
-          },
-        });
-      }
-
       if (petId) {
         Taro.showToast({ title: "保存成功", icon: "success" });
         Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+        return;
+      }
+
+      if (bindDeviceType && bindDeviceId) {
+        Taro.redirectTo({
+          url: `/pages/bind-pet/index?deviceType=${bindDeviceType}&deviceId=${encodeURIComponent(
+            bindDeviceId
+          )}&selectedPetId=${encodeURIComponent(pet.id)}`,
+        });
         return;
       }
 

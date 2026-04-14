@@ -4,7 +4,7 @@ import "./index.scss";
 
 export default function DesktopBind() {
   useDidShow(() => {
-    Taro.redirectTo({ url: "/pages/collar-bind/index" });
+    Taro.redirectTo({ url: "/pages/collar-bind/index?deviceType=desktop" });
   });
 
   return (

@@ -80,6 +80,7 @@
   font-size: 40rpx;
   font-weight: 700;
   color: #202020;
+  text-align: center;
 }
 
 .device-wifi-device-status {
@@ -103,6 +104,13 @@
   color: #56c169;
 }
 
+.device-wifi-device-meta {
+  display: block;
+  margin-top: 16rpx;
+  font-size: 24rpx;
+  color: #7e7e7e;
+}
+
 .wifi-panel {
   padding: 28rpx;
   margin-top: 26rpx;
@@ -116,43 +124,46 @@
   margin-bottom: 22rpx;
 }
 
-.wifi-network-block {
-  padding: 20rpx 20rpx 16rpx;
-  border-radius: 28rpx;
-  background: #f8f8f8;
+.wifi-status-card {
+  background: #f6f7fb;
+  border-radius: 24rpx;
+  padding: 20rpx 22rpx;
   margin-bottom: 18rpx;
 }
 
-.wifi-block-caption {
-  display: block;
-  font-size: 24rpx;
-  color: #6f6f6f;
-}
-
-.wifi-network-list {
-  margin-top: 14rpx;
-  display: flex;
-  flex-direction: column;
-  gap: 14rpx;
-}
-
-.wifi-network-row {
-  height: 62rpx;
-  border-radius: 18rpx;
-  background: #ececec;
-  display: flex;
+.wifi-status-tag {
+  display: inline-flex;
   align-items: center;
-  padding: 0 20rpx;
-  box-sizing: border-box;
+  justify-content: center;
+  min-width: 132rpx;
+  height: 48rpx;
+  padding: 0 18rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  font-weight: 700;
 }
 
-.wifi-network-row--active {
-  background: #ffd76d;
+.wifi-status-tag--loading {
+  background: #eef5ff;
+  color: #3d9bff;
 }
 
-.wifi-network-row-text {
+.wifi-status-tag--ready {
+  background: #effcf2;
+  color: #56c169;
+}
+
+.wifi-status-tag--manual {
+  background: #fff4cf;
+  color: #9c7300;
+}
+
+.wifi-status-text {
+  display: block;
+  margin-top: 14rpx;
   font-size: 26rpx;
-  color: #404040;
+  line-height: 1.5;
+  color: #555555;
 }
 
 .wifi-input-box {
@@ -177,6 +188,23 @@
   font-size: 38rpx;
   font-weight: 600;
   color: #202020;
+}
+
+.wifi-secondary-btn {
+  height: 80rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid #d6def0;
+  background: #ffffff;
+  margin-top: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wifi-secondary-btn-text {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #3d9bff;
 }
 
 .wifi-hint-panel {

@@ -1,12 +1,16 @@
 import { View, Text } from "@tarojs/components";
 import { useState } from "react";
+import Taro from "@tarojs/taro";
 import PageBack from "../../components/PageBack";
 import "./subpages.scss";
 
 type LanguageOption = "简体中文" | "繁體中文" | "English";
+const STORAGE_KEY = "settings:language";
 
 export default function SystemSettings() {
-  const [language, setLanguage] = useState<LanguageOption>("简体中文");
+  const [language, setLanguage] = useState<LanguageOption>(
+    () => Taro.getStorageSync(STORAGE_KEY) || "简体中文"
+  );
 
   return (
     <View className="settings-subpage">
@@ -44,7 +48,10 @@ export default function SystemSettings() {
             <View
               key={item}
               className={`settings-language-card ${active ? "settings-language-card--active" : ""}`}
-              onClick={() => setLanguage(item)}
+              onClick={() => {
+                setLanguage(item);
+                Taro.setStorageSync(STORAGE_KEY, item);
+              }}
             >
               <Text className="settings-language-label">{item}</Text>
               <View className={`settings-language-check ${active ? "settings-language-check--active" : ""}`}>

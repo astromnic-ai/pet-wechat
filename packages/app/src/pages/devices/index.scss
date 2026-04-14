@@ -94,6 +94,11 @@
   border: 2rpx solid #5caeff;
 }
 
+.device-card--offline {
+  background: linear-gradient(180deg, #efefef 0%, #e3e3e3 100%);
+  border: none;
+}
+
 .device-card-top {
   display: flex;
   align-items: flex-start;
@@ -113,6 +118,10 @@
 
 .device-card--white .device-card-icon-wrap {
   background: #dceeff;
+}
+
+.device-card--offline .device-card-icon-wrap {
+  background: rgba(255, 255, 255, 0.46);
 }
 
 .device-card-icon {
@@ -147,6 +156,10 @@
   color: #4aa3ff;
 }
 
+.device-card--offline .device-card-name {
+  color: #6d6d6d;
+}
+
 .device-name-input {
   flex: 1;
   height: 56rpx;
@@ -167,6 +180,10 @@
 
 .device-card--white .device-edit-text {
   color: #4aa3ff;
+}
+
+.device-card--offline .device-edit-text {
+  color: #8a8a8a;
 }
 
 .device-card-meta-row {
@@ -217,6 +234,10 @@
   color: #88baf1;
 }
 
+.device-card--offline .device-signal {
+  color: #9e9e9e;
+}
+
 .device-note {
   display: block;
   margin-top: 16rpx;
@@ -227,6 +248,10 @@
 
 .device-card--white .device-note {
   color: #7aa6d6;
+}
+
+.device-card--offline .device-note {
+  color: #888888;
 }
 
 .device-card-actions {
@@ -258,6 +283,10 @@
   background: #d9ecff;
 }
 
+.device-card--offline .device-action-btn {
+  background: rgba(255, 255, 255, 0.58);
+}
+
 .device-action-btn--disabled {
   opacity: 0.55;
 }
@@ -270,6 +299,10 @@
 
 .device-card--white .device-action-text {
   color: #9fc5ef;
+}
+
+.device-card--offline .device-action-text {
+  color: #9b9b9b;
 }
 
 .add-device-btn {

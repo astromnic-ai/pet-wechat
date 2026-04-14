@@ -1,5 +1,6 @@
 import { View, Text } from "@tarojs/components";
 import { useState } from "react";
+import Taro from "@tarojs/taro";
 import PageBack from "../../components/PageBack";
 import "./subpages.scss";
 
@@ -12,7 +13,7 @@ const THEMES: Array<{ key: ThemeMode; label: string; color: string }> = [
 ];
 
 export default function ThemeSettings() {
-  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [theme, setTheme] = useState<ThemeMode>(() => Taro.getStorageSync("settings:theme") || "light");
 
   return (
     <View className="settings-subpage">
@@ -29,7 +30,10 @@ export default function ThemeSettings() {
             <View
               key={item.key}
               className={`theme-option-card ${active ? "theme-option-card--active" : ""}`}
-              onClick={() => setTheme(item.key)}
+              onClick={() => {
+                setTheme(item.key);
+                Taro.setStorageSync("settings:theme", item.key);
+              }}
             >
               <View className="theme-option-left">
                 <View className="theme-option-preview" style={{ background: item.color }} />

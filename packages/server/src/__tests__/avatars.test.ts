@@ -26,14 +26,12 @@ describe("Avatar Routes", () => {
   // ===== POST /api/avatars =====
 
   describe("POST /api/avatars", () => {
-    it("creates avatar when pet owned and quota available", async () => {
+    it("creates avatar when pet owned", async () => {
       const pet = fakePet();
       const user = fakeUser({ avatarQuota: 1 });
       const avatar = fakeAvatar();
       // select 1: pet ownership
       mockDb._results.select = [[pet]];
-      // update 1: atomic quota deduction (returns updated user)
-      mockDb._results.update = [[user]];
       // insert 1: create avatar
       mockDb._results.insert = [[avatar]];
 
@@ -62,11 +60,11 @@ describe("Avatar Routes", () => {
       expect(res.status).toBe(404);
     });
 
-    it("returns 403 when quota is 0", async () => {
+    it("still creates avatar when quota is 0 because quota is display-only", async () => {
       const pet = fakePet();
+      const avatar = fakeAvatar();
       mockDb._results.select = [[pet]];
-      // Atomic update returns empty (quota was 0, WHERE gt(quota, 0) fails)
-      mockDb._results.update = [[]];
+      mockDb._results.insert = [[avatar]];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -75,9 +73,9 @@ describe("Avatar Routes", () => {
           body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
         })
       );
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(201);
       const json = await res.json();
-      expect(json.error).toContain("额度");
+      expect(json.avatar.id).toBe("avatar-1");
     });
   });
 

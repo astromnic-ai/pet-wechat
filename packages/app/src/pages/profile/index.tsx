@@ -8,6 +8,7 @@ import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
+const FREE_AVATAR_TOTAL = 2;
 
 export default function Profile() {
   const [user, setUser] = useState<User | null>(null);
@@ -150,7 +151,9 @@ export default function Profile() {
           <View className="service-card">
             <View className="service-main">
               <View className="service-info-chip">
-                <Text className="service-line">定制图像：剩余 {Math.max(user?.avatarQuota ?? 0, 0)} 次</Text>
+                <Text className="service-line">
+                  定制图像：剩余 {FREE_AVATAR_TOTAL}/{FREE_AVATAR_TOTAL} 次
+                </Text>
               </View>
               <View className="service-info-chip">
                 <Text className="service-line">已绑定设备：{deviceCount} 台</Text>

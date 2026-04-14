@@ -3,8 +3,9 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
-import type { CollarDevice, DesktopDevice, Pet } from "@pet-wechat/shared";
-import { getPetActivityMode } from "../../utils/storage";
+import type { CollarDevice, DesktopDevice, Pet, PetAvatarAction } from "@pet-wechat/shared";
+import { getPetActivityMode, getPetModeSlots } from "../../utils/storage";
+import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import QuickNav from "../../components/QuickNav";
 import "./index.scss";
 
@@ -43,13 +44,77 @@ function getPetSubtitle(pet: Pet | null) {
   return "待完善宠物资料";
 }
 
+function normalizeActionKeyword(value?: string | null) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function getActionAliases(action?: string | null) {
+  const normalized = normalizeActionKeyword(action);
+  const labels = [normalized];
+  const mapped = normalizeActionKeyword(ACTION_LABELS[action || ""]);
+
+  if (mapped) labels.push(mapped);
+
+  if (normalized.includes("walk") || normalized.includes("散步") || normalized.includes("走")) {
+    labels.push("walking", "散步", "走");
+  }
+  if (normalized.includes("run") || normalized.includes("跑") || normalized.includes("奔跑")) {
+    labels.push("running", "跑步", "奔跑", "跑");
+  }
+  if (normalized.includes("sleep") || normalized.includes("睡")) {
+    labels.push("sleeping", "睡觉");
+  }
+  if (normalized.includes("eat") || normalized.includes("吃")) {
+    labels.push("eating", "吃饭", "吃东西");
+  }
+  if (normalized.includes("play") || normalized.includes("玩")) {
+    labels.push("playing", "玩耍");
+  }
+  if (normalized.includes("rest") || normalized.includes("休息")) {
+    labels.push("resting", "休息");
+  }
+
+  return Array.from(new Set(labels.filter(Boolean)));
+}
+
+function matchActionsByKeyword(actions: PetAvatarAction[], action?: string | null) {
+  const aliases = getActionAliases(action);
+  if (aliases.length === 0) return [];
+
+  return actions.filter((item) => {
+    const target = normalizeActionKeyword(item.actionType);
+    return aliases.some((alias) => target.includes(alias));
+  });
+}
+
+function getCurrentCustomAction(petId?: string) {
+  const slots = getPetModeSlots(petId);
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  const activeSlot = slots.find((slot) => {
+    const [startHour, startMinute] = slot.start.split(":").map(Number);
+    const [endHour, endMinute] = slot.end.split(":").map(Number);
+    const start = startHour * 60 + startMinute;
+    const end = endHour * 60 + endMinute;
+    return currentMinutes >= start && currentMinutes < end;
+  });
+
+  return activeSlot?.action || "";
+}
+
 export default function Index() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
+  const [petActionMap, setPetActionMap] = useState<Record<string, PetAvatarAction[]>>({});
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
+  const [frameIndex, setFrameIndex] = useState(0);
   const skipNextDidShowRef = useRef(true);
   const petTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -84,6 +149,24 @@ export default function Index() {
   useEffect(() => {
     setPetMode(getPetActivityMode(currentPet?.id));
   }, [currentPet?.id]);
+
+  useEffect(() => {
+    if (!currentPet?.id || petActionMap[currentPet.id]) return;
+
+    void request<{ actions: PetAvatarAction[] }>({ url: `/api/pets/${currentPet.id}` })
+      .then((res) => {
+        setPetActionMap((prev) => ({
+          ...prev,
+          [currentPet.id]: [...res.actions].sort((a, b) => a.sortOrder - b.sortOrder),
+        }));
+      })
+      .catch(() => {
+        setPetActionMap((prev) => ({
+          ...prev,
+          [currentPet.id]: [],
+        }));
+      });
+  }, [currentPet?.id, petActionMap]);
 
   useEffect(() => {
     void loadUnreadCount();
@@ -174,8 +257,17 @@ export default function Index() {
   }, [collars, currentPet]);
   const activeDesktop = desktops[0] ?? null;
   const primaryManagedDevice = activeDesktop ?? activeCollar;
-  const primaryManagedDeviceLabel = activeDesktop ? "累计在线366天" : activeCollar ? `${activeCollar.status === "online" ? "在线" : "离线"}${activeCollar.battery ? ` · ${activeCollar.battery}%` : ""}` : "";
   const hasManagedDevices = Boolean(activeCollar || activeDesktop);
+  const primaryManagedDeviceName = primaryManagedDevice
+    ? getDeviceDisplayName({
+        petName: currentPet?.name,
+        deviceName: primaryManagedDevice.name,
+        fallbackName: primaryManagedDevice === activeDesktop ? "桌面端" : "项圈",
+      })
+    : "未命名设备";
+  const primaryManagedDeviceLabel = primaryManagedDevice
+    ? `${getDeviceStatusText(primaryManagedDevice.status)} · ${getUsageLabel(primaryManagedDevice.createdAt)}`
+    : "";
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
   const hasCompletePetProfile = Boolean(currentPet?.name?.trim() && currentPet?.breed?.trim());
   const bubbleText = currentPet ? "在家开水龙头喝水？" : "点击开始创建宠物";
@@ -185,6 +277,43 @@ export default function Index() {
   const hasCustomPetAvatar = Boolean(currentPet?.avatarImageUrl);
   const petHeroImage = currentPet?.avatarImageUrl || defaultPetHeroImage;
   const petSubtitle = getPetSubtitle(currentPet);
+  const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
+
+  const currentModeFrames = useMemo(() => {
+    if (!currentPet) return [];
+    if (currentPetActions.length === 0) return [];
+
+    if (petMode === "real") {
+      const matched = matchActionsByKeyword(currentPetActions, currentPet.latestBehavior?.actionType);
+      return matched.length > 0 ? matched : currentPetActions.slice(0, 1);
+    }
+
+    if (petMode === "custom") {
+      const currentAction = getCurrentCustomAction(currentPet.id);
+      const matched = matchActionsByKeyword(currentPetActions, currentAction);
+      return matched.length > 0 ? matched : currentPetActions.slice(0, 2);
+    }
+
+    return currentPetActions.slice(0, Math.min(currentPetActions.length, 4));
+  }, [currentPet, currentPetActions, petMode]);
+
+  useEffect(() => {
+    setFrameIndex(0);
+  }, [currentPet?.id, petMode]);
+
+  useEffect(() => {
+    if (currentModeFrames.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setFrameIndex((prev) => (prev + 1) % currentModeFrames.length);
+    }, 1200);
+
+    return () => clearInterval(timer);
+  }, [currentModeFrames]);
+
+  const currentFrameImage =
+    currentModeFrames[frameIndex]?.imageUrl ||
+    petHeroImage;
 
   const handleOpenPetInfo = () => {
     if (hasPet && hasCompletePetProfile) {
@@ -319,7 +448,14 @@ export default function Index() {
                       >
                         <Image
                           className="pet-showcase"
-                          src={pet?.avatarImageUrl || require("@/assets/images/pet-collar.png")}
+                          src={
+                            pet?.id === currentPet?.id
+                              ? currentFrameImage
+                              : pet?.avatarImageUrl ||
+                                (pet?.species === "dog"
+                                  ? require("@/assets/images/dog.png")
+                                  : require("@/assets/images/pet-collar.png"))
+                          }
                           mode="widthFix"
                         />
                       </View>
@@ -375,7 +511,7 @@ export default function Index() {
                     />
                   </View>
                   <View className="managed-device-main">
-                    <Text className="managed-device-name">{primaryManagedDevice?.name?.trim() || "未命名设备"}</Text>
+                    <Text className="managed-device-name">{primaryManagedDeviceName}</Text>
                     <Text className="managed-device-text">{primaryManagedDeviceLabel}</Text>
                   </View>
                   <View className="managed-device-status">

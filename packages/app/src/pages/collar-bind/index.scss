@@ -2,7 +2,9 @@
   min-height: 100vh;
   background: #fff8ef;
   box-sizing: border-box;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 40rpx);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .device-search-top-strip {
@@ -42,7 +44,10 @@
 }
 
 .device-search-content {
-  padding: 34rpx 38rpx 0;
+  flex: 1;
+  min-height: 0;
+  padding: 28rpx 38rpx calc(env(safe-area-inset-bottom) + 40rpx);
+  box-sizing: border-box;
 }
 
 .step-outline-card {
@@ -97,13 +102,14 @@
   font-size: 26rpx;
   color: #808080;
   text-align: center;
+  line-height: 1.5;
 }
 
 .nearby-device-list {
   display: flex;
   flex-direction: column;
   gap: 18rpx;
-  margin-top: 18rpx;
+  margin-top: 8rpx;
 }
 
 .nearby-device-row {
@@ -138,6 +144,7 @@
 
 .nearby-device-body {
   flex: 1;
+  min-width: 0;
 }
 
 .nearby-device-name {
@@ -145,6 +152,9 @@
   font-size: 34rpx;
   font-weight: 700;
   color: #202020;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nearby-device-meta {
@@ -173,7 +183,7 @@
 }
 
 .nearby-device-empty {
-  margin-top: 18rpx;
+  margin-top: 8rpx;
   background: #ffffff;
   border-radius: 26rpx;
   padding: 40rpx 28rpx;
@@ -195,4 +205,21 @@
   line-height: 1.45;
   color: #8f8f8f;
   text-align: center;
+}
+
+.scan-primary-btn {
+  width: 100%;
+  height: 88rpx;
+  border-radius: 24rpx;
+  background: #3d9bff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 28rpx;
+}
+
+.scan-primary-btn-text {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ffffff;
 }

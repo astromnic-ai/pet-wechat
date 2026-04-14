@@ -2,31 +2,34 @@ import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import { request, uploadFile } from "../../utils/request";
-import type { Pet, User } from "@pet-wechat/shared";
+import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const PHOTO_PLACEHOLDER_IMAGE = require("./images/upload-icon.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
-const CAT_SAMPLE = require("./images/black-cat-3.png");
-const DOG_SAMPLE = require("./images/husky.png");
+const FREE_AVATAR_TOTAL = 2;
 
-function parseQuota(value?: string) {
-  const quota = Number(value);
-  return Number.isFinite(quota) && quota >= 0 ? quota : null;
+function getChooseImageErrorMessage(error?: unknown) {
+  const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
+  if (message.includes("cancel")) return "";
+  if (message.includes("auth deny") || message.includes("permission") || message.includes("authorize")) {
+    return "需要相册或相机权限";
+  }
+  return "选择图片失败，请重试";
+}
+
+function needsImagePermissionGuide(error?: unknown) {
+  const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
+  return message.includes("auth deny") || message.includes("permission") || message.includes("authorize");
 }
 
 export default function PetAvatar() {
   const router = useRouter();
   const petId = router.params.petId;
-  const routeQuota = parseQuota(router.params.avatarQuota);
   const [images, setImages] = useState<string[]>([]);
   const [selectedImageSize, setSelectedImageSize] = useState<number | null>(null);
   const [pet, setPet] = useState<Pet | null>(null);
-  const [quota, setQuota] = useState({
-    remaining: routeQuota ?? 0,
-    total: routeQuota ?? 0,
-  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -39,22 +42,6 @@ export default function PetAvatar() {
       .then((res) => setPet(res.pet))
       .catch(() => setPet(null));
   }, [petId]);
-
-  useEffect(() => {
-    if (routeQuota !== null) {
-      setQuota({ remaining: routeQuota, total: routeQuota });
-      return;
-    }
-
-    request<{ user: User }>({ url: "/api/me" })
-      .then((res) => {
-        const avatarQuota = res.user.avatarQuota ?? 0;
-        setQuota({ remaining: avatarQuota, total: avatarQuota });
-      })
-      .catch(() => {
-        setQuota({ remaining: 0, total: 0 });
-      });
-  }, [routeQuota]);
 
   const handleChooseImage = async () => {
     try {
@@ -73,7 +60,27 @@ export default function PetAvatar() {
       }
       setSelectedImageSize(nextImageSize);
       setImages(res.tempFilePaths.slice(0, 1));
-    } catch {}
+    } catch (error) {
+      const errorMessage = getChooseImageErrorMessage(error);
+      if (errorMessage) {
+        Taro.showToast({ title: errorMessage, icon: "none" });
+      }
+
+      if (needsImagePermissionGuide(error)) {
+        Taro.showModal({
+          title: "需要相册或相机权限",
+          content: "请在微信设置中打开相册或相机权限后，再重新上传宠物照片。",
+          confirmText: "去设置",
+          success: (res) => {
+            if (res.confirm) {
+              void Taro.openSetting().catch(() => {
+                Taro.showToast({ title: "请手动前往设置开启权限", icon: "none" });
+              });
+            }
+          },
+        });
+      }
+    }
   };
 
   const handleUpload = async () => {
@@ -123,8 +130,6 @@ export default function PetAvatar() {
   };
 
   const previewImage = images[0] || "";
-  const sampleImage = pet?.species === "dog" ? DOG_SAMPLE : CAT_SAMPLE;
-
   return (
     <View className="pet-avatar-page">
       <PageBack />
@@ -147,24 +152,13 @@ export default function PetAvatar() {
           <View className="upload-trigger" onClick={handleChooseImage}>
             <Text className="upload-trigger-text">点击上传照片</Text>
           </View>
-          <Text className="quota-text">新用户免费定制{quota.total}次（{quota.remaining}/{quota.total}）</Text>
+          <Text className="quota-text">新用户免费定制{FREE_AVATAR_TOTAL}次（{FREE_AVATAR_TOTAL}/{FREE_AVATAR_TOTAL}）</Text>
         </View>
 
         <View className="upload-tips-card">
-          <Text className="upload-tips-title">上传建议</Text>
-          <View className="sample-row">
-            <View className="sample-card">
-              <Image className="sample-card-image" src={sampleImage} mode="aspectFit" />
-              <Text className="sample-card-text">清晰正面</Text>
-            </View>
-            <View className="sample-card">
-              <Image className="sample-card-image" src={sampleImage} mode="aspectFit" />
-              <Text className="sample-card-text">完整侧面</Text>
-            </View>
-            <View className="sample-card sample-card--muted">
-              <Image className="sample-card-image" src={sampleImage} mode="aspectFit" />
-              <Text className="sample-card-text">避免模糊</Text>
-            </View>
+          <View className="upload-tips-heading">
+            <Text className="upload-tips-icon">💡</Text>
+            <Text className="upload-tips-title">上传建议</Text>
           </View>
           <View className="upload-tip-item">
             <View className="upload-tip-dot" />

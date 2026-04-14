@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { BindingType, CollarDevice, DesktopDevice, DeviceStatus, Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
+import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import "./index.scss";
 
 type DesktopWithBindings = DesktopDevice & {
@@ -29,16 +30,12 @@ type DeviceCard = {
   petStatus?: "owner" | "authorized" | "none";
   bindingId?: string;
   bindingType?: BindingType;
+  createdAt?: string | null;
   lastOnlineAt?: string | null;
 };
 
 const COLLAR_ICON = require("@/assets/images/collar-icon.png");
 const DESKTOP_ICON = require("@/assets/images/desktop-icon.png");
-function getStatusText(status: DeviceStatus) {
-  if (status === "online") return "在线";
-  if (status === "pairing") return "连接中";
-  return "离线";
-}
 
 function getSignalText(type: "collar" | "desktop", signal?: number | null, status?: DeviceStatus) {
   if (type === "desktop") {
@@ -52,22 +49,13 @@ function getSignalText(type: "collar" | "desktop", signal?: number | null, statu
 }
 
 function getDeviceNote(item: DeviceCard) {
-  if (item.type === "collar") {
-    if (item.petName) {
-      return `已绑定宠物：${item.petName}`;
-    }
-    return "暂未绑定宠物";
-  }
+  const usage = getUsageLabel(item.createdAt);
 
   if (item.petName) {
-    return `当前关联：${item.petName}`;
+    return `${usage} · 已关联${item.petName}`;
   }
 
-  if (item.lastOnlineAt) {
-    return "设备状态：近期有活跃";
-  }
-
-  return "设备状态：等待绑定";
+  return `${usage} · 暂未绑定宠物`;
 }
 
 export default function Devices() {
@@ -132,6 +120,7 @@ export default function Devices() {
         petId: item.petId,
         petName: petMeta?.name,
         petStatus: petMeta?.status ?? "none",
+        createdAt: item.createdAt,
         lastOnlineAt: item.lastOnlineAt,
       };
     });
@@ -148,6 +137,7 @@ export default function Devices() {
             signal: item.signal,
             battery: item.battery,
             petStatus: "none" as const,
+            createdAt: item.createdAt,
             lastOnlineAt: item.lastOnlineAt,
           },
         ];
@@ -168,6 +158,7 @@ export default function Devices() {
           petStatus: petMeta?.status ?? "none",
           bindingId: binding.id,
           bindingType: binding.bindingType,
+          createdAt: item.createdAt,
           lastOnlineAt: item.lastOnlineAt,
         };
       });
@@ -218,30 +209,89 @@ export default function Devices() {
     }
   };
 
-  const handleDesktopRemove = async (desktopId: string, bindingId?: string, bindingType?: BindingType) => {
+  const handleUnbindDesktop = async (desktopId: string, bindingId?: string) => {
+    if (!bindingId) {
+      Taro.showToast({ title: "当前没有可解绑的宠物", icon: "none" });
+      return;
+    }
+
     try {
-      if (bindingId) {
-        await request({
-          url: `/api/devices/desktops/${desktopId}/bind/${bindingId}`,
-          method: "DELETE",
-        });
-      } else if (bindingType === "authorized") {
-        await request({
-          url: `/api/devices/desktops/${desktopId}`,
-          method: "DELETE",
-        });
-      } else {
-        await request({
-          url: `/api/devices/desktops/${desktopId}`,
-          method: "DELETE",
-        });
-      }
-      Taro.showToast({ title: "操作成功", icon: "success" });
+      await request({
+        url: `/api/devices/desktops/${desktopId}/bind/${bindingId}`,
+        method: "DELETE",
+      });
+      Taro.showToast({ title: "已解除绑定", icon: "success" });
       await loadDevices();
       notifyHomeDevicesChanged();
     } catch (e: any) {
       Taro.showToast({ title: e.message || "操作失败", icon: "none" });
     }
+  };
+
+  const handleDeleteDevice = async (item: DeviceCard) => {
+    try {
+      if (item.type === "collar") {
+        await request({
+          url: `/api/devices/collars/${item.sourceId}`,
+          method: "DELETE",
+        });
+      } else {
+        await request({
+          url: `/api/devices/desktops/${item.sourceId}`,
+          method: "DELETE",
+        });
+      }
+      Taro.showToast({ title: "设备已删除", icon: "success" });
+      await loadDevices();
+      notifyHomeDevicesChanged();
+    } catch (e: any) {
+      Taro.showToast({ title: e.message || "操作失败", icon: "none" });
+    }
+  };
+
+  const handleChangePet = (item: DeviceCard) => {
+    Taro.showModal({
+      title: "更换绑定宠物",
+      content: "将重新选择要绑定的宠物，设备信息和设备 ID 会继续保留。",
+      confirmText: "去更换",
+      success: (res) => {
+        if (!res.confirm) return;
+        Taro.navigateTo({
+          url: `/pages/bind-pet/index?deviceType=${item.type}&deviceId=${encodeURIComponent(
+            item.sourceId
+          )}&deviceName=${encodeURIComponent(item.name)}`,
+        });
+      },
+    });
+  };
+
+  const handleUnbind = (item: DeviceCard) => {
+    Taro.showModal({
+      title: "解除绑定",
+      content: "解除绑定后，设备会保留在当前账号下，你可以稍后重新绑定其他宠物。",
+      confirmText: "确认解绑",
+      success: (res) => {
+        if (!res.confirm) return;
+        if (item.type === "collar") {
+          void handleUnbindCollar(item.sourceId);
+          return;
+        }
+        void handleUnbindDesktop(item.sourceId, item.bindingId);
+      },
+    });
+  };
+
+  const handleDelete = (item: DeviceCard) => {
+    Taro.showModal({
+      title: "删除设备",
+      content: "删除后，手机端将不再显示这个设备。若硬件转卖或更换用户，请确保已删除，否则需要在硬件端 reset 后再绑定。",
+      confirmText: "确认删除",
+      confirmColor: "#ff4d4f",
+      success: (res) => {
+        if (!res.confirm) return;
+        void handleDeleteDevice(item);
+      },
+    });
   };
 
   return (
@@ -261,10 +311,16 @@ export default function Devices() {
             </View>
           ) : (
             deviceCards.map((item, index) => {
-              const isYellow = item.type === "collar";
-              const isPrimaryBlue = item.type === "desktop" && index === (collars.length > 0 ? 1 : 0);
-              const canShare = Boolean(item.petId && item.petStatus === "owner");
-              const canSwitchMode = Boolean(item.petId);
+              const isOnline = item.status === "online";
+              const isYellow = isOnline && item.type === "collar";
+              const isPrimaryBlue = isOnline && item.type === "desktop";
+              const isOffline = !isOnline;
+              const hasBinding = Boolean(item.petId);
+              const displayName = getDeviceDisplayName({
+                petName: item.petName,
+                deviceName: item.name,
+                fallbackName: item.type === "collar" ? "项圈" : "桌面端",
+              });
 
               return (
                 <View
@@ -273,6 +329,7 @@ export default function Devices() {
                     "device-card",
                     isYellow ? "device-card--yellow" : "",
                     isPrimaryBlue ? "device-card--blue" : "device-card--white",
+                    isOffline ? "device-card--offline" : "",
                   ].join(" ")}
                 >
                   <View className="device-card-top">
@@ -301,7 +358,7 @@ export default function Devices() {
                           </>
                         ) : (
                           <>
-                            <Text className="device-card-name">{item.name}</Text>
+                            <Text className="device-card-name">{displayName}</Text>
                             {item.type === "collar" ? (
                               <Text
                                 className="device-edit-text"
@@ -320,7 +377,7 @@ export default function Devices() {
                       <View className="device-card-meta-row">
                         <View className="device-status-pill">
                           <View className={`device-status-dot ${item.status === "online" ? "online" : "offline"}`} />
-                          <Text className="device-status-pill-text">{getStatusText(item.status)}</Text>
+                          <Text className="device-status-pill-text">{getDeviceStatusText(item.status)}</Text>
                         </View>
                         <Text className="device-signal">{getSignalText(item.type, item.signal, item.status)}</Text>
                       </View>
@@ -331,42 +388,34 @@ export default function Devices() {
 
                   <View className="device-card-actions">
                     <View
-                      className={`device-action-btn ${!canSwitchMode ? "device-action-btn--disabled" : ""}`}
+                      className="device-action-btn"
                       onClick={() => {
-                        if (!item.petId) return;
-                        Taro.navigateTo({ url: `/pages/pet-mode/index?petId=${item.petId}` });
+                        if (hasBinding) {
+                          handleChangePet(item);
+                          return;
+                        }
+                        Taro.navigateTo({
+                          url: `/pages/bind-pet/index?deviceType=${item.type}&deviceId=${encodeURIComponent(
+                            item.sourceId
+                          )}&deviceName=${encodeURIComponent(item.name)}`,
+                        });
                       }}
                     >
-                      <Text className="device-action-text">活动模式切换</Text>
+                      <Text className="device-action-text">{hasBinding ? "更换绑定宠物" : "绑定宠物"}</Text>
                     </View>
 
-                    {canShare ? (
-                      <View
-                        className="device-action-btn"
-                        onClick={() => {
-                          if (!item.petId) return;
-                          Taro.navigateTo({ url: `/pages/invite/index?petId=${item.petId}` });
-                        }}
-                      >
-                        <Text className="device-action-text">分享授权</Text>
-                      </View>
-                    ) : (
-                      <View
-                        className="device-action-btn"
-                        onClick={() => {
-                          if (item.type === "collar") {
-                            void handleUnbindCollar(item.id);
-                            return;
-                          }
-
-                          void handleDesktopRemove(item.sourceId, item.bindingId, item.bindingType);
-                        }}
-                      >
-                        <Text className="device-action-text">
-                          {item.type === "collar" ? "解除当前绑定" : "删除当前设备"}
-                        </Text>
-                      </View>
-                    )}
+                    <View
+                      className="device-action-btn"
+                      onClick={() => {
+                        if (hasBinding) {
+                          handleUnbind(item);
+                          return;
+                        }
+                        handleDelete(item);
+                      }}
+                    >
+                      <Text className="device-action-text">{hasBinding ? "解除当前绑定" : "删除当前设备"}</Text>
+                    </View>
                   </View>
                 </View>
               );

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { messages, petAvatars, petAvatarActions, pets, users } from "../db/schema";
-import { eq, and, gt, ne, sql, asc } from "drizzle-orm";
+import { messages, petAvatars, petAvatarActions, pets } from "../db/schema";
+import { eq, and, ne, asc } from "drizzle-orm";
 import { broadcast } from "../ws";
 
 const avatarsRoute = new Hono();
@@ -34,16 +34,6 @@ avatarsRoute.post("/", async (c) => {
     .from(pets)
     .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
   if (!pet) return c.json({ error: "Pet not found" }, 404);
-
-  // 原子扣减额度（避免并发竞态）
-  const [updated] = await db
-    .update(users)
-    .set({ avatarQuota: sql`${users.avatarQuota} - 1` })
-    .where(and(eq(users.id, userId), gt(users.avatarQuota, 0)))
-    .returning();
-  if (!updated) {
-    return c.json({ error: "定制额度不足" }, 403);
-  }
 
   // 校验 additionalImages 中的 URL
   if (body.additionalImages?.some((url) => !isSafeImageUrl(url))) {
