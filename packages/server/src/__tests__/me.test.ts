@@ -16,8 +16,8 @@ describe("Me Routes", () => {
     });
 
     it("updates nickname", async () => {
-      const existing = fakeUser();
-      const updated = fakeUser({ nickname: "New Name" });
+      const existing = fakeUser({ email: "user@example.com" });
+      const updated = fakeUser({ nickname: "New Name", email: "user@example.com" });
       mockDb._results.select = [[existing]];
       mockDb._results.update = [[updated]];
 
@@ -31,6 +31,7 @@ describe("Me Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.user.nickname).toBe("New Name");
+      expect(json.user.email).toBe("user@example.com");
     });
 
     it("updates avatarUrl", async () => {
@@ -62,6 +63,18 @@ describe("Me Routes", () => {
         })
       );
       expect(res.status).toBe(404);
+    });
+
+    it("returns 400 when trying to update email directly", async () => {
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("PUT", "/api/me", {
+          headers,
+          body: { email: "user@example.com" },
+        })
+      );
+
+      expect(res.status).toBe(400);
     });
   });
 });

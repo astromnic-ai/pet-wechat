@@ -65,7 +65,7 @@ export default function Profile() {
   const displayName = isPlaceholderNickname(user?.nickname) ? "未设置昵称" : user?.nickname?.trim() || "未设置昵称";
   const displayId = user?.phone?.trim() || user?.id || "--";
   const displayPhone = user?.phone?.trim() ? user.phone : "未绑定";
-  const displayEmail = "未设置";
+  const displayEmail = user?.email?.trim() ? user.email : "未设置";
   const displayCreatedAt = user?.createdAt
     ? String(user.createdAt).slice(0, 10)
     : "--";

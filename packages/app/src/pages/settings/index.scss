@@ -76,6 +76,11 @@
   color: #232323;
 }
 
+.setting-value {
+  font-size: 26rpx;
+  color: #7c756c;
+}
+
 .setting-card .wx-switch-input,
 .setting-card .wx-switch-input::before {
   border-radius: 40rpx;
@@ -97,23 +102,6 @@
 .firmware-arrow {
   font-size: 24rpx;
   color: #303030;
-}
-
-.theme-pill-group {
-  display: flex;
-  align-items: center;
-  gap: 18rpx;
-}
-
-.theme-pill {
-  width: 82rpx;
-  height: 42rpx;
-  border-radius: 24rpx;
-  background: #e9e8e8;
-}
-
-.theme-pill--active {
-  background: #dcdada;
 }
 
 .firmware-card {

@@ -1,29 +1,35 @@
 import { View, Text, Switch } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
-import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
+import type { CollarDevice, DesktopDevice, UserSettings } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
+import {
+  fetchUserSettings,
+  getThemeLabel,
+  readCachedUserSettings,
+  saveUserSettings,
+} from "../../utils/userSettings";
 import "./index.scss";
 
 const APP_VERSION = "1.0.0";
-const STORAGE_KEYS = {
-  sound: "settings:sound",
-  message: "settings:message",
-  theme: "settings:theme",
-} as const;
 
 export default function Settings() {
-  const [soundEnabled, setSoundEnabled] = useState(() => Taro.getStorageSync(STORAGE_KEYS.sound) ?? true);
-  const [messageEnabled, setMessageEnabled] = useState(() => Taro.getStorageSync(STORAGE_KEYS.message) ?? true);
-  const [theme, setTheme] = useState<"light" | "dark" | "blue">(
-    () => Taro.getStorageSync(STORAGE_KEYS.theme) || "light"
-  );
+  const [settings, setSettings] = useState<UserSettings>(() => readCachedUserSettings());
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
 
+  const applySettings = async (patch: Partial<UserSettings>) => {
+    const result = await saveUserSettings(patch);
+    setSettings(result.settings);
+    if (!result.persisted) {
+      Taro.showToast({ title: "网络异常，已保存在本地", icon: "none" });
+    }
+  };
+
   useDidShow(() => {
     Taro.hideTabBar();
+    void fetchUserSettings().then((result) => setSettings(result.settings));
   });
 
   useEffect(() => {
@@ -35,18 +41,6 @@ export default function Settings() {
       setDesktops(desktopRes.desktops);
     });
   }, []);
-
-  useEffect(() => {
-    Taro.setStorageSync(STORAGE_KEYS.sound, soundEnabled);
-  }, [soundEnabled]);
-
-  useEffect(() => {
-    Taro.setStorageSync(STORAGE_KEYS.message, messageEnabled);
-  }, [messageEnabled]);
-
-  useEffect(() => {
-    Taro.setStorageSync(STORAGE_KEYS.theme, theme);
-  }, [theme]);
 
   const openPage = (url: string) => Taro.navigateTo({ url });
   const firmwareText = useMemo(() => {
@@ -79,21 +73,29 @@ export default function Settings() {
 
         <View className="setting-card setting-card--row" onClick={() => openPage("/pages/settings/theme")}>
           <Text className="setting-label">主题模式</Text>
-          <View className="theme-pill-group">
-            <View className={`theme-pill ${theme === "light" ? "theme-pill--active" : ""}`} />
-            <View className={`theme-pill ${theme === "dark" ? "theme-pill--active" : ""}`} />
-            <View className={`theme-pill ${theme === "blue" ? "theme-pill--active" : ""}`} />
-          </View>
+          <Text className="setting-value">{getThemeLabel(settings.theme)}</Text>
         </View>
 
         <View className="setting-card setting-card--row">
           <Text className="setting-label">声音反馈</Text>
-          <Switch checked={soundEnabled} color="#4aa4ff" onChange={(e) => setSoundEnabled(e.detail.value)} />
+          <Switch
+            checked={settings.soundEnabled}
+            color="#4aa4ff"
+            onChange={(e) => {
+              void applySettings({ soundEnabled: e.detail.value });
+            }}
+          />
         </View>
 
         <View className="setting-card setting-card--row">
           <Text className="setting-label">消息通知</Text>
-          <Switch checked={messageEnabled} color="#4aa4ff" onChange={(e) => setMessageEnabled(e.detail.value)} />
+          <Switch
+            checked={settings.messageEnabled}
+            color="#4aa4ff"
+            onChange={(e) => {
+              void applySettings({ messageEnabled: e.detail.value });
+            }}
+          />
         </View>
 
         <Text className="group-title group-title--support">支持</Text>

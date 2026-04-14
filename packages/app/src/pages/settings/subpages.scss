@@ -76,7 +76,6 @@
   padding: 0 26rpx;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   border-bottom: 2rpx solid #f5eee4;
 }
 
@@ -90,6 +89,20 @@
   font-size: 30rpx;
   font-weight: 600;
   color: #232323;
+}
+
+.settings-list-meta {
+  margin-left: auto;
+  margin-right: 16rpx;
+  font-size: 24rpx;
+  color: #9a9084;
+}
+
+.settings-language-desc {
+  display: block;
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #a39a8d;
 }
 
 .settings-language-card {
@@ -243,4 +256,59 @@
   font-size: 24rpx;
   line-height: 1.4;
   color: #b2aba1;
+}
+
+.bind-form-card {
+  padding: 28rpx 24rpx;
+}
+
+.bind-input {
+  width: 100%;
+  min-height: 92rpx;
+  padding: 0 24rpx;
+  border-radius: 24rpx;
+  border: 2rpx solid #efe7da;
+  background: #fffdf8;
+  box-sizing: border-box;
+}
+
+.bind-row {
+  margin-top: 18rpx;
+  display: flex;
+  gap: 16rpx;
+}
+
+.bind-row .bind-input {
+  flex: 1;
+}
+
+.bind-action-btn,
+.bind-submit-btn {
+  margin-top: 18rpx;
+  height: 88rpx;
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.bind-action-btn {
+  min-width: 220rpx;
+  background: #f2efe9;
+  color: #3e3e3e;
+}
+
+.bind-submit-btn {
+  background: #4aa4ff;
+  color: #ffffff;
+}
+
+.bind-helper {
+  display: block;
+  margin: 14rpx 6rpx 0;
+  font-size: 24rpx;
+  line-height: 1.5;
+  color: #9a9084;
 }
