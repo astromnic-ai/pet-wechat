@@ -188,6 +188,19 @@ export function fakeBehavior(overrides: Record<string, unknown> = {}) {
   };
 }
 
+export function fakeInteractionEvent(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "interaction-1",
+    userId: "user-1",
+    petId: "pet-1",
+    deviceId: "desktop-1",
+    actionType: "tap",
+    occurredAt: new Date(),
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
 export function fakeBinding(overrides: Record<string, unknown> = {}) {
   return {
     id: "binding-1",

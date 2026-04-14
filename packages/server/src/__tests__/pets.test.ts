@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { mockDb } from "./setup";
-import { createApp, authHeader, jsonReq, fakePet } from "./helpers";
+import {
+  createApp,
+  authHeader,
+  jsonReq,
+  fakeInteractionEvent,
+  fakePet,
+} from "./helpers";
 
 const app = createApp();
 
@@ -82,6 +88,53 @@ describe("Pet Routes", () => {
         jsonReq("GET", "/api/pets/pet-1", { headers })
       );
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe("GET /api/pets/:petId/interaction-stats", () => {
+    it("returns aggregated counts and buckets for owner", async () => {
+      const now = new Date();
+      const todayEvent = fakeInteractionEvent({
+        occurredAt: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0),
+      });
+      const weekEvent = fakeInteractionEvent({
+        id: "interaction-2",
+        occurredAt: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 12, 0, 0),
+      });
+
+      mockDb._results.select = [[fakePet()], [todayEvent, weekEvent]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/pets/pet-1/interaction-stats?range=week", { headers })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.totalCount).toBe(2);
+      expect(json.todayCount).toBe(1);
+      expect(json.weekCount).toBe(2);
+      expect(json.buckets).toHaveLength(7);
+    });
+
+    it("returns 403 when pet exists but user is unauthorized", async () => {
+      mockDb._results.select = [[fakePet({ userId: "user-1" })], []];
+
+      const headers = await authHeader("user-2");
+      const res = await app.request(
+        jsonReq("GET", "/api/pets/pet-1/interaction-stats", { headers })
+      );
+
+      expect(res.status).toBe(403);
+    });
+
+    it("returns 400 for invalid range", async () => {
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/pets/pet-1/interaction-stats?range=year", { headers })
+      );
+
+      expect(res.status).toBe(400);
     });
   });
 
