@@ -2,7 +2,7 @@
   height: 100vh;
   background: #ffffff;
   box-sizing: border-box;
-  padding: calc(env(safe-area-inset-top) + 24rpx) 24rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  padding: calc(env(safe-area-inset-top) + 164rpx) 24rpx calc(env(safe-area-inset-bottom) + 20rpx);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -10,33 +10,14 @@
 
 .upload-page-header {
   display: flex;
-  align-items: center;
-  gap: 20rpx;
-  min-height: 72rpx;
-  margin-bottom: 18rpx;
-}
-
-.upload-page-header :global(.page-back) {
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
-  inset: auto !important;
-  transform: none !important;
-  flex: 0 0 72rpx;
-  width: 72rpx;
-  height: 72rpx;
-  z-index: 1;
-}
-
-.upload-header {
-  flex: 1;
-  min-width: 0;
-  padding-right: 12rpx;
+  flex-direction: column;
+  align-items: flex-start;
+  margin-bottom: 22rpx;
 }
 
 .upload-page-title {
   display: block;
-  font-size: 32rpx;
+  font-size: 44rpx;
   font-weight: 700;
   line-height: 1.15;
   color: #58a9ff;
@@ -44,7 +25,7 @@
 
 .upload-page-subtitle {
   display: block;
-  margin-top: 8rpx;
+  margin-top: 22rpx;
   font-size: 24rpx;
   line-height: 1.4;
   color: #9b9b9b;
@@ -52,20 +33,21 @@
 
 .main-card {
   width: 100%;
-  flex: 1;
+  flex: 0 0 auto;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
+  margin-top: 42rpx;
 }
 
 .upload-box {
   width: 100%;
-  min-height: 520rpx;
+  min-height: 580rpx;
   background: #ffffff;
   border: 2rpx solid #ebebeb;
   border-radius: 36rpx;
-  padding: 38rpx 28rpx 30rpx;
+  padding: 60rpx 32rpx 34rpx;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -73,11 +55,11 @@
 }
 
 .upload-preview-wrap {
-  width: 180rpx;
-  height: 180rpx;
+  width: 196rpx;
+  height: 196rpx;
   border-radius: 32rpx;
   background: #ffd86f;
-  padding: 34rpx;
+  padding: 36rpx;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -102,8 +84,8 @@
 
 .upload-box-title {
   display: block;
-  margin-top: 20rpx;
-  font-size: 24rpx;
+  margin-top: 24rpx;
+  font-size: 30rpx;
   font-weight: 600;
   line-height: 1.3;
   color: #202020;
@@ -112,17 +94,17 @@
 
 .upload-box-subtitle {
   display: block;
-  margin-top: 10rpx;
-  font-size: 20rpx;
+  margin-top: 12rpx;
+  font-size: 26rpx;
   line-height: 1.4;
   color: #9d9d9d;
   text-align: center;
 }
 
 .upload-trigger {
-  width: 100%;
-  height: 78rpx;
-  margin-top: 18rpx;
+  width: 92%;
+  height: 88rpx;
+  margin-top: 24rpx;
   background: #c9e4ff;
   border-radius: 999rpx;
   display: flex;
@@ -131,21 +113,21 @@
 }
 
 .upload-trigger-text {
-  font-size: 24rpx;
+  font-size: 30rpx;
   font-weight: 600;
   color: #58a9ff;
 }
 
 .quota-text {
-  margin-top: 16rpx;
-  font-size: 22rpx;
+  margin-top: 18rpx;
+  font-size: 28rpx;
   line-height: 1.3;
   color: #202020;
   text-align: center;
 }
 
 .upload-tips-card {
-  margin-top: 14rpx;
+  margin-top: 88rpx;
   width: 100%;
   border-radius: 26rpx;
   background: #f7f7f7;
@@ -176,7 +158,7 @@
 .upload-tip-item {
   display: flex;
   align-items: center;
-  min-height: 52rpx;
+  min-height: 48rpx;
   border: 2rpx solid #ececec;
   background: #ffffff;
   margin-bottom: 8rpx;
@@ -194,7 +176,7 @@
 }
 
 .upload-tip-text {
-  font-size: 22rpx;
+  font-size: 20rpx;
   color: #999999;
   line-height: 1.3;
 }
@@ -202,7 +184,7 @@
 .primary-action {
   width: 100%;
   height: 82rpx;
-  margin-top: 14rpx;
+  margin-top: 16rpx;
   background: #58a9ff;
   border-radius: 999rpx;
   display: flex;
@@ -221,7 +203,7 @@
 }
 
 .secondary-action {
-  margin-top: 8rpx;
+  margin-top: 14rpx;
   padding-top: 0;
   display: flex;
   justify-content: center;

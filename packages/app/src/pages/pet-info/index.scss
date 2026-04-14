@@ -228,17 +228,40 @@
   line-height: 1;
 }
 
+.detail-pill-gender {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+
+.detail-pill-symbol {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #1d1d1d;
+  line-height: 1;
+  transform: translateY(-1rpx);
+}
+
+.detail-pill-separator {
+  font-size: 24rpx;
+  font-weight: 600;
+  color: #1d1d1d;
+  line-height: 1;
+  margin: 0 2rpx;
+}
+
 .detail-edit-btn {
   margin-left: auto;
-  width: 56rpx;
-  height: 56rpx;
+  width: 72rpx;
+  height: 72rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .detail-edit-icon {
-  font-size: 32rpx;
+  font-size: 42rpx;
   color: #7b7b7b;
   line-height: 1;
 }

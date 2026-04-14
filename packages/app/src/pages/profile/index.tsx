@@ -5,9 +5,9 @@ import type { Pet, User } from "@pet-wechat/shared";
 import { clearToken, request } from "../../utils/request";
 import { disconnectWs } from "../../utils/ws";
 import PageBack from "../../components/PageBack";
+import { getPetDisplayImage } from "../../utils/petVisual";
 import "./index.scss";
 
-const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
 const FREE_AVATAR_TOTAL = 2;
 
 export default function Profile() {
@@ -60,7 +60,7 @@ export default function Profile() {
   const petCards = pets.slice(0, 2).map((pet) => ({
     id: pet.id,
     name: pet.name,
-    image: pet.avatarImageUrl || DEFAULT_AVATAR,
+    image: getPetDisplayImage(pet),
   }));
 
   const displayName = isPlaceholderNickname(user?.nickname) ? "未设置昵称" : user?.nickname?.trim() || "未设置昵称";
@@ -102,7 +102,7 @@ export default function Profile() {
             <View className="user-card-top" onClick={handleEditProfile}>
               <Image
                 className="user-card-avatar"
-                src={user?.avatarUrl || DEFAULT_AVATAR}
+                src={user?.avatarUrl || require("@/assets/images/black cat 3.png")}
                 mode="aspectFill"
               />
               <View className="user-card-texts">

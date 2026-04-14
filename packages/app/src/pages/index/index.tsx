@@ -6,6 +6,7 @@ import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, CollarDevice, DesktopDevice, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModeSlots } from "../../utils/storage";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
+import { getPetDisplayImage, getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
 import "./index.scss";
 
@@ -306,14 +307,11 @@ export default function Index() {
         fallbackName: primaryManagedDevice === activeDesktop ? "桌面端" : "项圈",
       })
     : "未命名设备";
-  const primaryManagedDeviceLabel = primaryManagedDevice
-    ? `${getDeviceStatusText(primaryManagedDevice.status)} · ${getUsageLabel(primaryManagedDevice.createdAt)}`
-    : "";
+  const primaryManagedDeviceLabel = primaryManagedDevice ? getUsageLabel(primaryManagedDevice.createdAt) : "";
+  const primaryManagedDeviceStatus = primaryManagedDevice ? getDeviceStatusText(primaryManagedDevice.status) : "";
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
   const hasCompletePetProfile = Boolean(currentPet?.name?.trim() && currentPet?.breed?.trim());
-  const defaultPetHeroImage = currentPet?.species === "dog"
-    ? require("@/assets/images/dog-hero.png")
-    : require("@/assets/images/pet-collar.png");
+  const defaultPetHeroImage = getPetFallbackImage(currentPet?.species);
   const currentPetAvatarTask = currentPet?.id ? petAvatarTaskMap[currentPet.id] : null;
   const currentPetAvatarStatus = currentPetAvatarTask?.status ?? null;
   const isAvatarGenerating =
@@ -336,11 +334,14 @@ export default function Index() {
           : "upload";
   const bubbleText = !currentPet
     ? "点击开始创建宠物"
-    : homeHeroState === "processing"
-      ? "正在生成您的宠物定制形象"
-      : homeHeroState === "upload"
-        ? "上传您的宠物照片"
-        : "在家开水龙头喝水？";
+    : homeHeroState === "done"
+      ? "在家开水龙头喝水？"
+      : "";
+  const heroOverlayText = homeHeroState === "processing"
+    ? "正在生成您的宠物定制形象"
+    : homeHeroState === "upload"
+      ? "上传您的宠物照片"
+      : "";
   const petHeroImage = homeHeroState === "done" ? currentPet?.avatarImageUrl || defaultPetHeroImage : defaultPetHeroImage;
   const petSubtitle = getPetSubtitle(currentPet);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
@@ -461,11 +462,11 @@ export default function Index() {
             <View className="top-card-entry">
               <View className="avatar-shell">
                 {hasPet ? (
-                  <Image
-                    className="avatar-image"
-                    src={currentPet?.avatarImageUrl || petHeroImage}
-                    mode="aspectFill"
-                  />
+                    <Image
+                      className="avatar-image"
+                      src={getPetDisplayImage(currentPet)}
+                      mode="aspectFill"
+                    />
                 ) : (
                   <View className="avatar-placeholder" />
                 )}
@@ -500,9 +501,11 @@ export default function Index() {
           {hasPet ? (
             <View className="pet-stage">
               <View className="pet-showcase-wrap">
-                <View className="speech-bubble">
-                  <Text className="speech-text">{bubbleText}</Text>
-                </View>
+                {bubbleText ? (
+                  <View className="speech-bubble">
+                    <Text className="speech-text">{bubbleText}</Text>
+                  </View>
+                ) : null}
                 <Swiper
                   className="pet-swiper"
                   current={currentPetIndex}
@@ -518,17 +521,19 @@ export default function Index() {
                         onTouchEnd={handlePetTouchEnd}
                       >
                         <Image
-                          className="pet-showcase"
+                          className={`pet-showcase ${pet?.id === currentPet?.id && heroOverlayText ? "pet-showcase--masked" : ""}`}
                           src={
                             pet?.id === currentPet?.id
                               ? currentFrameImage
-                              : pet?.avatarImageUrl ||
-                                (pet?.species === "dog"
-                                  ? require("@/assets/images/dog-hero.png")
-                                  : require("@/assets/images/pet-collar.png"))
+                              : getPetDisplayImage(pet)
                           }
                           mode="widthFix"
                         />
+                        {pet?.id === currentPet?.id && heroOverlayText ? (
+                          <View className="pet-showcase-overlay">
+                            <Text className="pet-showcase-overlay-text">{heroOverlayText}</Text>
+                          </View>
+                        ) : null}
                       </View>
                     </SwiperItem>
                   ))}
@@ -586,7 +591,7 @@ export default function Index() {
                     <Text className="managed-device-text">{primaryManagedDeviceLabel}</Text>
                   </View>
                   <View className="managed-device-status">
-                    <Text className="managed-device-status-text">已连接</Text>
+                    <Text className="managed-device-status-text">{primaryManagedDeviceStatus}</Text>
                   </View>
                   <View className="device-manage-btn" onClick={handleManageDevices}>
                     <Text className="device-manage-text">›</Text>

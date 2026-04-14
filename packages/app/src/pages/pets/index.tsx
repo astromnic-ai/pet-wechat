@@ -4,9 +4,8 @@ import { useState } from "react";
 import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
+import { getPetDisplayImage } from "../../utils/petVisual";
 import "./index.scss";
-
-const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
 const DELETE_ACTION_WIDTH = 168;
 
 function calculateAgeLabel(birthday?: string | null) {
@@ -170,7 +169,7 @@ export default function PetsPage() {
                         transform: openDeleteId === pet.id ? `translateX(-${DELETE_ACTION_WIDTH}rpx)` : "translateX(0)",
                       }}
                     >
-                      <Image className="pet-list-avatar" src={pet.avatarImageUrl || DEFAULT_AVATAR} mode="aspectFill" />
+                      <Image className="pet-list-avatar" src={getPetDisplayImage(pet)} mode="aspectFill" />
 
                       <View className="pet-list-body">
                         <View className="pet-list-name-row">
@@ -195,7 +194,7 @@ export default function PetsPage() {
               <Text className="pets-section-title">被授权宠物</Text>
               {authorizedPets.map((pet) => (
                 <View key={pet.id} className="pet-list-card pet-list-card--plain" onClick={() => handleOpenPet(pet.id)}>
-                  <Image className="pet-list-avatar" src={pet.avatarImageUrl || DEFAULT_AVATAR} mode="aspectFill" />
+                  <Image className="pet-list-avatar" src={getPetDisplayImage(pet)} mode="aspectFill" />
 
                   <View className="pet-list-body">
                     <View className="pet-list-name-row">

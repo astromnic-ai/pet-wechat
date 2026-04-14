@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarAction, Species } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import { getPetFallbackImage } from "../../utils/petVisual";
 import "./index.scss";
 
 const CAT_SYSTEM_ACTION_FALLBACKS = [
@@ -129,7 +130,7 @@ export default function PetInfo() {
 
     setAvatarId(latestAvatar.id);
     setAvatarStatus(latestAvatar.status);
-    setAvatarPreviewUrl(latestAvatar.sourceImageUrl || latestActions[0]?.imageUrl || "");
+    setAvatarPreviewUrl(latestActions[0]?.imageUrl || latestAvatar.sourceImageUrl || "");
     setAvatarActions(latestActions);
   };
 
@@ -237,8 +238,7 @@ export default function PetInfo() {
     Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${petId}` });
   };
 
-  const fallbackPetImage =
-    species === "dog" ? require("@/assets/images/dog-hero.png") : require("@/assets/images/black cat 3.png");
+  const fallbackPetImage = getPetFallbackImage(species);
   const isAvatarGenerating =
     avatarStatus === "pending" ||
     avatarStatus === "processing" ||
@@ -251,7 +251,6 @@ export default function PetInfo() {
     : selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
   const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
-  const customActions = avatarActions.slice(8);
   const systemActionFallbacks = species === "dog" ? DOG_SYSTEM_ACTION_FALLBACKS : CAT_SYSTEM_ACTION_FALLBACKS;
   const detailTipText =
     avatarStatus === "done"
@@ -369,10 +368,9 @@ export default function PetInfo() {
     }
   }, [selectedPreviewUrl]);
 
-  const customActionItems = useMemo(() => {
-    if (customActions.length > 0) return customActions;
-    return [];
-  }, [customActions]);
+  // 当前后端还没有独立返回“用户自定义动作”数据，这里先保持空态，
+  // 避免把系统生成动作或占位内容误展示成自定义动作。
+  const customActionItems = useMemo(() => [], []);
 
   const handlePreviewAction = (imageUrl: string, label: string) => {
     setSelectedPreviewUrl(imageUrl);
@@ -488,7 +486,12 @@ export default function PetInfo() {
                 <Text className="detail-pill-text">{breed.trim() || "未设置品种"}</Text>
               </View>
               <View className="detail-pill">
-                <Text className="detail-pill-text">{gender === "female" ? "♀ 母" : "♂ 公"} · {ageLabel}</Text>
+                <View className="detail-pill-gender">
+                  <Text className="detail-pill-symbol">{gender === "female" ? "♀" : "♂"}</Text>
+                  <Text className="detail-pill-text">{gender === "female" ? "母" : "公"}</Text>
+                  <Text className="detail-pill-separator">·</Text>
+                  <Text className="detail-pill-text">{ageLabel}</Text>
+                </View>
               </View>
               <View className="detail-edit-btn" onClick={() => Taro.navigateTo({ url: `/pages/pet-info/index?petId=${petId}&edit=1` })}>
                 <Text className="detail-edit-icon">✎</Text>
@@ -537,13 +540,6 @@ export default function PetInfo() {
                     <Text className="detail-action-label">{action.actionType}</Text>
                   </View>
                 ))}
-                {customActionItems.length === 0 ? (
-                  <View className="detail-action-item detail-action-item--custom">
-                    <View className="detail-action-thumb-wrap">
-                      <Image className="detail-action-thumb" src={avatarCardImage} mode="aspectFill" />
-                    </View>
-                  </View>
-                ) : null}
                 <View className="detail-add-action" onClick={handleOpenCustomActionUpload}>
                   <Text className="detail-add-action-icon">＋</Text>
                 </View>

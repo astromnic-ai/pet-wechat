@@ -3,7 +3,6 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import { request, uploadFile } from "../../utils/request";
 import type { Pet } from "@pet-wechat/shared";
-import PageBack from "../../components/PageBack";
 import "./index.scss";
 
 const PHOTO_PLACEHOLDER_IMAGE = require("./images/upload-icon.png");
@@ -133,11 +132,8 @@ export default function PetAvatar() {
   return (
     <View className="pet-avatar-page">
       <View className="upload-page-header">
-        <PageBack inline />
-        <View className="upload-header">
-          <Text className="upload-page-title">上传您的宠物照片</Text>
-          <Text className="upload-page-subtitle">我们将为您生成专属的宠物定制形象</Text>
-        </View>
+        <Text className="upload-page-title">上传您的宠物照片</Text>
+        <Text className="upload-page-subtitle">我们将为您生成专属的宠物定制形象</Text>
       </View>
 
       <View className="main-card">
