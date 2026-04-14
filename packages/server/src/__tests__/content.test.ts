@@ -21,6 +21,7 @@ describe("Content Routes", () => {
       expect(json.body).toContain("常见问题");
       expect(typeof json.version).toBe("string");
       expect(typeof json.updatedAt).toBe("string");
+      expect(Number.isNaN(new Date(json.version).getTime())).toBe(false);
     });
 
     it("returns 404 for unsupported slug", async () => {

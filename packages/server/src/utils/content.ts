@@ -39,28 +39,18 @@ function splitMarkdown(markdown: string, slug: ContentSlug) {
   };
 }
 
-function readGitMetadata(filePath: string) {
-  const versionResult = Bun.spawnSync({
-    cmd: ["git", "log", "-n", "1", "--format=%H", "--", filePath],
-    stderr: "ignore",
-    stdout: "pipe",
-  });
+function readGitUpdatedAt(filePath: string) {
   const updatedAtResult = Bun.spawnSync({
     cmd: ["git", "log", "-n", "1", "--format=%cI", "--", filePath],
     stderr: "ignore",
     stdout: "pipe",
   });
 
-  return {
-    version:
-      versionResult.exitCode === 0
-        ? new TextDecoder().decode(versionResult.stdout).trim()
-        : "",
-    updatedAt:
-      updatedAtResult.exitCode === 0
-        ? new TextDecoder().decode(updatedAtResult.stdout).trim()
-        : "",
-  };
+  if (updatedAtResult.exitCode !== 0) {
+    return "";
+  }
+
+  return new TextDecoder().decode(updatedAtResult.stdout).trim();
 }
 
 export async function readContentPage(slug: ContentSlug): Promise<ContentPageRecord | null> {
@@ -73,13 +63,14 @@ export async function readContentPage(slug: ContentSlug): Promise<ContentPageRec
 
   const [markdown, fileStat] = await Promise.all([file.text(), stat(filePath)]);
   const { title, body } = splitMarkdown(markdown, slug);
-  const gitMetadata = readGitMetadata(filePath);
+  const gitUpdatedAt = readGitUpdatedAt(filePath);
+  const fallbackUpdatedAt = fileStat.mtime.toISOString();
 
   return {
     slug,
     title,
     body,
-    version: gitMetadata.version || String(Math.floor(fileStat.mtimeMs)),
-    updatedAt: gitMetadata.updatedAt || fileStat.mtime.toISOString(),
+    version: gitUpdatedAt || fallbackUpdatedAt,
+    updatedAt: gitUpdatedAt || fallbackUpdatedAt,
   };
 }
