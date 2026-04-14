@@ -21,7 +21,17 @@ export default defineAppConfig({
     { root: "pages/invite", pages: ["index"] },
     {
       root: "pages/settings",
-      pages: ["index", "system", "theme", "help", "about", "bind-phone", "bind-email"],
+      pages: [
+        "index",
+        "system",
+        "theme",
+        "help",
+        "about",
+        "privacy",
+        "user-agreement",
+        "bind-phone",
+        "bind-email",
+      ],
     },
   ],
   window: {
