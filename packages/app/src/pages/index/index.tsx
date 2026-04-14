@@ -40,7 +40,7 @@ function getPetSubtitle(pet: Pet | null) {
   if (!pet) return "点击开始创建宠物";
   if (pet.breed?.trim()) return pet.breed.trim();
   if (pet.latestBehavior?.actionType) return `${getBehaviorLabel(pet.latestBehavior.actionType)}中`;
-  return pet.species === "dog" ? "活泼的小狗狗" : "蓝灰色的小煤球";
+  return "待完善宠物资料";
 }
 
 export default function Index() {
@@ -271,7 +271,7 @@ export default function Index() {
                 )}
               </View>
               <View className="title-block">
-                <Text className="pet-name">{hasPet ? currentPet?.name ?? "" : "宠物的昵称"}</Text>
+                <Text className="pet-name">{hasPet ? currentPet?.name?.trim() || "未命名宠物" : "宠物的昵称"}</Text>
                 <Text className="pet-subtitle">{petSubtitle}</Text>
               </View>
             </View>
@@ -375,7 +375,7 @@ export default function Index() {
                     />
                   </View>
                   <View className="managed-device-main">
-                    <Text className="managed-device-name">{primaryManagedDevice?.name || "毛毛的大House"}</Text>
+                    <Text className="managed-device-name">{primaryManagedDevice?.name?.trim() || "未命名设备"}</Text>
                     <Text className="managed-device-text">{primaryManagedDeviceLabel}</Text>
                   </View>
                   <View className="managed-device-status">

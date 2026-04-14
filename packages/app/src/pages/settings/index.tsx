@@ -4,6 +4,8 @@ import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
+const APP_VERSION = "1.0.0";
+
 export default function Settings() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [messageEnabled, setMessageEnabled] = useState(true);
@@ -75,7 +77,7 @@ export default function Settings() {
           <View className="firmware-icon" />
           <View className="firmware-main">
             <Text className="firmware-title">版本更新</Text>
-            <Text className="firmware-desc">当前版本 v2.1.0</Text>
+            <Text className="firmware-desc">当前版本 v{APP_VERSION}</Text>
           </View>
           <View className="firmware-arrow-wrap">
             <Text className="firmware-arrow">→</Text>
@@ -86,7 +88,7 @@ export default function Settings() {
           <View className="firmware-icon" />
           <View className="firmware-main">
             <Text className="firmware-title">固件更新</Text>
-            <Text className="firmware-desc">当前版本 v2.1.0</Text>
+            <Text className="firmware-desc">连接设备后查看</Text>
           </View>
           <View className="firmware-arrow-wrap">
             <Text className="firmware-arrow">→</Text>

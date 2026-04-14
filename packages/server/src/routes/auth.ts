@@ -6,6 +6,13 @@ import { signToken } from "../middleware/auth";
 
 const auth = new Hono();
 
+const sanitizeStoredNicknameSql = sql`CASE
+  WHEN ${users.nickname} IN ('微信用户', '开发用户', '测试用户')
+    OR ${users.nickname} LIKE '用户____'
+  THEN ''
+  ELSE ${users.nickname}
+END`;
+
 let wxAccessTokenCache:
   | {
       token: string;
@@ -68,11 +75,11 @@ auth.post("/wechat", async (c) => {
     .insert(users)
     .values({
       wechatOpenid: openid,
-      nickname: "微信用户",
+      nickname: "",
     })
     .onConflictDoUpdate({
       target: users.wechatOpenid,
-      set: { nickname: sql`${users.nickname}` },
+      set: { nickname: sanitizeStoredNicknameSql },
     })
     .returning();
 
@@ -95,11 +102,11 @@ auth.post("/phone", async (c) => {
     .insert(users)
     .values({
       phone,
-      nickname: `用户${phone.slice(-4)}`,
+      nickname: "",
     })
     .onConflictDoUpdate({
       target: users.phone,
-      set: { nickname: sql`${users.nickname}` },
+      set: { nickname: sanitizeStoredNicknameSql },
     })
     .returning();
 
@@ -150,11 +157,11 @@ auth.post("/phone/wechat", async (c) => {
       .insert(users)
       .values({
         phone,
-        nickname: `用户${phone.slice(-4)}`,
+        nickname: "",
       })
       .onConflictDoUpdate({
         target: users.phone,
-        set: { nickname: sql`${users.nickname}` },
+        set: { nickname: sanitizeStoredNicknameSql },
       })
       .returning();
 
@@ -175,11 +182,11 @@ if (process.env.ENABLE_DEV_LOGIN === "true") {
       .insert(users)
       .values({
         phone: normalizedPhone,
-        nickname: "开发用户",
+        nickname: "",
       })
       .onConflictDoUpdate({
         target: users.phone,
-        set: { nickname: sql`${users.nickname}` },
+        set: { nickname: sanitizeStoredNicknameSql },
       })
       .returning();
 

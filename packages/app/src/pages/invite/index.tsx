@@ -19,6 +19,14 @@ interface InviteInfo {
   petId: string;
 }
 
+function getDisplayName(value?: string | null, fallback = "邀请人") {
+  const trimmed = value?.trim() || "";
+  if (!trimmed || trimmed === "微信用户" || trimmed === "开发用户" || /^用户\d{4}$/.test(trimmed)) {
+    return fallback;
+  }
+  return trimmed;
+}
+
 function calculateAge(birthday?: string | null): string {
   if (!birthday) return "年龄未知";
 
@@ -177,14 +185,14 @@ export default function Invite() {
               ? error
               : acceptDone
                 ? `你已获得查看 ${inviteInfo?.petName ?? "该宠物"} 的权限`
-                : `${inviteInfo?.fromNickname ?? "家人"} 邀请你加入宠物桌面`}
+                : `${getDisplayName(inviteInfo?.fromNickname)} 邀请你加入宠物桌面`}
           </Text>
           {!error ? (
             <View className="accept-info-card">
               <Text className="accept-info-label">宠物名称</Text>
-              <Text className="accept-info-value">{inviteInfo?.petName ?? "待确认"}</Text>
+              <Text className="accept-info-value">{inviteInfo?.petName?.trim() || "未命名宠物"}</Text>
               <Text className="accept-info-label">邀请人</Text>
-              <Text className="accept-info-value">{inviteInfo?.fromNickname ?? "家人"}</Text>
+              <Text className="accept-info-value">{getDisplayName(inviteInfo?.fromNickname)}</Text>
             </View>
           ) : null}
           <View className="accept-button" onClick={acceptDone || error ? handleGoHome : handleAccept}>
@@ -220,8 +228,8 @@ export default function Invite() {
             />
           </View>
           <View className="pet-info-main">
-            <Text className="pet-info-title">{pet?.name ?? "未选择宠物"}</Text>
-            <Text className="pet-info-subtitle">{pet?.breed || "请先完善宠物品种"}</Text>
+            <Text className="pet-info-title">{pet?.name?.trim() || "未选择宠物"}</Text>
+            <Text className="pet-info-subtitle">{pet?.breed?.trim() || "待完善宠物资料"}</Text>
             <Text className="pet-info-subtitle">{ageText}</Text>
           </View>
         </View>

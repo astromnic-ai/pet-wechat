@@ -47,7 +47,7 @@ adminRoute.post("/users", async (c) => {
   const [user] = await db
     .insert(users)
     .values({
-      nickname: body.nickname ?? "测试用户",
+      nickname: body.nickname?.trim() || "",
       wechatOpenid: body.wechatOpenid ?? null,
       phone: body.phone ?? null,
       avatarUrl: body.avatarUrl ?? null,
@@ -202,7 +202,7 @@ adminRoute.post("/collars", async (c) => {
     .insert(collarDevices)
     .values({
       userId: body.userId ?? null,
-      name: body.name ?? "模拟项圈",
+      name: body.name?.trim() || "未命名项圈",
       macAddress: body.macAddress ?? `MOCK:${createId().slice(0, 11).replace(/(.{2})/g, "$1:").slice(0, 17)}`,
       // 无主设备不允许绑定宠物
       petId: body.userId ? (body.petId ?? null) : null,
@@ -260,7 +260,7 @@ adminRoute.post("/desktops", async (c) => {
     .insert(desktopDevices)
     .values({
       userId: body.userId ?? null,
-      name: body.name ?? "模拟摆台",
+      name: body.name?.trim() || "未命名桌面端",
       macAddress: body.macAddress ?? `MOCK:${createId().slice(0, 11).replace(/(.{2})/g, "$1:").slice(0, 17)}`,
       status: body.status ?? "offline",
       firmwareVersion: body.firmwareVersion ?? "1.0.0",

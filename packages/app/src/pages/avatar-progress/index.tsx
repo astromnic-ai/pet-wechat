@@ -14,6 +14,10 @@ import "./index.scss";
 
 const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
 
+function getDisplayPetName(pet?: Pet | null) {
+  return pet?.name?.trim() || "宠物";
+}
+
 function getProgress(status: AvatarStatus) {
   if (status === "done") return 100;
   if (status === "processing") return 72;
@@ -189,7 +193,7 @@ export default function AvatarProgress() {
           <Text className="success-subtitle">
             {isCustomActionFlow
               ? `${customLabel || "自定义动作"}已生成`
-              : `${pet?.name || "毛毛"}的新形象已生成`}
+              : `${getDisplayPetName(pet)}的新形象已生成`}
           </Text>
 
           <View className="success-preview-card">
@@ -209,7 +213,7 @@ export default function AvatarProgress() {
               <Text className="success-preview-label">
                 {isCustomActionFlow
                   ? `${customLabel || "自定义宠物行为"}`
-                  : `${pet?.name || "毛毛"}的定制形象`}
+                  : `${getDisplayPetName(pet)}的定制形象`}
               </Text>
             </View>
           </View>

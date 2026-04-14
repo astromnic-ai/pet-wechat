@@ -31,6 +31,7 @@ export default function BindPet() {
         : require("@/assets/images/collar-icon.png"),
     [deviceType]
   );
+  const displayDeviceName = deviceName || deviceId || "待连接设备";
 
   const handleCreatePet = () => {
     Taro.navigateTo({
@@ -91,7 +92,7 @@ export default function BindPet() {
             <Image className="connected-device-image" src={deviceImage} mode="aspectFit" />
           </View>
           <View className="connected-device-body">
-            <Text className="connected-device-name">{deviceName || "YEHEY-Collar-001"}</Text>
+            <Text className="connected-device-name">{displayDeviceName}</Text>
             <Text className="connected-device-meta">已连接：请选择要绑定的宠物</Text>
           </View>
         </View>

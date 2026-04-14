@@ -22,12 +22,37 @@ function normalizeType(message: Message) {
   return "system";
 }
 
-function getTimeText(message: Message, index: number) {
-  if (index === 0) return "10:30";
-  if (index === 1) return "09:15";
-  if (index === 2) return "昨天";
-  if (index === 3) return "周一";
-  return "周日";
+function getTimeText(message: Message) {
+  const createdAt = new Date(message.createdAt);
+  if (Number.isNaN(createdAt.getTime())) return "";
+
+  const now = new Date();
+  const diffMs = now.getTime() - createdAt.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const sameDay = now.toDateString() === createdAt.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  if (diffMinutes < 1) return "刚刚";
+  if (diffMinutes < 60) return `${diffMinutes}分钟前`;
+  if (sameDay) {
+    return createdAt.toLocaleTimeString("zh-CN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  }
+  if (yesterday.toDateString() === createdAt.toDateString()) return "昨天";
+
+  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  if (diffDays < 7) {
+    return `周${"日一二三四五六"[createdAt.getDay()]}`;
+  }
+
+  return createdAt.toLocaleDateString("zh-CN", {
+    month: "numeric",
+    day: "numeric",
+  });
 }
 
 export default function MessagesPage() {
@@ -52,11 +77,7 @@ export default function MessagesPage() {
       setMessages([]);
     }
   };
-  const displayMessages = messages.slice(0, 5).map((item) => ({
-    id: item.id,
-    title: item.title,
-    content: item.content,
-  }));
+  const displayMessages = messages.slice(0, 5);
 
   return (
     <View className="messages-page">
@@ -69,7 +90,7 @@ export default function MessagesPage() {
       <ScrollView className="messages-scroll" scrollY>
         <View className="messages-list">
           {displayMessages.length > 0 ? (
-            displayMessages.map((message, index) => {
+            displayMessages.map((message) => {
               const type = normalizeType(message as Message);
               return (
                 <View key={message.id} className="message-card">
@@ -81,7 +102,7 @@ export default function MessagesPage() {
                     <Text className="message-title-text">{message.title}</Text>
                     <Text className="message-content">{message.content}</Text>
                   </View>
-                  <Text className="message-time">{getTimeText(message as Message, index)}</Text>
+                  <Text className="message-time">{getTimeText(message as Message)}</Text>
                 </View>
               );
             })

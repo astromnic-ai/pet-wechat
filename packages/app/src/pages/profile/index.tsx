@@ -12,20 +12,39 @@ const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
 export default function Profile() {
   const [user, setUser] = useState<User | null>(null);
   const [pets, setPets] = useState<Pet[]>([]);
+  const [deviceCount, setDeviceCount] = useState(0);
 
   useDidShow(() => {
     Taro.hideTabBar();
   });
 
   useEffect(() => {
-    void request<{ user: User }>({ url: "/api/me" })
-      .then((res) => setUser(res.user))
-      .catch(() => setUser(null));
-
-    void request<{ pets: Pet[] }>({ url: "/api/pets" })
-      .then((res) => setPets(res.pets))
-      .catch(() => setPets([]));
+    void Promise.all([
+      request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null })),
+      request<{ pets: Pet[] }>({ url: "/api/pets" }).catch(() => ({ pets: [] as Pet[] })),
+      request<{ collars: Array<{ id: string }> }>({ url: "/api/devices/collars" }).catch(
+        () => ({ collars: [] as Array<{ id: string }> })
+      ),
+      request<{ desktops: Array<{ id: string }> }>({ url: "/api/devices/desktops" }).catch(
+        () => ({ desktops: [] as Array<{ id: string }> })
+      ),
+    ]).then(([userRes, petRes, collarRes, desktopRes]) => {
+      setUser(userRes.user);
+      setPets(petRes.pets);
+      setDeviceCount(collarRes.collars.length + desktopRes.desktops.length);
+    });
   }, []);
+
+  const isPlaceholderNickname = (value?: string | null) => {
+    const trimmed = value?.trim() || "";
+    return (
+      !trimmed ||
+      trimmed === "微信用户" ||
+      trimmed === "开发用户" ||
+      trimmed === "测试用户" ||
+      /^用户\d{4}$/.test(trimmed)
+    );
+  };
 
   const handleLogout = () => {
     disconnectWs();
@@ -41,6 +60,14 @@ export default function Profile() {
     name: pet.name,
     image: pet.avatarImageUrl || DEFAULT_AVATAR,
   }));
+
+  const displayName = isPlaceholderNickname(user?.nickname) ? "未设置昵称" : user?.nickname?.trim() || "未设置昵称";
+  const displayId = user?.phone?.trim() || user?.id || "--";
+  const displayPhone = user?.phone?.trim() ? user.phone : "未绑定";
+  const displayEmail = "未设置";
+  const displayCreatedAt = user?.createdAt
+    ? String(user.createdAt).slice(0, 10)
+    : "--";
 
   const handleOpenPet = (petId?: string) => {
     if (!petId) {
@@ -69,8 +96,8 @@ export default function Profile() {
                 mode="aspectFill"
               />
               <View className="user-card-texts">
-                <Text className="user-card-name">{user?.nickname || "烨子"}</Text>
-                <Text className="user-card-id">ID: {user?.phone || "10086888"}</Text>
+                <Text className="user-card-name">{displayName}</Text>
+                <Text className="user-card-id">ID: {displayId}</Text>
               </View>
               <View className="vip-btn">
                 <Text className="vip-btn-text">开通会员</Text>
@@ -79,9 +106,9 @@ export default function Profile() {
 
             <View className="account-box">
               <Text className="account-title">账户信息</Text>
-              <Text className="account-line">手机号：135 **** 8888</Text>
-              <Text className="account-line">邮箱：YEHEY6789@guagua.com</Text>
-              <Text className="account-line">注册日期：2025-02-28</Text>
+              <Text className="account-line">手机号：{displayPhone}</Text>
+              <Text className="account-line">邮箱：{displayEmail}</Text>
+              <Text className="account-line">注册日期：{displayCreatedAt}</Text>
             </View>
           </View>
 
@@ -123,10 +150,10 @@ export default function Profile() {
           <View className="service-card">
             <View className="service-main">
               <View className="service-info-chip">
-                <Text className="service-line">定制图像：剩余1次（1/2免费额度）</Text>
+                <Text className="service-line">定制图像：剩余 {Math.max(user?.avatarQuota ?? 0, 0)} 次</Text>
               </View>
               <View className="service-info-chip">
-                <Text className="service-line">绑定终端：暂无额度（3/3免费额度）</Text>
+                <Text className="service-line">已绑定设备：{deviceCount} 台</Text>
               </View>
             </View>
             <View className="service-upgrade-btn">
