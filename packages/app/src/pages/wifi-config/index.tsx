@@ -21,6 +21,7 @@ export default function WifiConfig() {
         : require("@/assets/images/collar-icon.png"),
     [deviceType]
   );
+  const displayDeviceName = deviceName || deviceId || "待连接设备";
 
   const handleConnectWifi = async () => {
     if (!ssid.trim()) {
@@ -36,7 +37,7 @@ export default function WifiConfig() {
     setLoading(true);
     try {
       Taro.navigateTo({
-        url: `/pages/bind-pet/index?deviceType=${deviceType || "collar"}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(deviceName || "YEHEY-Device-001")}`,
+        url: `/pages/bind-pet/index?deviceType=${deviceType || "collar"}&deviceId=${encodeURIComponent(deviceId)}&deviceName=${encodeURIComponent(displayDeviceName)}`,
       });
     } finally {
       setLoading(false);
@@ -59,7 +60,7 @@ export default function WifiConfig() {
           <View className="device-wifi-device-icon-wrap">
             <Image className="device-wifi-device-icon" src={deviceImage} mode="aspectFit" />
           </View>
-          <Text className="device-wifi-device-name">{deviceName || "YEHEY-Collar-001"}</Text>
+          <Text className="device-wifi-device-name">{displayDeviceName}</Text>
           <View className="device-wifi-device-status">
             <Text className="device-wifi-device-status-dot">•</Text>
             <Text className="device-wifi-device-status-text">已连接</Text>

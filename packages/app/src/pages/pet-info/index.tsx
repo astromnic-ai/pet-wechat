@@ -17,6 +17,25 @@ const SYSTEM_ACTION_FALLBACKS = [
   { label: "睡觉", image: require("./images/action-sleep.png") },
 ];
 
+function calculateAgeLabel(birthday?: string | null) {
+  if (!birthday) return "年龄待补充";
+
+  const birthDate = new Date(birthday);
+  if (Number.isNaN(birthDate.getTime())) return "年龄待补充";
+
+  const today = new Date();
+  if (birthDate.getTime() > today.getTime()) return "年龄待补充";
+
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+
+  return age >= 0 ? `${age}岁` : "年龄待补充";
+}
+
 export default function PetInfo() {
   const router = useRouter();
   const petId = router.params.petId || router.params.id;
@@ -217,7 +236,7 @@ export default function PetInfo() {
   const fallbackPetImage =
     species === "dog" ? require("@/assets/images/husky.png") : require("@/assets/images/black cat 3.png");
   const avatarCardImage = selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
-  const ageLabel = birthday ? birthday : "3岁半";
+  const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
   const customActions = avatarActions.slice(8);
   const detailTipText =
@@ -447,10 +466,10 @@ export default function PetInfo() {
 
             <View className="detail-meta-row">
               <View className="detail-pill">
-                <Text className="detail-pill-text">{name || "毛毛"}</Text>
+                <Text className="detail-pill-text">{name.trim() || "未设置名称"}</Text>
               </View>
               <View className="detail-pill">
-                <Text className="detail-pill-text">{breed || "英短蓝猫"}</Text>
+                <Text className="detail-pill-text">{breed.trim() || "未设置品种"}</Text>
               </View>
               <View className="detail-pill">
                 <Text className="detail-pill-text">{gender === "female" ? "♀ 母" : "♂ 公"} · {ageLabel}</Text>

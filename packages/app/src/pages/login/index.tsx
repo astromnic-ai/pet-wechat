@@ -1,7 +1,7 @@
 import { View, Text, Button } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { useState } from "react";
-import { request, setToken } from "../../utils/request";
+import { clearToken, request, setToken } from "../../utils/request";
 import { connectWs } from "../../utils/ws";
 import "./index.scss";
 
@@ -56,6 +56,9 @@ export default function Login() {
 
     setLoadingType("phone");
     try {
+      clearToken();
+      Taro.removeStorageSync("userId");
+
       const { token, user } = await request<AuthResponse>({
         url: "/api/auth/phone/wechat",
         method: "POST",
@@ -81,6 +84,9 @@ export default function Login() {
 
     setLoadingType("wechat");
     try {
+      clearToken();
+      Taro.removeStorageSync("userId");
+
       const loginRes = await Taro.login();
       if (!loginRes.code) {
         throw new Error("获取微信登录凭证失败");

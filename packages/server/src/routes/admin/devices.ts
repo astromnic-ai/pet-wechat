@@ -70,7 +70,7 @@ devicesRoute.post("/collars", async (c) => {
     .insert(collarDevices)
     .values({
       userId: body.userId ?? null,
-      name: body.name ?? "模拟项圈",
+      name: body.name?.trim() || "未命名项圈",
       macAddress: body.macAddress ?? `MOCK:${createId().slice(0, 11).replace(/(.{2})/g, "$1:").slice(0, 17)}`,
       petId: body.userId ? (body.petId ?? null) : null,
       status: body.status ?? "offline",
@@ -146,7 +146,7 @@ devicesRoute.post("/desktops", async (c) => {
     .insert(desktopDevices)
     .values({
       userId: body.userId ?? null,
-      name: body.name ?? "模拟摆台",
+      name: body.name?.trim() || "未命名桌面端",
       macAddress: body.macAddress ?? `MOCK:${createId().slice(0, 11).replace(/(.{2})/g, "$1:").slice(0, 17)}`,
       status: body.status ?? "offline",
       firmwareVersion: body.firmwareVersion ?? "1.0.0",

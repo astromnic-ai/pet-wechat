@@ -82,7 +82,7 @@ usersRoute.post("/users", async (c) => {
   const [user] = await db
     .insert(users)
     .values({
-      nickname: body.nickname ?? "测试用户",
+      nickname: body.nickname?.trim() || "",
       wechatOpenid: body.wechatOpenid ?? null,
       phone: body.phone ?? null,
       avatarUrl: body.avatarUrl ?? null,

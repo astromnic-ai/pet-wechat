@@ -6,7 +6,7 @@
 
 .data-top-strip {
   width: 100%;
-  height: calc(env(safe-area-inset-top) + 102rpx);
+  height: calc(env(safe-area-inset-top) + 78rpx);
   background: #ffd86f;
 }
 
@@ -14,8 +14,7 @@
   display: flex;
   align-items: center;
   gap: 24rpx;
-  padding: 26rpx 32rpx 18rpx;
-  min-height: 72rpx;
+  padding: 18rpx 28rpx 10rpx;
   box-sizing: border-box;
 }
 
@@ -40,7 +39,7 @@
 }
 
 .data-shell {
-  padding: 36rpx 24rpx calc(env(safe-area-inset-bottom) + 36rpx);
+  padding: 18rpx 22rpx calc(env(safe-area-inset-bottom) + 20rpx);
 }
 
 .pet-tabs {
@@ -57,8 +56,8 @@
 
 .pet-tab--active {
   flex: 1;
-  min-height: 138rpx;
-  padding: 22rpx 24rpx;
+  min-height: 118rpx;
+  padding: 18rpx 20rpx;
   box-sizing: border-box;
   background: #4ba0ff;
   border-color: #4ba0ff;
@@ -66,29 +65,29 @@
 
 .pet-tab-title {
   display: block;
-  font-size: 34rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #fff;
 }
 
 .pet-tab-desc {
   display: block;
-  margin-top: 14rpx;
-  font-size: 22rpx;
+  margin-top: 10rpx;
+  font-size: 20rpx;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.84);
 }
 
 .pet-tab--small {
   width: 154rpx;
-  height: 138rpx;
+  height: 118rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .pet-tab-name {
-  font-size: 28rpx;
+  font-size: 24rpx;
   font-weight: 700;
   color: #5d5d5d;
 }
@@ -111,17 +110,17 @@
 }
 
 .segment-wrap {
-  margin-top: 26rpx;
+  margin-top: 18rpx;
 }
 
 .range-wrap {
-  margin-top: 18rpx;
+  margin-top: 12rpx;
 }
 
 .segment-item,
 .range-item {
   flex: 1;
-  height: 54rpx;
+  height: 46rpx;
   border-radius: 28rpx;
   display: flex;
   align-items: center;
@@ -138,13 +137,13 @@
 
 .segment-text,
 .range-text {
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 700;
   color: #766e64;
 }
 
 .range-text {
-  font-size: 24rpx;
+  font-size: 22rpx;
 }
 
 .segment-item.active .segment-text {
@@ -158,8 +157,8 @@
 .today-card,
 .chart-card,
 .stats-card {
-  margin-top: 26rpx;
-  padding: 28rpx 24rpx;
+  margin-top: 18rpx;
+  padding: 20rpx 20rpx;
   border-radius: 30rpx;
   background: #fff;
   border: 2rpx solid #efe7da;
@@ -174,7 +173,7 @@
 
 .today-title {
   display: block;
-  font-size: 32rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #202020;
 }
@@ -182,11 +181,11 @@
 .today-score-row {
   display: flex;
   align-items: flex-end;
-  margin-top: 10rpx;
+  margin-top: 8rpx;
 }
 
 .today-score {
-  font-size: 76rpx;
+  font-size: 64rpx;
   line-height: 1;
   font-weight: 700;
   color: #4ba0ff;
@@ -194,15 +193,15 @@
 
 .today-score-unit {
   margin-left: 8rpx;
-  margin-bottom: 10rpx;
-  font-size: 24rpx;
+  margin-bottom: 8rpx;
+  font-size: 22rpx;
   color: #b4b0ab;
 }
 
 .today-badge {
-  width: 160rpx;
-  min-height: 130rpx;
-  padding: 18rpx 12rpx;
+  width: 144rpx;
+  min-height: 112rpx;
+  padding: 14rpx 10rpx;
   border-radius: 30rpx;
   background: #ffd86f;
   display: flex;
@@ -214,32 +213,32 @@
 
 .today-badge-top {
   text-align: center;
-  font-size: 24rpx;
+  font-size: 22rpx;
   line-height: 1.35;
   font-weight: 700;
   color: #2a2a2a;
 }
 
 .today-badge-bottom {
-  margin-top: 8rpx;
+  margin-top: 6rpx;
   text-align: center;
-  font-size: 20rpx;
+  font-size: 18rpx;
   color: #5b5348;
 }
 
 .trend-head {
-  margin-top: 26rpx;
+  margin-top: 18rpx;
 }
 
 .trend-title,
 .stats-title {
-  font-size: 34rpx;
+  font-size: 30rpx;
   font-weight: 700;
   color: #1f1f1f;
 }
 
 .chart-card {
-  margin-top: 18rpx;
+  margin-top: 12rpx;
 }
 
 .chart-card--empty {
@@ -247,7 +246,7 @@
 }
 
 .chart-wrap {
-  height: 300rpx;
+  height: 230rpx;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -261,9 +260,9 @@
 }
 
 .chart-bar {
-  width: 46rpx;
-  min-height: 40rpx;
-  border-radius: 16rpx;
+  width: 38rpx;
+  min-height: 28rpx;
+  border-radius: 14rpx;
 }
 
 .chart-bar--yellow {
@@ -275,8 +274,8 @@
 }
 
 .chart-label {
-  margin-top: 18rpx;
-  font-size: 22rpx;
+  margin-top: 10rpx;
+  font-size: 20rpx;
   color: #b3afa8;
 }
 
@@ -286,25 +285,25 @@
 }
 
 .stats-card {
-  padding-bottom: 18rpx;
+  padding-bottom: 14rpx;
 }
 
 .stats-row {
   display: flex;
   align-items: center;
   gap: 16rpx;
-  margin-top: 24rpx;
+  margin-top: 16rpx;
 }
 
 .stats-label {
   width: 84rpx;
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #333;
 }
 
 .stats-track {
   flex: 1;
-  height: 16rpx;
+  height: 14rpx;
   border-radius: 10rpx;
   background: #efefef;
   overflow: hidden;

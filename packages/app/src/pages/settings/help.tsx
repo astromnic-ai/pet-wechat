@@ -8,8 +8,8 @@ const HELP_ITEMS = [
   { key: "guide", label: "使用指南", color: "#fff1d9" },
   { key: "trouble", label: "故障排查", color: "#ffe3e3" },
   { key: "video", label: "视频教程", color: "#def5d8" },
-  { key: "phone", label: "客服电话   400-888-9999", color: "#48a2ff", solid: true },
-  { key: "online", label: "在线客服   周一至周日 9:00-21:00", color: "#51c81d", solid: true },
+  { key: "phone", label: "联系客服", color: "#48a2ff", solid: true },
+  { key: "online", label: "在线客服", color: "#51c81d", solid: true },
 ];
 
 export default function HelpCenter() {
@@ -28,7 +28,7 @@ export default function HelpCenter() {
             className="help-card"
             onClick={() => {
               if (item.key === "phone") {
-                Taro.showToast({ title: "请拨打 400-888-9999", icon: "none" });
+                Taro.showToast({ title: "请通过官方渠道联系客服", icon: "none" });
                 return;
               }
               if (item.key === "online") {

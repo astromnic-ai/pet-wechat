@@ -84,7 +84,7 @@ export async function request<T = any>(options: RequestOptions): Promise<T> {
     throw new Error(`网络异常: ${err.errMsg ?? "无法连接服务器"}`);
   }
 
-  if (res.statusCode === 401) {
+  if (res.statusCode === 401 && needAuth) {
     clearToken();
     Taro.reLaunch({ url: "/pages/login/index" });
     throw new Error("登录已过期，请重新登录");
@@ -125,7 +125,7 @@ export async function uploadFile<T = any>(options: UploadFileOptions): Promise<T
 
   const parsedData = parseJsonLikeResponse(res.data);
 
-  if (res.statusCode === 401) {
+  if (res.statusCode === 401 && needAuth) {
     clearToken();
     Taro.reLaunch({ url: "/pages/login/index" });
     throw new Error("登录已过期，请重新登录");
