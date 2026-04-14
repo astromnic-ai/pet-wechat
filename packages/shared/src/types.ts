@@ -1,12 +1,21 @@
+import { SCHEDULE_SPECIES, type ActionType } from "./constants";
+
 // ===== 枚举 =====
 
 export type Species = "cat" | "dog";
 export type Gender = "male" | "female" | "unknown";
 export type DeviceStatus = "online" | "offline" | "pairing";
-export type AvatarStatus = "pending" | "processing" | "done" | "failed";
+export type AvatarStatus =
+  | "pending"
+  | "processing"
+  | "done"
+  | "failed"
+  | "approved"
+  | "rejected";
 export type MessageType = "authorization" | "system";
 export type BindingType = "owner" | "authorized";
 export type AuthorizationStatus = "pending" | "accepted" | "rejected";
+export type ScheduleEffectiveType = "everyday" | "weekday";
 
 // ===== 用户 =====
 
@@ -100,6 +109,8 @@ export interface PetAvatar {
   petId: string;
   sourceImageUrl: string;
   status: AvatarStatus;
+  rejectReason?: string | null;
+  reviewedAt?: string | null;
   createdAt: string;
 }
 
@@ -108,6 +119,26 @@ export interface PetAvatarAction {
   petAvatarId: string;
   actionType: string;
   imageUrl: string;
+  sortOrder: number;
+}
+
+export interface BehaviorSchedule {
+  id: string;
+  species: (typeof SCHEDULE_SPECIES)[number];
+  name: string;
+  effectiveType: ScheduleEffectiveType;
+  isActive: boolean;
+  blocks?: BehaviorScheduleBlock[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BehaviorScheduleBlock {
+  id: string;
+  scheduleId: string;
+  actionType: ActionType;
+  startMinutes: number;
+  endMinutes: number;
   sortOrder: number;
 }
 

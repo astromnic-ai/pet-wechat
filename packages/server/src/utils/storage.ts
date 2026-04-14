@@ -6,8 +6,6 @@ import {
 } from "@aws-sdk/client-s3";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT ?? "http://localhost:9000",

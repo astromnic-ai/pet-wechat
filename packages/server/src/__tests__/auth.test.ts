@@ -1,12 +1,60 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import { mockDb } from "./setup";
 import { createApp, authHeader, jsonReq, fakeUser } from "./helpers";
 
 const app = createApp();
+const originalFetch = globalThis.fetch;
+
+function mockWechatFetch(url: string | URL | Request) {
+  const value = typeof url === "string" ? url : url instanceof URL ? url.toString() : url.url;
+
+  if (value.includes("/sns/jscode2session")) {
+    return Promise.resolve(
+      new Response(JSON.stringify({ openid: "mock_openid_default_user" }), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }
+
+  if (value.includes("/cgi-bin/token")) {
+    return Promise.resolve(
+      new Response(JSON.stringify({ access_token: "wechat-access-token", expires_in: 7200 }), {
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+  }
+
+  if (value.includes("/wxa/business/getuserphonenumber")) {
+    return Promise.resolve(
+      new Response(
+        JSON.stringify({
+          phone_info: {
+            phoneNumber: "13800138000",
+            purePhoneNumber: "13800138000",
+          },
+        }),
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+  }
+
+  throw new Error(`Unexpected fetch in auth.test.ts: ${value}`);
+}
 
 describe("Auth Routes", () => {
   beforeEach(() => {
     mockDb._reset();
+    process.env.WX_APPID = "test-appid";
+    process.env.WX_SECRET = "test-secret";
+    globalThis.fetch = mockWechatFetch as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    delete process.env.WX_APPID;
+    delete process.env.WX_SECRET;
   });
 
   // ===== POST /api/auth/wechat =====
