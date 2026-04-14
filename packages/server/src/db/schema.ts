@@ -1,4 +1,6 @@
 import {
+  check,
+  foreignKey,
   pgTable,
   text,
   timestamp,
@@ -7,7 +9,9 @@ import {
   boolean,
   pgEnum,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { createId } from "../utils/id";
 
 // ===== 枚举 =====
@@ -24,6 +28,12 @@ export const avatarStatusEnum = pgEnum("avatar_status", [
   "processing",
   "done",
   "failed",
+  "approved",
+  "rejected",
+]);
+export const scheduleEffectiveTypeEnum = pgEnum("schedule_effective_type", [
+  "everyday",
+  "weekday",
 ]);
 export const messageTypeEnum = pgEnum("message_type", [
   "authorization",
@@ -165,6 +175,8 @@ export const petAvatars = pgTable("pet_avatars", {
   sourceImageUrl: text("source_image_url").notNull(),
   additionalImageUrls: text("additional_image_urls"),
   status: avatarStatusEnum("status").notNull().default("pending"),
+  rejectReason: text("reject_reason"),
+  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -189,6 +201,61 @@ export const petBehaviors = pgTable("pet_behaviors", {
     .notNull()
     .defaultNow(),
 });
+
+export const behaviorSchedules = pgTable(
+  "behavior_schedules",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    species: text("species").notNull(),
+    name: text("name").notNull(),
+    effectiveType: scheduleEffectiveTypeEnum("effective_type")
+      .notNull()
+      .default("everyday"),
+    isActive: boolean("is_active").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("behavior_schedules_active_unique")
+      .on(table.species, table.effectiveType)
+      .where(sql`${table.isActive} = true`),
+  ],
+);
+
+export const behaviorScheduleBlocks = pgTable(
+  "behavior_schedule_blocks",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    scheduleId: text("schedule_id").notNull(),
+    actionType: text("action_type").notNull(),
+    startMinutes: integer("start_minutes").notNull(),
+    endMinutes: integer("end_minutes").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.scheduleId],
+      foreignColumns: [behaviorSchedules.id],
+      name: "behavior_schedule_blocks_schedule_id_behavior_schedules_id_fk",
+    }).onDelete("cascade"),
+    check(
+      "behavior_schedule_blocks_start_minutes_check",
+      sql`${table.startMinutes} >= 0 AND ${table.startMinutes} < 1440`,
+    ),
+    check(
+      "behavior_schedule_blocks_end_minutes_check",
+      sql`${table.endMinutes} > 0 AND ${table.endMinutes} <= 1440`,
+    ),
+    check(
+      "behavior_schedule_blocks_range_check",
+      sql`${table.startMinutes} < ${table.endMinutes}`,
+    ),
+  ],
+);
 
 // ===== 消息 =====
 

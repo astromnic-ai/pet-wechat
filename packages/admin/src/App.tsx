@@ -1,33 +1,58 @@
-import { useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import type { MenuProps } from "antd";
 import { Layout, Menu, Typography, Modal, Input, Button, Space, Card, Alert } from "antd";
 import {
   UserOutlined,
   HeartOutlined,
-  ApiOutlined,
-  DesktopOutlined,
   ThunderboltOutlined,
   DashboardOutlined,
+  CalendarOutlined,
+  PictureOutlined,
+  ScissorOutlined,
+  MobileOutlined,
+  BarChartOutlined,
   SettingOutlined,
   LogoutOutlined,
 } from "@ant-design/icons";
 import { getAdminKey, setAdminKey, verifyAdminKey } from "./api/client";
-import Dashboard from "./pages/Dashboard";
-import UsersPage from "./pages/Users";
-import PetsPage from "./pages/Pets";
-import CollarsPage from "./pages/Collars";
-import DesktopsPage from "./pages/Desktops";
-import EventsPage from "./pages/Events";
 
 const { Header, Sider, Content } = Layout;
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const SchedulesPage = lazy(() => import("./pages/Schedules"));
+const ImageReviewPage = lazy(() => import("./pages/ImageReview"));
+const CustomizationPage = lazy(() => import("./pages/Customization"));
+const DevicesPage = lazy(() => import("./pages/Devices"));
+const AnalyticsPage = lazy(() => import("./pages/Analytics"));
+const UsersPage = lazy(() => import("./pages/Users"));
+const PetsPage = lazy(() => import("./pages/Pets"));
+const CollarsPage = lazy(() => import("./pages/Collars"));
+const DesktopsPage = lazy(() => import("./pages/Desktops"));
+const EventsPage = lazy(() => import("./pages/Events"));
 
-const menuItems = [
-  { key: "/", icon: <DashboardOutlined />, label: "概览" },
-  { key: "/users", icon: <UserOutlined />, label: "用户" },
-  { key: "/pets", icon: <HeartOutlined />, label: "宠物" },
-  { key: "/collars", icon: <ApiOutlined />, label: "项圈" },
-  { key: "/desktops", icon: <DesktopOutlined />, label: "桌面摆台" },
-  { key: "/events", icon: <ThunderboltOutlined />, label: "模拟事件" },
+const menuItems: MenuProps["items"] = [
+  {
+    type: "group",
+    key: "operations",
+    label: "运营管理",
+    children: [
+      { key: "/", icon: <DashboardOutlined />, label: "系统概览" },
+      { key: "/schedules", icon: <CalendarOutlined />, label: "行为日程" },
+      { key: "/image-review", icon: <PictureOutlined />, label: "图像审核" },
+      { key: "/customization", icon: <ScissorOutlined />, label: "定制中心" },
+      { key: "/devices", icon: <MobileOutlined />, label: "设备管理" },
+      { key: "/analytics", icon: <BarChartOutlined />, label: "数据看板" },
+      { key: "/users", icon: <UserOutlined />, label: "用户管理" },
+    ],
+  },
+  {
+    key: "dev-tools",
+    label: "开发工具",
+    children: [
+      { key: "/pets", icon: <HeartOutlined />, label: "宠物管理" },
+      { key: "/events", icon: <ThunderboltOutlined />, label: "模拟事件" },
+    ],
+  },
 ];
 
 export default function App() {
@@ -138,8 +163,9 @@ export default function App() {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
+          defaultOpenKeys={["dev-tools"]}
           items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          onClick={({ key }) => navigate(String(key))}
         />
       </Sider>
       <Layout>
@@ -164,14 +190,21 @@ export default function App() {
           </Space>
         </Header>
         <Content style={{ margin: 24 }}>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<UsersPage />} />
-            <Route path="/pets" element={<PetsPage />} />
-            <Route path="/collars" element={<CollarsPage />} />
-            <Route path="/desktops" element={<DesktopsPage />} />
-            <Route path="/events" element={<EventsPage />} />
-          </Routes>
+          <Suspense fallback={<Card loading />}>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/schedules" element={<SchedulesPage />} />
+              <Route path="/image-review" element={<ImageReviewPage />} />
+              <Route path="/customization" element={<CustomizationPage />} />
+              <Route path="/devices" element={<DevicesPage />} />
+              <Route path="/analytics" element={<AnalyticsPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/pets" element={<PetsPage />} />
+              <Route path="/collars" element={<CollarsPage />} />
+              <Route path="/desktops" element={<DesktopsPage />} />
+              <Route path="/events" element={<EventsPage />} />
+            </Routes>
+          </Suspense>
         </Content>
       </Layout>
 
