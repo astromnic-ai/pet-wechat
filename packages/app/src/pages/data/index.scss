@@ -42,14 +42,21 @@
   padding: 18rpx 22rpx calc(env(safe-area-inset-bottom) + 20rpx);
 }
 
+.pet-switch-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
 .pet-tabs-scroll {
-  width: 100%;
+  flex: 1;
+  width: auto;
 }
 
 .pet-tabs {
   display: flex;
   align-items: center;
-  gap: 14rpx;
+  gap: 18rpx;
   min-width: max-content;
 }
 
@@ -60,32 +67,33 @@
 }
 
 .pet-tab--active {
-  flex: 1;
-  min-height: 118rpx;
-  padding: 18rpx 20rpx;
+  width: 420rpx;
+  min-height: 138rpx;
+  padding: 22rpx 26rpx;
   box-sizing: border-box;
   background: #4ba0ff;
   border-color: #4ba0ff;
+  flex-shrink: 0;
 }
 
 .pet-tab-title {
   display: block;
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 700;
   color: #fff;
 }
 
 .pet-tab-desc {
   display: block;
-  margin-top: 10rpx;
-  font-size: 20rpx;
+  margin-top: 12rpx;
+  font-size: 22rpx;
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.84);
 }
 
 .pet-tab--small {
-  width: 154rpx;
-  height: 118rpx;
+  width: 138rpx;
+  height: 138rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -93,15 +101,23 @@
 }
 
 .pet-tab-name {
-  font-size: 24rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #5d5d5d;
 }
 
 .pet-switch-arrow {
-  width: 40rpx;
-  text-align: center;
-  font-size: 40rpx;
+  width: 52rpx;
+  height: 52rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pet-switch-arrow-text {
+  font-size: 54rpx;
+  line-height: 1;
   color: #4ba0ff;
   font-weight: 700;
 }
@@ -109,25 +125,25 @@
 .segment-wrap,
 .range-wrap {
   display: flex;
-  padding: 8rpx;
+  padding: 10rpx;
   border-radius: 40rpx;
   background: #fff;
   border: 2rpx solid #efe7da;
 }
 
 .segment-wrap {
-  margin-top: 18rpx;
+  margin-top: 22rpx;
 }
 
 .range-wrap {
-  margin-top: 12rpx;
+  margin-top: 38rpx;
 }
 
 .segment-item,
 .range-item {
   flex: 1;
-  height: 46rpx;
-  border-radius: 28rpx;
+  height: 56rpx;
+  border-radius: 30rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -143,13 +159,13 @@
 
 .segment-text,
 .range-text {
-  font-size: 24rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #766e64;
 }
 
 .range-text {
-  font-size: 22rpx;
+  font-size: 26rpx;
 }
 
 .segment-item.active .segment-text {
@@ -163,9 +179,9 @@
 .today-card,
 .chart-card,
 .stats-card {
-  margin-top: 18rpx;
-  padding: 20rpx 20rpx;
-  border-radius: 30rpx;
+  margin-top: 22rpx;
+  padding: 24rpx 24rpx;
+  border-radius: 34rpx;
   background: #fff;
   border: 2rpx solid #efe7da;
   box-shadow: 0 8rpx 20rpx rgba(35, 35, 35, 0.04);
@@ -179,7 +195,7 @@
 
 .today-title {
   display: block;
-  font-size: 28rpx;
+  font-size: 34rpx;
   font-weight: 700;
   color: #202020;
 }
@@ -187,11 +203,11 @@
 .today-score-row {
   display: flex;
   align-items: flex-end;
-  margin-top: 8rpx;
+  margin-top: 12rpx;
 }
 
 .today-score {
-  font-size: 64rpx;
+  font-size: 72rpx;
   line-height: 1;
   font-weight: 700;
   color: #4ba0ff;
@@ -200,15 +216,15 @@
 .today-score-unit {
   margin-left: 8rpx;
   margin-bottom: 8rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #b4b0ab;
 }
 
 .today-badge {
-  width: 144rpx;
-  min-height: 112rpx;
-  padding: 14rpx 10rpx;
-  border-radius: 30rpx;
+  width: 162rpx;
+  min-height: 132rpx;
+  padding: 18rpx 12rpx;
+  border-radius: 32rpx;
   background: #ffd86f;
   display: flex;
   flex-direction: column;
@@ -219,32 +235,32 @@
 
 .today-badge-top {
   text-align: center;
-  font-size: 22rpx;
+  font-size: 30rpx;
   line-height: 1.35;
   font-weight: 700;
   color: #2a2a2a;
 }
 
 .today-badge-bottom {
-  margin-top: 6rpx;
+  margin-top: 8rpx;
   text-align: center;
-  font-size: 18rpx;
+  font-size: 22rpx;
   color: #5b5348;
 }
 
 .trend-head {
-  margin-top: 18rpx;
+  margin-top: 24rpx;
 }
 
 .trend-title,
 .stats-title {
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 700;
   color: #1f1f1f;
 }
 
 .chart-card {
-  margin-top: 12rpx;
+  margin-top: 14rpx;
 }
 
 .chart-card--empty {
@@ -252,7 +268,7 @@
 }
 
 .chart-wrap {
-  height: 230rpx;
+  height: 300rpx;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -276,9 +292,9 @@
 }
 
 .chart-bar {
-  width: 38rpx;
-  min-height: 28rpx;
-  border-radius: 14rpx;
+  width: 54rpx;
+  min-height: 36rpx;
+  border-radius: 18rpx;
 }
 
 .chart-bar--yellow {
@@ -290,8 +306,8 @@
 }
 
 .chart-label {
-  margin-top: 10rpx;
-  font-size: 20rpx;
+  margin-top: 16rpx;
+  font-size: 22rpx;
   color: #b3afa8;
 }
 

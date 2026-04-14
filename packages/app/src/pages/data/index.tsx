@@ -146,6 +146,30 @@ function formatActionStats(behaviors: PetBehavior[]) {
     }));
 }
 
+function getRangeSummaryTitle(range: "day" | "week" | "month", activeTab: "interaction" | "activity") {
+  if (activeTab === "interaction") {
+    if (range === "day") return "今日互动指数";
+    if (range === "week") return "本周互动指数";
+    return "本月互动指数";
+  }
+
+  if (range === "day") return "今日活跃表现";
+  if (range === "week") return "本周活跃表现";
+  return "本月活跃表现";
+}
+
+function getTrendTitle(range: "day" | "week" | "month") {
+  if (range === "day") return "今日趋势";
+  if (range === "week") return "本周趋势";
+  return "本月趋势";
+}
+
+function getCompareLabel(range: "day" | "week" | "month") {
+  if (range === "day") return "较昨日";
+  if (range === "week") return "较上周";
+  return "较上月";
+}
+
 export default function DataPage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
@@ -163,11 +187,11 @@ export default function DataPage() {
       request<{ pets: Pet[]; authorizedPets: Pet[] }>({ url: "/api/pets" }).catch(() => ({ pets: [], authorizedPets: [] })),
       request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }).catch(() => ({ collars: [] })),
     ]).then(([petRes, collarRes]) => {
-      const mergedPets = [...petRes.pets, ...petRes.authorizedPets];
+      const merged = [...petRes.pets, ...petRes.authorizedPets];
       setPets(petRes.pets);
       setAuthorizedPets(petRes.authorizedPets);
       setCollars(collarRes.collars);
-      setSelectedPetId((prev) => prev || mergedPets[0]?.id || "");
+      setSelectedPetId((prev) => prev || merged[0]?.id || "");
     });
   });
 
@@ -216,16 +240,45 @@ export default function DataPage() {
   const weekData = useMemo(() => buildWeekBuckets(behaviors), [behaviors]);
   const monthData = useMemo(() => buildMonthBuckets(behaviors), [behaviors]);
   const activityChartData = range === "day" ? dayData : range === "week" ? weekData : monthData;
-  const interactionChartData = useMemo(
-    () => buildInteractionChart(range, interactionStats),
-    [interactionStats, range]
-  );
+  const interactionChartData = useMemo(() => buildInteractionChart(range, interactionStats), [interactionStats, range]);
   const chartData = activeTab === "interaction" ? interactionChartData : activityChartData;
   const activityStats = useMemo(() => formatActionStats(behaviors), [behaviors]);
-  const todayBehaviorCount = useMemo(() => dayData.raw.reduce((sum, item) => sum + item, 0), [dayData]);
+  const summaryScore = useMemo(() => {
+    if (!currentPet) return 0;
 
+    if (activeTab === "interaction") {
+      const interactionValue =
+        range === "day"
+          ? interactionStats?.todayCount ?? 0
+          : range === "week"
+          ? interactionStats?.weekCount ?? 0
+          : interactionStats?.monthCount ?? 0;
+
+      return Math.max(0, Math.min(100, Math.round(interactionValue)));
+    }
+
+    return Math.max(0, Math.min(100, Math.round(currentPet.activityScore || 0)));
+  }, [activeTab, currentPet, interactionStats, range]);
+  const compareDelta = useMemo(() => {
+    const values = chartData.raw;
+    const current = values[values.length - 1] || 0;
+    const previous = values[values.length - 2] || 0;
+
+    if (current === previous) return 0;
+    if (previous === 0) return current > 0 ? 100 : 0;
+
+    return Math.round(((current - previous) / previous) * 100);
+  }, [chartData]);
+  const compareText = compareDelta >= 0 ? `上升${compareDelta}%` : `下降${Math.abs(compareDelta)}%`;
   const headerDescription =
     activeTab === "interaction" ? "查看真实互动事件聚合结果" : "查看佩戴项圈后的真实活跃表现";
+
+  const handleCyclePet = () => {
+    if (!currentPet || mergedPets.length <= 1) return;
+    const currentIndex = mergedPets.findIndex((item) => item.id === currentPet.id);
+    const nextPet = mergedPets[(currentIndex + 1) % mergedPets.length];
+    setSelectedPetId(nextPet?.id || currentPet.id);
+  };
 
   return (
     <View className="data-page">
@@ -238,29 +291,37 @@ export default function DataPage() {
       <View className="data-shell">
         {currentPet ? (
           <>
-            <ScrollView className="pet-tabs-scroll" scrollX enhanced showScrollbar={false}>
-              <View className="pet-tabs">
-                {mergedPets.map((item) => {
-                  const active = item.id === currentPet.id;
-                  return (
-                    <View
-                      key={item.id}
-                      className={`pet-tab ${active ? "pet-tab--active" : "pet-tab--small"}`}
-                      onClick={() => setSelectedPetId(item.id)}
-                    >
-                      {active ? (
-                        <>
-                          <Text className="pet-tab-title">{item.name}的记录</Text>
-                          <Text className="pet-tab-desc">{headerDescription}</Text>
-                        </>
-                      ) : (
-                        <Text className="pet-tab-name">{item.name}</Text>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            </ScrollView>
+            <View className="pet-switch-row">
+              <ScrollView className="pet-tabs-scroll" scrollX enhanced showScrollbar={false}>
+                <View className="pet-tabs">
+                  {mergedPets.map((item) => {
+                    const active = item.id === currentPet.id;
+                    return (
+                      <View
+                        key={item.id}
+                        className={`pet-tab ${active ? "pet-tab--active" : "pet-tab--small"}`}
+                        onClick={() => setSelectedPetId(item.id)}
+                      >
+                        {active ? (
+                          <>
+                            <Text className="pet-tab-title">{item.name}的记录</Text>
+                            <Text className="pet-tab-desc">{headerDescription}</Text>
+                          </>
+                        ) : (
+                          <Text className="pet-tab-name">{item.name}</Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {mergedPets.length > 1 ? (
+                <View className="pet-switch-arrow" onClick={handleCyclePet}>
+                  <Text className="pet-switch-arrow-text">›</Text>
+                </View>
+              ) : null}
+            </View>
 
             <View className="segment-wrap">
               <View
@@ -295,36 +356,20 @@ export default function DataPage() {
 
             <View className="today-card">
               <View className="today-main">
-                <Text className="today-title">
-                  {activeTab === "interaction" ? "累计互动次数" : "今日活跃值"}
-                </Text>
+                <Text className="today-title">{getRangeSummaryTitle(range, activeTab)}</Text>
                 <View className="today-score-row">
-                  <Text className="today-score">
-                    {activeTab === "interaction" ? interactionStats?.totalCount ?? 0 : currentPet.activityScore}
-                  </Text>
-                  <Text className="today-score-unit">{activeTab === "interaction" ? "次" : "/100"}</Text>
+                  <Text className="today-score">{summaryScore}</Text>
+                  <Text className="today-score-unit">/100</Text>
                 </View>
               </View>
               <View className="today-badge">
-                <Text className="today-badge-top">
-                  {activeTab === "interaction"
-                    ? `今日${interactionStats?.todayCount ?? 0}次`
-                    : hasCollar
-                    ? `今日${todayBehaviorCount}条`
-                    : "未连接项圈"}
-                </Text>
-                <Text className="today-badge-bottom">
-                  {activeTab === "interaction"
-                    ? `本周${interactionStats?.weekCount ?? 0}次`
-                    : hasCollar
-                    ? "真实行为同步"
-                    : "活跃数据受限"}
-                </Text>
+                <Text className="today-badge-top">{compareText}</Text>
+                <Text className="today-badge-bottom">{getCompareLabel(range)}</Text>
               </View>
             </View>
 
             <View className="trend-head">
-              <Text className="trend-title">{range === "day" ? "今日趋势" : range === "week" ? "本周趋势" : "本月趋势"}</Text>
+              <Text className="trend-title">{getTrendTitle(range)}</Text>
             </View>
 
             <View className="chart-card">
@@ -333,7 +378,7 @@ export default function DataPage() {
                   <Text className="empty-state-title">需要连接项圈后查看活跃表现</Text>
                   <Text className="empty-state-desc">当前可以先查看设备管理，完成项圈连接后这里会显示真实行为趋势</Text>
                 </View>
-              ) : interactionLoading && activeTab === "interaction" ? (
+              ) : activeTab === "interaction" && interactionLoading ? (
                 <View className="empty-state">
                   <Text className="empty-state-title">互动数据加载中</Text>
                   <Text className="empty-state-desc">正在拉取当前宠物的互动事件聚合结果</Text>
@@ -341,7 +386,10 @@ export default function DataPage() {
               ) : (
                 <View className={`chart-wrap ${activeTab === "interaction" ? "chart-wrap--dense" : ""}`}>
                   {chartData.bars.map((value, index) => (
-                    <View key={`${index}-${value}`} className={`chart-item ${activeTab === "interaction" ? "chart-item--dense" : ""}`}>
+                    <View
+                      key={`${index}-${value}`}
+                      className={`chart-item ${activeTab === "interaction" ? "chart-item--dense" : ""}`}
+                    >
                       <View
                         className={`chart-bar ${index % 2 === 0 ? "chart-bar--yellow" : "chart-bar--blue"}`}
                         style={{ height: `${value}%` }}
@@ -355,42 +403,27 @@ export default function DataPage() {
               )}
             </View>
 
-            <View className="stats-card">
-              <Text className="stats-title">{activeTab === "interaction" ? "互动统计" : "活动类型统计"}</Text>
-              {activeTab === "interaction" ? (
-                <View className="stats-summary-grid">
-                  {[
-                    { label: "累计互动", value: interactionStats?.totalCount ?? 0, unit: "次" },
-                    { label: "今日互动", value: interactionStats?.todayCount ?? 0, unit: "次" },
-                    { label: "近 7 天", value: interactionStats?.weekCount ?? 0, unit: "次" },
-                    { label: "近 30 天", value: interactionStats?.monthCount ?? 0, unit: "次" },
-                  ].map((item) => (
-                    <View key={item.label} className="stats-summary-card">
-                      <Text className="stats-summary-label">{item.label}</Text>
-                      <Text className="stats-summary-value">
-                        {item.value}
-                        <Text className="stats-summary-unit">{item.unit}</Text>
-                      </Text>
+            {activeTab === "activity" ? (
+              <View className="stats-card">
+                <Text className="stats-title">活动类型统计</Text>
+                {activityStats.length > 0 ? (
+                  activityStats.map((item) => (
+                    <View key={item.label} className="stats-row">
+                      <Text className="stats-label">{item.label}</Text>
+                      <View className="stats-track">
+                        <View className="stats-fill" style={{ width: `${item.value}%` }} />
+                      </View>
+                      <Text className="stats-value">{item.count}次</Text>
                     </View>
-                  ))}
-                </View>
-              ) : activityStats.length > 0 ? (
-                activityStats.map((item) => (
-                  <View key={item.label} className="stats-row">
-                    <Text className="stats-label">{item.label}</Text>
-                    <View className="stats-track">
-                      <View className="stats-fill" style={{ width: `${item.value}%` }} />
-                    </View>
-                    <Text className="stats-value">{item.count}次</Text>
+                  ))
+                ) : (
+                  <View className="empty-state empty-state--compact">
+                    <Text className="empty-state-title">暂无行为记录</Text>
+                    <Text className="empty-state-desc">项圈开始同步行为后，这里会按真实数据汇总活动类型</Text>
                   </View>
-                ))
-              ) : (
-                <View className="empty-state empty-state--compact">
-                  <Text className="empty-state-title">暂无行为记录</Text>
-                  <Text className="empty-state-desc">项圈开始同步行为后，这里会按真实数据汇总活动类型</Text>
-                </View>
-              )}
-            </View>
+                )}
+              </View>
+            ) : null}
           </>
         ) : (
           <View className="chart-card chart-card--empty">
