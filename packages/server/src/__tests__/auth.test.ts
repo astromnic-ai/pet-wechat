@@ -7,6 +7,8 @@ const app = createApp();
 describe("Auth Routes", () => {
   beforeEach(() => {
     mockDb._reset();
+    process.env.WX_APPID = "test-appid";
+    process.env.WX_SECRET = "test-secret";
   });
 
   // ===== POST /api/auth/wechat =====
@@ -25,14 +27,27 @@ describe("Auth Routes", () => {
       const user = fakeUser({ wechatOpenid: "mock_openid_default_user" });
       // upsert uses insert().onConflictDoUpdate().returning()
       mockDb._results.insert = [[user]];
+      const originalFetch = globalThis.fetch;
+      (globalThis as { fetch: typeof fetch }).fetch = (async () =>
+        new Response(
+          JSON.stringify({ openid: "mock_openid_default_user" }),
+          {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          },
+        )) as unknown as typeof fetch;
 
-      const res = await app.request(
-        jsonReq("POST", "/api/auth/wechat", { body: { code: "test-code" } })
-      );
-      expect(res.status).toBe(200);
-      const json = await res.json();
-      expect(json.token).toBeDefined();
-      expect(json.user.id).toBe(user.id);
+      try {
+        const res = await app.request(
+          jsonReq("POST", "/api/auth/wechat", { body: { code: "test-code" } })
+        );
+        expect(res.status).toBe(200);
+        const json = await res.json();
+        expect(json.token).toBeDefined();
+        expect(json.user.id).toBe(user.id);
+      } finally {
+        (globalThis as { fetch: typeof fetch }).fetch = originalFetch;
+      }
     });
   });
 

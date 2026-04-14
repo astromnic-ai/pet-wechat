@@ -15,6 +15,9 @@ import behaviorsRoute from "./routes/behaviors";
 import statsRoute from "./routes/stats";
 import messagesRoute from "./routes/messages";
 import meRoute from "./routes/me";
+import settingsRoute from "./routes/settings";
+import accountRoute from "./routes/account";
+import contentRoute from "./routes/content";
 import debugRoute from "./routes/debug";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
@@ -60,6 +63,9 @@ export function createApp() {
   app.route("/api/messages", messagesRoute);
   app.route("/api/upload", uploadRoute);
   app.route("/api/debug", debugRoute);
+  app.route("/api/settings", settingsRoute);
+  app.route("/api/account", accountRoute);
+  app.route("/api/content", contentRoute);
 
   return app;
 }
