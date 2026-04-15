@@ -25,19 +25,18 @@
 }
 
 .hero-badge {
-  width: 280rpx;
-  height: 280rpx;
-  border-radius: 140rpx;
-  background: #ffd671;
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 160rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 0 18rpx #ffe8cc;
 }
 
 .hero-image {
-  width: 168rpx;
-  height: 168rpx;
+  width: 320rpx;
+  height: 320rpx;
+  border-radius: 160rpx;
 }
 
 .title-badge {
@@ -74,5 +73,5 @@
 .loading-text {
   margin-top: 24rpx;
   font-size: 24rpx;
-  color: #9f988f;
+  color: #ffd671;
 }

@@ -8,10 +8,12 @@ export default function Splash() {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    let finished = false;
     const timer = setInterval(() => {
       setProgress((prev) => {
-        const next = prev + Math.random() * 20 + 10;
-        if (next >= 100) {
+        const next = prev + Math.random() * 20 + 12;
+        if (next >= 100 && !finished) {
+          finished = true;
           clearInterval(timer);
           setTimeout(() => {
             if (isLoggedIn()) {
@@ -19,14 +21,16 @@ export default function Splash() {
             } else {
               Taro.redirectTo({ url: "/pages/login/index" });
             }
-          }, 300);
+          }, 260);
           return 100;
         }
         return next;
       });
-    }, 400);
+    }, 280);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearInterval(timer);
+    };
   }, []);
 
   return (
@@ -34,7 +38,7 @@ export default function Splash() {
       <View className="splash-content">
         <View className="hero-area">
           <View className="hero-badge">
-            <Image className="hero-image" src={require("@/assets/images/black cat 3.png")} mode="aspectFit" />
+            <Image className="hero-image" src={require("@/assets/images/logo.png")} mode="aspectFit" />
           </View>
           <View className="title-badge">
             <Text className="logo-text">YEHEY</Text>
