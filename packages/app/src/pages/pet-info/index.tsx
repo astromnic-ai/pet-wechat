@@ -5,6 +5,7 @@ import { request } from "../../utils/request";
 import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarAction, Species } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { getPetFallbackImage } from "../../utils/petVisual";
+import { normalizePetActionLabel } from "../../utils/petActions";
 import "./index.scss";
 
 const CAT_SYSTEM_ACTION_FALLBACKS = [
@@ -252,6 +253,14 @@ export default function PetInfo() {
   const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
   const systemActionFallbacks = species === "dog" ? DOG_SYSTEM_ACTION_FALLBACKS : CAT_SYSTEM_ACTION_FALLBACKS;
+  const displaySystemActions = systemActionFallbacks.map((fallback, index) => {
+    const action = systemActions[index];
+    return {
+      id: action?.id || `system-${index}`,
+      imageUrl: action?.imageUrl || fallback.image || avatarCardImage,
+      label: normalizePetActionLabel(action?.actionType || fallback.label || "动作"),
+    };
+  });
   const detailTipText =
     avatarStatus === "done"
       ? "长按图片，重新定制宠物动态"
@@ -501,27 +510,16 @@ export default function PetInfo() {
             <View className="detail-actions-card">
               <Text className="detail-actions-title">系统动作</Text>
               <View className="detail-action-grid">
-                {(systemActions.length > 0 ? systemActions : new Array(8).fill(null)).map((action, index) => (
+                {displaySystemActions.map((action) => (
                   <View
-                    key={action?.id || `system-${index}`}
+                    key={action.id}
                     className="detail-action-item"
-                    onClick={() =>
-                      handlePreviewAction(
-                        action?.imageUrl || systemActionFallbacks[index]?.image || avatarCardImage,
-                        action?.actionType || systemActionFallbacks[index]?.label || "动作"
-                      )
-                    }
+                    onClick={() => handlePreviewAction(action.imageUrl, action.label)}
                   >
                     <View className="detail-action-thumb-wrap">
-                      <Image
-                        className="detail-action-thumb"
-                        src={action?.imageUrl || systemActionFallbacks[index]?.image || avatarCardImage}
-                        mode="aspectFill"
-                      />
+                      <Image className="detail-action-thumb" src={action.imageUrl} mode="aspectFill" />
                     </View>
-                    <Text className="detail-action-label">
-                      {action?.actionType || systemActionFallbacks[index]?.label || "动作"}
-                    </Text>
+                    <Text className="detail-action-label">{action.label}</Text>
                   </View>
                 ))}
               </View>
