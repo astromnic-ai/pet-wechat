@@ -1,33 +1,153 @@
 import { useEffect, useState } from "react";
 import type { TableProps } from "antd";
-import { Alert, Card, Col, Row, Spin, Statistic, Table } from "antd";
-import dayjs from "dayjs";
+import { Alert, Card, Col, Empty, Progress, Row, Spin, Table, Typography } from "antd";
 import { api } from "../api/client";
 
-interface RankingItem {
-  petId: string;
-  petName: string;
-  count: number;
+const { Text, Title } = Typography;
+
+type ModeKey = "free" | "custom" | "real";
+
+interface OverviewData {
+  onlineDevices: number;
+  onlineUsers: number;
+  avgInteractions: number;
+  todayInteractions: number;
+  avgActivity: number;
+  activeCollarUsers: number;
+  onlineDevicesDelta: number;
+  avgInteractionsDelta: number;
+  avgActivityDelta: number;
 }
 
-interface TrendItem {
-  date: string;
+interface RankingItem {
+  userId: string;
+  userName: string;
   count: number;
+  petCount: number;
+}
+
+interface ModeDistributionItem {
+  key: ModeKey;
+  count: number;
+  ratio: number;
 }
 
 interface AnalyticsData {
-  onlineDevices: number;
-  avgInteractions: number;
+  overview: OverviewData;
   weeklyRanking: RankingItem[];
-  dailyTrend: TrendItem[];
+  modeDistribution: ModeDistributionItem[];
+  modeDistributionBase: number;
+  modeDistributionInferred: boolean;
 }
 
 const emptyAnalytics: AnalyticsData = {
-  onlineDevices: 0,
-  avgInteractions: 0,
+  overview: {
+    onlineDevices: 0,
+    onlineUsers: 0,
+    avgInteractions: 0,
+    todayInteractions: 0,
+    avgActivity: 0,
+    activeCollarUsers: 0,
+    onlineDevicesDelta: 0,
+    avgInteractionsDelta: 0,
+    avgActivityDelta: 0,
+  },
   weeklyRanking: [],
-  dailyTrend: [],
+  modeDistribution: [
+    { key: "free", count: 0, ratio: 0 },
+    { key: "custom", count: 0, ratio: 0 },
+    { key: "real", count: 0, ratio: 0 },
+  ],
+  modeDistributionBase: 0,
+  modeDistributionInferred: true,
 };
+
+const modeMeta: Record<
+  ModeKey,
+  { label: string; description: string; color: string; track: string }
+> = {
+  free: {
+    label: "系统自由模式",
+    description: "默认展示策略",
+    color: "#5B8FF9",
+    track: "rgba(91, 143, 249, 0.18)",
+  },
+  custom: {
+    label: "日程定制模式",
+    description: "按后台行为日程推断",
+    color: "#36CFC9",
+    track: "rgba(54, 207, 201, 0.18)",
+  },
+  real: {
+    label: "真实行为模式",
+    description: "项圈实时行为驱动",
+    color: "#F6BD16",
+    track: "rgba(246, 189, 22, 0.18)",
+  },
+};
+
+function MetricCard(props: {
+  title: string;
+  value: number;
+  accent: string;
+  valueSuffix?: string;
+  footer: string;
+}) {
+  return (
+    <Card
+      bordered={false}
+      styles={{
+        body: {
+          padding: 20,
+          borderRadius: 20,
+          background: `linear-gradient(180deg, ${props.accent}14 0%, #ffffff 100%)`,
+          border: `1px solid ${props.accent}26`,
+        },
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <Text style={{ fontSize: 15, fontWeight: 700, color: "#1F2937" }}>{props.title}</Text>
+          <div
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: 999,
+              background: props.accent,
+              boxShadow: `0 0 0 8px ${props.accent}1A`,
+            }}
+          />
+        </div>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 34, lineHeight: 1, fontWeight: 800, color: "#111827" }}>
+            {props.value}
+          </span>
+          {props.valueSuffix ? (
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#6B7280" }}>{props.valueSuffix}</span>
+          ) : null}
+        </div>
+        <Text style={{ fontSize: 13, color: "#94A3B8", lineHeight: 1.6, fontWeight: 600 }}>
+          {props.footer}
+        </Text>
+      </div>
+    </Card>
+  );
+}
+
+function formatDeltaText(value: number, suffix = "") {
+  const absolute = Math.abs(value);
+  const normalized = Number.isInteger(absolute) ? absolute : Number(absolute.toFixed(2));
+
+  if (value > 0) {
+    return `较昨日增加 ${normalized}${suffix}`;
+  }
+
+  if (value < 0) {
+    return `较昨日减少 ${normalized}${suffix}`;
+  }
+
+  return `较昨日持平`;
+}
 
 export default function AnalyticsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData>(emptyAnalytics);
@@ -46,21 +166,34 @@ export default function AnalyticsPage() {
 
         if (!cancelled) {
           setAnalytics({
-            onlineDevices: Number(result?.onlineDevices ?? 0),
-            avgInteractions: Number(result?.avgInteractions ?? 0),
+            overview: {
+              onlineDevices: Number(result?.overview?.onlineDevices ?? 0),
+              onlineUsers: Number(result?.overview?.onlineUsers ?? 0),
+              avgInteractions: Number(result?.overview?.avgInteractions ?? 0),
+              todayInteractions: Number(result?.overview?.todayInteractions ?? 0),
+              avgActivity: Number(result?.overview?.avgActivity ?? 0),
+              activeCollarUsers: Number(result?.overview?.activeCollarUsers ?? 0),
+              onlineDevicesDelta: Number(result?.overview?.onlineDevicesDelta ?? 0),
+              avgInteractionsDelta: Number(result?.overview?.avgInteractionsDelta ?? 0),
+              avgActivityDelta: Number(result?.overview?.avgActivityDelta ?? 0),
+            },
             weeklyRanking: Array.isArray(result?.weeklyRanking)
               ? result.weeklyRanking.map((item: RankingItem) => ({
-                  petId: item.petId,
-                  petName: item.petName,
+                  userId: item.userId,
+                  userName: item.userName,
                   count: Number(item.count ?? 0),
+                  petCount: Number(item.petCount ?? 0),
                 }))
               : [],
-            dailyTrend: Array.isArray(result?.dailyTrend)
-              ? result.dailyTrend.map((item: TrendItem) => ({
-                  date: item.date,
+            modeDistribution: Array.isArray(result?.modeDistribution)
+              ? result.modeDistribution.map((item: ModeDistributionItem) => ({
+                  key: item.key,
                   count: Number(item.count ?? 0),
+                  ratio: Number(item.ratio ?? 0),
                 }))
-              : [],
+              : emptyAnalytics.modeDistribution,
+            modeDistributionBase: Number(result?.modeDistributionBase ?? 0),
+            modeDistributionInferred: Boolean(result?.modeDistributionInferred ?? true),
           });
         }
       } catch (err) {
@@ -81,129 +214,176 @@ export default function AnalyticsPage() {
     };
   }, []);
 
-  const maxTrendCount = Math.max(...analytics.dailyTrend.map((item) => item.count), 1);
-
   const rankingColumns: TableProps<RankingItem>["columns"] = [
     {
       title: "排名",
       key: "rank",
       width: 72,
-      render: (_value: unknown, _record: RankingItem, index: number) => index + 1,
+      render: (_value: unknown, _record: RankingItem, index: number) => (
+        <span style={{ fontWeight: 700, color: index < 3 ? "#1677FF" : "#64748B" }}>{index + 1}</span>
+      ),
     },
     {
-      title: "宠物名",
-      dataIndex: "petName",
-      key: "petName",
-      render: (value: string, record: RankingItem) => value || `宠物 ${record.petId.slice(0, 8)}`,
+      title: "用户",
+      dataIndex: "userName",
+      key: "userName",
+      render: (value: string, record: RankingItem) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Text style={{ fontWeight: 700, color: "#0F172A" }}>{value || `用户 ${record.userId.slice(0, 6)}`}</Text>
+          <Text style={{ fontSize: 12, color: "#94A3B8" }}>关联宠物 {record.petCount} 只</Text>
+        </div>
+      ),
     },
     {
-      title: "互动数",
+      title: "累计互动数",
       dataIndex: "count",
       key: "count",
-      width: 96,
+      width: 120,
+      align: "right",
+      render: (value: number) => <Text style={{ fontWeight: 700 }}>{value}</Text>,
     },
   ];
 
   return (
     <Spin spinning={loading} size="large">
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <div style={{ marginBottom: 8 }}>
-          <h2 style={{ margin: 0 }}>数据看板</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <Title level={2} style={{ margin: 0 }}>
+            数据看板
+          </Title>
+          <Text style={{ color: "#64748B" }}>
+            主要展示设备互动活跃度，以及项圈真实模式下的宠物活跃值。
+          </Text>
         </div>
 
         {error ? <Alert type="error" message="数据看板加载失败" description={error} showIcon /> : null}
 
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={12}>
-            <Card>
-              <Statistic title="实时在线设备数" value={analytics.onlineDevices} />
-            </Card>
+          <Col xs={24} md={8}>
+            <MetricCard
+              title="实时在线设备"
+              value={analytics.overview.onlineDevices}
+              footer={formatDeltaText(analytics.overview.onlineDevicesDelta, " 台")}
+              accent="#1677FF"
+            />
           </Col>
-          <Col xs={24} md={12}>
-            <Card>
-              <Statistic
-                title="平均互动数"
-                value={analytics.avgInteractions}
-                precision={Number.isInteger(analytics.avgInteractions) ? 0 : 2}
-              />
-            </Card>
+          <Col xs={24} md={8}>
+            <MetricCard
+              title="平均互动数值"
+              value={analytics.overview.avgInteractions}
+              valueSuffix="次/人"
+              footer={formatDeltaText(analytics.overview.avgInteractionsDelta, " 次/人")}
+              accent="#13C2C2"
+            />
+          </Col>
+          <Col xs={24} md={8}>
+            <MetricCard
+              title="平均活跃数值"
+              value={analytics.overview.avgActivity}
+              valueSuffix="分"
+              footer={formatDeltaText(analytics.overview.avgActivityDelta, " 分")}
+              accent="#FA8C16"
+            />
           </Col>
         </Row>
 
         <Row gutter={[16, 16]}>
-          <Col xs={24} lg={16}>
-            <Card title="7 天每日互动趋势">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  gap: 12,
-                  minHeight: 280,
-                  overflowX: "auto",
-                  paddingTop: 8,
-                }}
-              >
-                {analytics.dailyTrend.map((item) => {
-                  const barHeight = Math.round((item.count / maxTrendCount) * 200);
-
-                  return (
-                    <div
-                      key={item.date}
-                      style={{
-                        flex: 1,
-                        minWidth: 72,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <div style={{ fontSize: 12, color: "#595959", fontWeight: 500 }}>{item.count}</div>
-                      <div
-                        style={{
-                          width: "100%",
-                          height: 220,
-                          padding: "0 12px 12px",
-                          display: "flex",
-                          alignItems: "flex-end",
-                          justifyContent: "center",
-                          background: "linear-gradient(180deg, #fafafa 0%, #f5f5f5 100%)",
-                          borderRadius: 12,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "100%",
-                            maxWidth: 40,
-                            height: `${barHeight}px`,
-                            minHeight: item.count > 0 ? 24 : 8,
-                            background: "linear-gradient(180deg, #69b1ff 0%, #1677ff 100%)",
-                            borderRadius: "10px 10px 6px 6px",
-                            boxShadow: "0 6px 16px rgba(22, 119, 255, 0.18)",
-                          }}
-                        />
-                      </div>
-                      <div style={{ fontSize: 12, color: "#8c8c8c" }}>{dayjs(item.date).format("MM-DD")}</div>
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
-          </Col>
-          <Col xs={24} lg={8}>
-            <Card title="一周互动排行 Top 10">
+          <Col xs={24} xl={14}>
+            <Card
+              title="用户累计活跃排行"
+              extra={<Text style={{ color: "#94A3B8" }}>近 7 天累计互动数值排行</Text>}
+              styles={{ body: { paddingTop: 8 } }}
+            >
               <Table
                 dataSource={analytics.weeklyRanking}
                 columns={rankingColumns}
-                rowKey="petId"
+                rowKey="userId"
                 pagination={false}
-                size="small"
+                size="middle"
+                locale={{
+                  emptyText: <Empty description="近 7 天暂无互动排行数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                }}
               />
             </Card>
           </Col>
-        </Row>
 
-        <Alert type="info" message="更多数据分析功能开发中" showIcon />
+          <Col xs={24} xl={10}>
+            <Card
+              title="互动模式分布"
+              extra={<Text style={{ color: "#94A3B8" }}>今日在线宠物显示模式</Text>}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {analytics.modeDistribution.map((item) => {
+                  const meta = modeMeta[item.key];
+
+                  return (
+                    <div
+                      key={item.key}
+                      style={{
+                        padding: 14,
+                        borderRadius: 18,
+                        background: "#F8FAFC",
+                        border: "1px solid #EEF2F7",
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          marginBottom: 10,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <span
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: 999,
+                              background: meta.color,
+                              flexShrink: 0,
+                            }}
+                          />
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <Text style={{ fontWeight: 700, color: "#111827" }}>{meta.label}</Text>
+                            <Text style={{ fontSize: 12, color: "#94A3B8" }}>{meta.description}</Text>
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: "right" }}>
+                          <Text style={{ display: "block", fontSize: 22, fontWeight: 800, color: meta.color }}>
+                            {item.count}
+                          </Text>
+                          <Text style={{ fontSize: 12, color: "#94A3B8" }}>{item.ratio}%</Text>
+                        </div>
+                      </div>
+
+                      <Progress
+                        percent={Math.min(100, item.ratio)}
+                        showInfo={false}
+                        strokeColor={meta.color}
+                        trailColor={meta.track}
+                        size={["100%", 8]}
+                      />
+                    </div>
+                  );
+                })}
+
+                <Alert
+                  type="info"
+                  showIcon
+                  message={`当前在线样本 ${analytics.modeDistributionBase} 个`}
+                  description={
+                    analytics.modeDistributionInferred
+                      ? "模式分布当前按今日在线宠物、项圈行为记录和生效中的行为日程进行推断。"
+                      : "模式分布为真实记录结果。"
+                  }
+                />
+              </div>
+            </Card>
+          </Col>
+        </Row>
       </div>
     </Spin>
   );
