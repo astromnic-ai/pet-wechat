@@ -222,6 +222,8 @@ export const petAvatars = pgTable("pet_avatars", {
   petId: text("pet_id").notNull(),
   sourceImageUrl: text("source_image_url").notNull(),
   additionalImageUrls: text("additional_image_urls"),
+  petDescription: text("pet_description"),
+  funFact: text("fun_fact"),
   status: avatarStatusEnum("status").notNull().default("pending"),
   rejectReason: text("reject_reason"),
   reviewedAt: timestamp("reviewed_at", { withTimezone: true }),

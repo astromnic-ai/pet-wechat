@@ -6,6 +6,7 @@ import statsRoute from "./stats";
 import analyticsRoute from "./analytics";
 import schedulesRoute from "./schedules";
 import avatarsRoute from "./avatars";
+import uploadRoute from "./upload";
 
 const adminRoute = new Hono();
 
@@ -16,5 +17,6 @@ adminRoute.route("/", statsRoute);
 adminRoute.route("/", analyticsRoute);
 adminRoute.route("/", schedulesRoute);
 adminRoute.route("/", avatarsRoute);
+adminRoute.route("/", uploadRoute);
 
 export default adminRoute;

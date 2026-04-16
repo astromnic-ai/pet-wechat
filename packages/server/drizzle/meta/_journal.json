@@ -50,6 +50,13 @@
       "when": 1776179373961,
       "tag": "0006_massive_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1776300000000,
+      "tag": "0007_customization_notes",
+      "breakpoints": true
     }
   ]
 }
