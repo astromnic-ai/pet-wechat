@@ -59,6 +59,7 @@ export default function CustomAction() {
             )}
           </View>
           <Text className="video-upload-text">点击上传视频</Text>
+          <Text className="video-upload-subtext">视频时长不超过30秒</Text>
         </View>
 
         <View className="custom-tips">

@@ -11,7 +11,7 @@ const STORAGE_KEY = "settings:server-cache";
 export const DEFAULT_USER_SETTINGS: UserSettings = {
   messageEnabled: true,
   soundEnabled: true,
-  theme: "system",
+  theme: "light",
   language: "zh-CN",
 };
 
@@ -20,7 +20,6 @@ export const THEME_OPTIONS: Array<{
   label: string;
   color: string;
 }> = [
-  { key: "system", label: "跟随系统", color: "linear-gradient(135deg, #fff8d9, #d9ecff)" },
   { key: "light", label: "浅色模式", color: "#fff3cf" },
   { key: "dark", label: "深色模式", color: "#2f2f33" },
   { key: "blue", label: "蓝色模式", color: "#a9adb3" },
@@ -48,7 +47,11 @@ export function readCachedUserSettings(): UserSettings {
     return DEFAULT_USER_SETTINGS;
   }
 
-  return mergeWithDefaults(cached as Partial<UserSettings>);
+  const merged = mergeWithDefaults(cached as Partial<UserSettings>);
+  return {
+    ...merged,
+    theme: merged.theme === "system" ? "light" : merged.theme,
+  };
 }
 
 export function writeCachedUserSettings(settings: Partial<UserSettings>) {
@@ -87,7 +90,7 @@ export async function saveUserSettings(settings: Partial<UserSettings>) {
 }
 
 export function getThemeLabel(theme: UserSettingTheme) {
-  return THEME_OPTIONS.find((item) => item.key === theme)?.label ?? "跟随系统";
+  return THEME_OPTIONS.find((item) => item.key === theme)?.label ?? "浅色模式";
 }
 
 export function getLanguageLabel(language: UserSettingLanguage) {

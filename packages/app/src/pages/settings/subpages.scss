@@ -184,9 +184,9 @@
 }
 
 .help-card {
-  min-height: 92rpx;
-  margin-bottom: 16rpx;
-  padding: 0 22rpx;
+  min-height: 108rpx;
+  margin-bottom: 20rpx;
+  padding: 0 26rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -211,9 +211,21 @@
   color: #4a4a4a;
 }
 
+.help-card-value {
+  margin-left: 18rpx;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #3a3a3a;
+}
+
+.help-list {
+  margin-top: 18rpx;
+  margin-bottom: 44rpx;
+}
+
 .help-contact-btn {
-  margin-top: 24rpx;
-  height: 90rpx;
+  margin-top: 36rpx;
+  height: 96rpx;
   border-radius: 28rpx;
   background: #4aa4ff;
   display: flex;
