@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CheckOutlined, CloseOutlined, DownloadOutlined, SyncOutlined } from "@ant-design/icons";
+import { CheckOutlined, CloseOutlined, DownloadOutlined, ReloadOutlined, SyncOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -277,6 +277,18 @@ function createMockAvatarDetails(): ReviewAvatarDetail[] {
   ];
 }
 
+function applyDemoDataState(
+  setDemoAvatarDetails: (details: ReviewAvatarDetail[]) => void,
+  setAvatars: (avatars: ReviewAvatar[]) => void,
+  setIsDemoMode: (value: boolean) => void,
+) {
+  const nextDemoDetails = createMockAvatarDetails();
+  setDemoAvatarDetails(nextDemoDetails);
+  setAvatars(nextDemoDetails.map(toReviewAvatarSummary));
+  setIsDemoMode(true);
+  return nextDemoDetails;
+}
+
 export default function ImageReview() {
   const [messageApi, contextHolder] = message.useMessage();
   const [avatars, setAvatars] = useState<ReviewAvatar[]>([]);
@@ -291,17 +303,21 @@ export default function ImageReview() {
   const [actionLoading, setActionLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
 
-  const loadAvatars = async () => {
+  const loadAvatars = async (options?: { skipDemoFallback?: boolean }) => {
     setLoading(true);
 
     try {
       const response = await api.getAvatars();
       const nextAvatars = (response.avatars as ReviewAvatar[]) ?? [];
       if (nextAvatars.length === 0) {
-        const nextDemoDetails = createMockAvatarDetails();
-        setDemoAvatarDetails(nextDemoDetails);
-        setAvatars(nextDemoDetails.map(toReviewAvatarSummary));
-        setIsDemoMode(true);
+        if (options?.skipDemoFallback) {
+          setDemoAvatarDetails([]);
+          setAvatars([]);
+          setIsDemoMode(false);
+          return [];
+        }
+
+        const nextDemoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
         return nextDemoDetails.map(toReviewAvatarSummary);
       }
 
@@ -310,15 +326,37 @@ export default function ImageReview() {
       setAvatars(nextAvatars);
       return nextAvatars;
     } catch (error) {
-      const nextDemoDetails = createMockAvatarDetails();
-      setDemoAvatarDetails(nextDemoDetails);
-      setAvatars(nextDemoDetails.map(toReviewAvatarSummary));
-      setIsDemoMode(true);
+      if (options?.skipDemoFallback) {
+        setDemoAvatarDetails([]);
+        setAvatars([]);
+        setIsDemoMode(false);
+        messageApi.error(error instanceof Error ? error.message : "图像审核数据加载失败");
+        return [];
+      }
+
+      const nextDemoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
       messageApi.warning("未获取到真实数据，当前展示演示数据");
       return nextDemoDetails.map(toReviewAvatarSummary);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShowDemoData = () => {
+    applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+    setActiveTab("all");
+    messageApi.success("已切换到演示数据");
+  };
+
+  const handleShowRealData = async () => {
+    setActiveTab("all");
+    const nextAvatars = await loadAvatars({ skipDemoFallback: true });
+    if (nextAvatars.length === 0) {
+      messageApi.info("当前没有真实审核数据，可点击“查看演示数据”预览页面效果");
+      return;
+    }
+
+    messageApi.success("已切回真实数据");
   };
 
   const loadAvatarDetail = async (avatarId: string, options?: { silent?: boolean }) => {
@@ -643,11 +681,19 @@ export default function ImageReview() {
           <Card
             title="图像审核"
             extra={
-              isDemoMode ? (
-                <Tag color="gold" style={{ marginInlineEnd: 0 }}>
-                  演示数据
-                </Tag>
-              ) : null
+              <Space size={8}>
+                {isDemoMode ? (
+                  <Tag color="gold" style={{ marginInlineEnd: 0 }}>
+                    演示数据
+                  </Tag>
+                ) : null}
+                <Button size="small" onClick={isDemoMode ? () => void handleShowRealData() : handleShowDemoData}>
+                  {isDemoMode ? "返回真实数据" : "查看演示数据"}
+                </Button>
+                <Button size="small" icon={<ReloadOutlined />} onClick={() => void loadAvatars()}>
+                  刷新
+                </Button>
+              </Space>
             }
           >
             {isDemoMode ? (
