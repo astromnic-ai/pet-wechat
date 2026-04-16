@@ -119,9 +119,169 @@ function getStatusLabel(status: AvatarStatus) {
   return statusMeta[status].label;
 }
 
+function toReviewAvatarSummary(avatar: ReviewAvatarDetail): ReviewAvatar {
+  const { actions: _actions, ...summary } = avatar;
+  return summary;
+}
+
+function buildMockImageUrl(title: string, accent: string, subtitle: string) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+      <defs>
+        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="${accent}" stop-opacity="0.92" />
+          <stop offset="100%" stop-color="#fff1f0" stop-opacity="1" />
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="800" fill="url(#bg)" />
+      <circle cx="920" cy="180" r="120" fill="#ffffff" fill-opacity="0.25" />
+      <circle cx="260" cy="650" r="180" fill="#ffffff" fill-opacity="0.2" />
+      <rect x="120" y="120" width="960" height="560" rx="40" fill="#ffffff" fill-opacity="0.72" />
+      <text x="160" y="300" font-size="80" font-family="Arial, sans-serif" font-weight="700" fill="#1f1f1f">${title}</text>
+      <text x="160" y="390" font-size="40" font-family="Arial, sans-serif" fill="#434343">${subtitle}</text>
+      <text x="160" y="500" font-size="28" font-family="Arial, sans-serif" fill="#595959">Image Review Demo</text>
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function createMockAvatarDetails(): ReviewAvatarDetail[] {
+  return [
+    {
+      id: "mock-avatar-pending-1",
+      petId: "mock-pet-1",
+      sourceImageUrl: buildMockImageUrl("奶油布丁", "#ffd666", "待审核 · 猫咪上传图"),
+      status: "pending",
+      rejectReason: null,
+      reviewedAt: null,
+      createdAt: dayjs().subtract(25, "minute").toISOString(),
+      pet: {
+        id: "mock-pet-1",
+        name: "奶油布丁",
+        species: "cat",
+      },
+      user: {
+        id: "mock-user-1",
+        nickname: "Luna",
+        avatarUrl: null,
+        wechatOpenid: "mock-openid-1",
+        phone: "13800000001",
+      },
+      actions: [],
+    },
+    {
+      id: "mock-avatar-pending-2",
+      petId: "mock-pet-2",
+      sourceImageUrl: buildMockImageUrl("栗子", "#95de64", "待审核 · 狗狗上传图"),
+      status: "pending",
+      rejectReason: null,
+      reviewedAt: null,
+      createdAt: dayjs().subtract(2, "hour").toISOString(),
+      pet: {
+        id: "mock-pet-2",
+        name: "栗子",
+        species: "dog",
+      },
+      user: {
+        id: "mock-user-2",
+        nickname: "Milo",
+        avatarUrl: null,
+        wechatOpenid: "mock-openid-2",
+        phone: "13800000002",
+      },
+      actions: [],
+    },
+    {
+      id: "mock-avatar-rejected-1",
+      petId: "mock-pet-3",
+      sourceImageUrl: buildMockImageUrl("雪团", "#ff7875", "已拒绝 · 图片不清晰"),
+      status: "rejected",
+      rejectReason: "图片不够清晰，宠物面部被遮挡，建议重新上传正面照片。",
+      reviewedAt: dayjs().subtract(1, "hour").toISOString(),
+      createdAt: dayjs().subtract(4, "hour").toISOString(),
+      pet: {
+        id: "mock-pet-3",
+        name: "雪团",
+        species: "cat",
+      },
+      user: {
+        id: "mock-user-3",
+        nickname: "Coco",
+        avatarUrl: null,
+        wechatOpenid: "mock-openid-3",
+        phone: "13800000003",
+      },
+      actions: [],
+    },
+    {
+      id: "mock-avatar-approved-1",
+      petId: "mock-pet-4",
+      sourceImageUrl: buildMockImageUrl("可颂", "#69b1ff", "已通过 · 待进入定制"),
+      status: "approved",
+      rejectReason: null,
+      reviewedAt: dayjs().subtract(3, "hour").toISOString(),
+      createdAt: dayjs().subtract(7, "hour").toISOString(),
+      pet: {
+        id: "mock-pet-4",
+        name: "可颂",
+        species: "dog",
+      },
+      user: {
+        id: "mock-user-4",
+        nickname: "Cookie",
+        avatarUrl: null,
+        wechatOpenid: "mock-openid-4",
+        phone: "13800000004",
+      },
+      actions: [
+        {
+          id: "mock-action-1",
+          petAvatarId: "mock-avatar-approved-1",
+          actionType: "sit",
+          imageUrl: buildMockImageUrl("可颂动作素材", "#91caff", "sit"),
+          sortOrder: 0,
+        },
+      ],
+    },
+    {
+      id: "mock-avatar-done-1",
+      petId: "mock-pet-5",
+      sourceImageUrl: buildMockImageUrl("团子", "#b37feb", "已同步 · 客户端已完成"),
+      status: "done",
+      rejectReason: null,
+      reviewedAt: dayjs().subtract(1, "day").add(2, "hour").toISOString(),
+      createdAt: dayjs().subtract(1, "day").toISOString(),
+      pet: {
+        id: "mock-pet-5",
+        name: "团子",
+        species: "cat",
+      },
+      user: {
+        id: "mock-user-5",
+        nickname: "Nana",
+        avatarUrl: null,
+        wechatOpenid: "mock-openid-5",
+        phone: "13800000005",
+      },
+      actions: [
+        {
+          id: "mock-action-2",
+          petAvatarId: "mock-avatar-done-1",
+          actionType: "run",
+          imageUrl: buildMockImageUrl("团子动作素材", "#d3adf7", "run"),
+          sortOrder: 0,
+        },
+      ],
+    },
+  ];
+}
+
 export default function ImageReview() {
   const [messageApi, contextHolder] = message.useMessage();
   const [avatars, setAvatars] = useState<ReviewAvatar[]>([]);
+  const [demoAvatarDetails, setDemoAvatarDetails] = useState<ReviewAvatarDetail[]>([]);
+  const [isDemoMode, setIsDemoMode] = useState(false);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ReviewTabKey>("all");
@@ -137,17 +297,38 @@ export default function ImageReview() {
     try {
       const response = await api.getAvatars();
       const nextAvatars = (response.avatars as ReviewAvatar[]) ?? [];
+      if (nextAvatars.length === 0) {
+        const nextDemoDetails = createMockAvatarDetails();
+        setDemoAvatarDetails(nextDemoDetails);
+        setAvatars(nextDemoDetails.map(toReviewAvatarSummary));
+        setIsDemoMode(true);
+        return nextDemoDetails.map(toReviewAvatarSummary);
+      }
+
+      setIsDemoMode(false);
+      setDemoAvatarDetails([]);
       setAvatars(nextAvatars);
       return nextAvatars;
     } catch (error) {
-      messageApi.error(error instanceof Error ? error.message : "图像审核数据加载失败");
-      return [];
+      const nextDemoDetails = createMockAvatarDetails();
+      setDemoAvatarDetails(nextDemoDetails);
+      setAvatars(nextDemoDetails.map(toReviewAvatarSummary));
+      setIsDemoMode(true);
+      messageApi.warning("未获取到真实数据，当前展示演示数据");
+      return nextDemoDetails.map(toReviewAvatarSummary);
     } finally {
       setLoading(false);
     }
   };
 
   const loadAvatarDetail = async (avatarId: string, options?: { silent?: boolean }) => {
+    if (isDemoMode) {
+      const detail = demoAvatarDetails.find((avatar) => avatar.id === avatarId) ?? null;
+      setSelectedAvatarDetail(detail);
+      setRejectReason(detail?.rejectReason?.trim() ?? "");
+      return detail;
+    }
+
     if (!options?.silent) {
       setDetailLoading(true);
     }
@@ -262,7 +443,7 @@ export default function ImageReview() {
     }
 
     void loadAvatarDetail(selectedAvatarId);
-  }, [selectedAvatarId]);
+  }, [demoAvatarDetails, isDemoMode, selectedAvatarId]);
 
   const selectedSummary = useMemo(
     () => avatars.find((avatar) => avatar.id === selectedAvatarId) ?? null,
@@ -277,7 +458,16 @@ export default function ImageReview() {
     (selectedAvatarDetail.status === "approved" || selectedAvatarDetail.status === "processing") &&
     selectedAvatarDetail.actions.length > 0;
 
-  const refreshAfterMutation = async (avatarId: string) => {
+  const refreshAfterMutation = async (avatarId: string, nextDemoDetails?: ReviewAvatarDetail[]) => {
+    if (isDemoMode) {
+      const currentDemoDetails = nextDemoDetails ?? demoAvatarDetails;
+      const nextDetail = currentDemoDetails.find((avatar) => avatar.id === avatarId) ?? null;
+      setAvatars(currentDemoDetails.map(toReviewAvatarSummary));
+      setSelectedAvatarDetail(nextDetail);
+      setRejectReason(nextDetail?.rejectReason?.trim() ?? "");
+      return;
+    }
+
     await loadAvatars();
     await loadAvatarDetail(avatarId, { silent: true });
   };
@@ -290,6 +480,24 @@ export default function ImageReview() {
     setActionLoading(true);
 
     try {
+      if (isDemoMode) {
+        const reviewedAt = dayjs().toISOString();
+        const nextDemoDetails = demoAvatarDetails.map((avatar) =>
+          avatar.id === selectedAvatarDetail.id
+            ? {
+                ...avatar,
+                status: "approved" as const,
+                rejectReason: null,
+                reviewedAt,
+              }
+            : avatar,
+        );
+        setDemoAvatarDetails(nextDemoDetails);
+        await refreshAfterMutation(selectedAvatarDetail.id, nextDemoDetails);
+        messageApi.success("审核已通过，当前为演示数据效果");
+        return;
+      }
+
       await api.approveAvatar(selectedAvatarDetail.id);
       messageApi.success("审核已通过，已进入定制池");
       await refreshAfterMutation(selectedAvatarDetail.id);
@@ -314,6 +522,24 @@ export default function ImageReview() {
     setActionLoading(true);
 
     try {
+      if (isDemoMode) {
+        const reviewedAt = dayjs().toISOString();
+        const nextDemoDetails = demoAvatarDetails.map((avatar) =>
+          avatar.id === selectedAvatarDetail.id
+            ? {
+                ...avatar,
+                status: "rejected" as const,
+                rejectReason: nextReason,
+                reviewedAt,
+              }
+            : avatar,
+        );
+        setDemoAvatarDetails(nextDemoDetails);
+        await refreshAfterMutation(selectedAvatarDetail.id, nextDemoDetails);
+        messageApi.success("已切换为拒绝状态，当前为演示数据效果");
+        return;
+      }
+
       await api.rejectAvatar(selectedAvatarDetail.id, nextReason);
       messageApi.success("已标记为有问题并通知用户");
       await refreshAfterMutation(selectedAvatarDetail.id);
@@ -332,6 +558,21 @@ export default function ImageReview() {
     setSyncLoading(true);
 
     try {
+      if (isDemoMode) {
+        const nextDemoDetails = demoAvatarDetails.map((avatar) =>
+          avatar.id === selectedAvatarDetail.id
+            ? {
+                ...avatar,
+                status: "done" as const,
+              }
+            : avatar,
+        );
+        setDemoAvatarDetails(nextDemoDetails);
+        await refreshAfterMutation(selectedAvatarDetail.id, nextDemoDetails);
+        messageApi.success("已切换为同步完成状态，当前为演示数据效果");
+        return;
+      }
+
       await api.syncAvatar(selectedAvatarDetail.id);
       messageApi.success("已推送客户端定制进度信息");
       await refreshAfterMutation(selectedAvatarDetail.id);
@@ -399,7 +640,21 @@ export default function ImageReview() {
             </Col>
           </Row>
 
-          <Card title="图像审核">
+          <Card
+            title="图像审核"
+            extra={
+              isDemoMode ? (
+                <Tag color="gold" style={{ marginInlineEnd: 0 }}>
+                  演示数据
+                </Tag>
+              ) : null
+            }
+          >
+            {isDemoMode ? (
+              <Text type="secondary" style={{ display: "block", marginBottom: 12 }}>
+                当前未获取到真实审核数据，页面正在展示本地演示样例，你可以直接点选图片查看待审核、已拒绝、已通过和已同步状态效果。
+              </Text>
+            ) : null}
             <Tabs activeKey={activeTab} items={tabItems} onChange={(key) => setActiveTab(key as ReviewTabKey)} />
 
             {filteredAvatars.length > 0 ? (
