@@ -36,6 +36,7 @@ export const avatarStatusEnum = pgEnum("avatar_status", [
 export const scheduleEffectiveTypeEnum = pgEnum("schedule_effective_type", [
   "everyday",
   "weekday",
+  "friday",
 ]);
 export const messageTypeEnum = pgEnum("message_type", [
   "authorization",
