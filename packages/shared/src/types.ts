@@ -153,6 +153,9 @@ export interface PetAvatar {
   id: string;
   petId: string;
   sourceImageUrl: string;
+  additionalImageUrls?: string | null;
+  petDescription?: string | null;
+  funFact?: string | null;
   status: AvatarStatus;
   rejectReason?: string | null;
   reviewedAt?: string | null;

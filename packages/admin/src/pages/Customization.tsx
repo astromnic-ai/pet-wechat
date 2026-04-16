@@ -1,23 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckOutlined, DeleteOutlined, SyncOutlined, UploadOutlined } from "@ant-design/icons";
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Badge,
+  CheckCircleFilled,
+  DeleteOutlined,
+  LoadingOutlined,
+  PlusOutlined,
+  SaveOutlined,
+  SyncOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
+import {
   Button,
   Card,
   Col,
   Empty,
   Image,
   Input,
-  Modal,
+  Progress,
   Row,
   Select,
+  Space,
   Spin,
   Statistic,
   Tag,
+  Typography,
   message,
 } from "antd";
 import {
   ACTION_LABELS,
+  ALL_ACTIONS,
   BASIC_ACTIONS,
   FUN_ACTIONS,
   type ActionType,
@@ -29,13 +39,20 @@ import {
 } from "shared";
 import { api } from "../api/client";
 
+const { Text, Paragraph } = Typography;
+const { TextArea } = Input;
+
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskFilter = "all" | CustomizationStatus;
+type CustomizationCategory = "basic" | "personalized";
+type CategoryFilter = "all" | CustomizationCategory;
+
+type CustomizationPet = Pick<Pet, "id" | "name" | "breed" | "gender" | "birthday" | "weight"> & {
+  species: Species | "other" | string | null;
+};
 
 type CustomizationAvatar = PetAvatar & {
-  pet: (Pick<Pet, "id" | "name"> & {
-    species: Species | "other" | string | null;
-  }) | null;
+  pet: CustomizationPet | null;
   user: Pick<User, "id" | "nickname" | "avatarUrl" | "wechatOpenid" | "phone"> | null;
 };
 
@@ -49,23 +66,35 @@ type CustomizationAction = PetAvatarAction & {
 
 const TASK_STATUSES: CustomizationStatus[] = ["approved", "processing", "done"];
 
-const filterOptions: Array<{ label: string; value: TaskFilter }> = [
-  { label: "全部", value: "all" },
-  { label: "待定制", value: "approved" },
+const statusOptions: Array<{ label: string; value: TaskFilter }> = [
+  { label: "全部状态", value: "all" },
+  { label: "待处理", value: "approved" },
   { label: "进行中", value: "processing" },
   { label: "已完成", value: "done" },
 ];
 
-const statusMeta: Record<CustomizationStatus, { label: string; color: string }> = {
-  approved: { label: "待定制", color: "blue" },
-  processing: { label: "进行中", color: "orange" },
-  done: { label: "已完成", color: "green" },
+const categoryOptions: Array<{ label: string; value: CategoryFilter }> = [
+  { label: "全部类型", value: "all" },
+  { label: "基本图像", value: "basic" },
+  { label: "个性化定制", value: "personalized" },
+];
+
+const statusMeta: Record<CustomizationStatus, { label: string; color: string; helper: string }> = {
+  approved: { label: "待处理", color: "blue", helper: "有需求未处理" },
+  processing: { label: "进行中", color: "orange", helper: "已上传部分动作，尚未全部完成" },
+  done: { label: "已完成", color: "green", helper: "全部动作已完成并同步到用户端" },
 };
 
 const speciesLabels: Record<string, string> = {
   cat: "猫",
   dog: "狗",
   other: "其他",
+};
+
+const genderLabels: Record<string, string> = {
+  male: "公",
+  female: "母",
+  unknown: "未知",
 };
 
 function padNumber(value: number) {
@@ -107,6 +136,37 @@ function getSpeciesLabel(species?: string | null) {
   return speciesLabels[species] ?? species;
 }
 
+function getGenderLabel(gender?: string | null) {
+  if (!gender) {
+    return "未知";
+  }
+
+  return genderLabels[gender] ?? gender;
+}
+
+function parseAdditionalImages(value?: string | null): string[] {
+  if (!value) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+  } catch {
+    return [];
+  }
+}
+
+function resolveCustomizationCategory(avatar: Pick<CustomizationAvatar, "additionalImageUrls">): CustomizationCategory {
+  return parseAdditionalImages(avatar.additionalImageUrls).length > 0 ? "personalized" : "basic";
+}
+
+function getCategoryMeta(category: CustomizationCategory) {
+  return category === "personalized"
+    ? { label: "个性化定制", color: "magenta" as const }
+    : { label: "基本图像", color: "default" as const };
+}
+
 function buildActionMap(actions: PetAvatarAction[]) {
   return actions.reduce<Record<string, CustomizationAction>>((map, action) => {
     map[action.actionType] = action as CustomizationAction;
@@ -114,28 +174,55 @@ function buildActionMap(actions: PetAvatarAction[]) {
   }, {});
 }
 
+function buildPetInfoLine(pet?: CustomizationPet | null) {
+  if (!pet) {
+    return "未补充宠物基础信息";
+  }
+
+  const fields = [
+    pet.name ? `昵称 ${pet.name}` : null,
+    pet.species ? `品类 ${getSpeciesLabel(pet.species)}` : null,
+    pet.breed ? `品种 ${pet.breed}` : null,
+    pet.gender ? `性别 ${getGenderLabel(pet.gender)}` : null,
+    typeof pet.weight === "number" ? `体重 ${pet.weight}kg` : null,
+  ].filter(Boolean);
+
+  return fields.length > 0 ? fields.join(" · ") : "未补充宠物基础信息";
+}
+
+function getUserDisplayName(user?: CustomizationAvatar["user"]) {
+  return user?.nickname?.trim() || "微信用户";
+}
+
 export default function Customization() {
   const [messageApi, contextHolder] = message.useMessage();
   const [avatars, setAvatars] = useState<CustomizationAvatar[]>([]);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState<TaskFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<TaskFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [selectedAvatarDetail, setSelectedAvatarDetail] = useState<CustomizationAvatarDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
-  const [uploadModalOpen, setUploadModalOpen] = useState(false);
-  const [uploadActionType, setUploadActionType] = useState<ActionType | null>(null);
-  const [uploadImageUrl, setUploadImageUrl] = useState("");
-  const [submittingAction, setSubmittingAction] = useState(false);
+  const [uploadingActionType, setUploadingActionType] = useState<ActionType | null>(null);
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [savingMeta, setSavingMeta] = useState(false);
+  const [petDescription, setPetDescription] = useState("");
+  const [funFact, setFunFact] = useState("");
+  const [pendingUploadActionType, setPendingUploadActionType] = useState<ActionType | null>(null);
   const detailRequestRef = useRef(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const loadAvatars = async () => {
     setLoading(true);
 
     try {
       const response = await api.getAvatars();
-      setAvatars(((response.avatars as CustomizationAvatar[]) ?? []).filter((avatar) => TASK_STATUSES.includes(avatar.status as CustomizationStatus)));
+      setAvatars(
+        ((response.avatars as CustomizationAvatar[]) ?? []).filter((avatar) =>
+          TASK_STATUSES.includes(avatar.status as CustomizationStatus),
+        ),
+      );
     } catch (error) {
       messageApi.error(error instanceof Error ? error.message : "定制任务加载失败");
     } finally {
@@ -178,19 +265,25 @@ export default function Customization() {
   }, []);
 
   const filteredAvatars = useMemo(() => {
-    if (filter === "all") {
-      return avatars;
-    }
+    return avatars.filter((avatar) => {
+      const matchesStatus = statusFilter === "all" || avatar.status === statusFilter;
+      const category = resolveCustomizationCategory(avatar);
+      const matchesCategory = categoryFilter === "all" || category === categoryFilter;
+      return matchesStatus && matchesCategory;
+    });
+  }, [avatars, statusFilter, categoryFilter]);
 
-    return avatars.filter((avatar) => avatar.status === filter);
-  }, [avatars, filter]);
+  const pendingCount = useMemo(
+    () => avatars.filter((avatar) => avatar.status === "approved").length,
+    [avatars],
+  );
 
   const totalDoneCount = useMemo(
     () => avatars.filter((avatar) => avatar.status === "done").length,
     [avatars],
   );
 
-  const todayNewApprovedCount = useMemo(
+  const todayNewCount = useMemo(
     () => avatars.filter((avatar) => enteredCustomizationToday(avatar)).length,
     [avatars],
   );
@@ -221,56 +314,62 @@ export default function Customization() {
     [avatars, selectedAvatarId],
   );
 
+  useEffect(() => {
+    const source = selectedAvatarDetail ?? selectedAvatarSummary;
+    setPetDescription(source?.petDescription ?? "");
+    setFunFact(source?.funFact ?? "");
+  }, [selectedAvatarDetail, selectedAvatarSummary]);
+
   const actionMap = useMemo(
     () => buildActionMap(selectedAvatarDetail?.actions ?? []),
     [selectedAvatarDetail?.actions],
   );
 
-  const completedActionCount = selectedAvatarDetail?.actions.length ?? 0;
+  const completedActionCount = Object.keys(actionMap).length;
+  const completionPercent = Math.round((completedActionCount / ALL_ACTIONS.length) * 100);
   const canEditActions = selectedAvatarDetail?.status === "approved" || selectedAvatarDetail?.status === "processing";
-  const canSync = !!selectedAvatarDetail && completedActionCount > 0 && selectedAvatarDetail.status !== "done";
+  const canSync = !!selectedAvatarDetail && completedActionCount === ALL_ACTIONS.length && selectedAvatarDetail.status !== "done";
+  const selectedCategory = resolveCustomizationCategory(selectedAvatarDetail ?? selectedAvatarSummary ?? { additionalImageUrls: null });
+  const selectedCategoryMeta = getCategoryMeta(selectedCategory);
+  const referenceImages = parseAdditionalImages(selectedAvatarDetail?.additionalImageUrls ?? selectedAvatarSummary?.additionalImageUrls ?? null);
 
   const refreshCurrentAvatar = async (avatarId: string) => {
     await Promise.all([loadAvatars(), loadAvatarDetail(avatarId, { keepLoading: true })]);
   };
 
-  const handleOpenUploadModal = (actionType: ActionType) => {
-    setUploadActionType(actionType);
-    setUploadImageUrl("");
-    setUploadModalOpen(true);
-  };
-
-  const handleCloseUploadModal = () => {
-    setUploadModalOpen(false);
-    setUploadActionType(null);
-    setUploadImageUrl("");
-  };
-
-  const handleSubmitAction = async () => {
-    if (!selectedAvatarDetail || !uploadActionType) {
+  const handleTriggerUpload = (actionType: ActionType) => {
+    if (!canEditActions) {
       return;
     }
 
-    const imageUrl = uploadImageUrl.trim();
-    if (!imageUrl) {
-      messageApi.warning("请输入图片 URL");
+    setPendingUploadActionType(actionType);
+    fileInputRef.current?.click();
+  };
+
+  const handleUploadFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    const actionType = pendingUploadActionType;
+    event.target.value = "";
+
+    if (!file || !actionType || !selectedAvatarDetail) {
       return;
     }
 
-    setSubmittingAction(true);
+    setUploadingActionType(actionType);
 
     try {
+      const uploadRes = await api.uploadAdminImage(file);
       await api.createAvatarAction(selectedAvatarDetail.id, {
-        actionType: uploadActionType,
-        imageUrl,
+        actionType,
+        imageUrl: uploadRes.url,
       });
-      messageApi.success("动作素材已上传");
-      handleCloseUploadModal();
+      messageApi.success(`${ACTION_LABELS[actionType] ?? actionType} 已上传`);
       await refreshCurrentAvatar(selectedAvatarDetail.id);
     } catch (error) {
       messageApi.error(error instanceof Error ? error.message : "动作素材上传失败");
     } finally {
-      setSubmittingAction(false);
+      setUploadingActionType(null);
+      setPendingUploadActionType(null);
     }
   };
 
@@ -292,6 +391,27 @@ export default function Customization() {
     }
   };
 
+  const handleSaveMeta = async () => {
+    if (!selectedAvatarSummary) {
+      return;
+    }
+
+    setSavingMeta(true);
+
+    try {
+      await api.updateAvatarMeta(selectedAvatarSummary.id, {
+        petDescription,
+        funFact,
+      });
+      messageApi.success("描述信息已保存");
+      await refreshCurrentAvatar(selectedAvatarSummary.id);
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : "描述保存失败");
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
   const handleSyncAvatar = async () => {
     if (!selectedAvatarDetail) {
       return;
@@ -301,7 +421,7 @@ export default function Customization() {
 
     try {
       await api.syncAvatar(selectedAvatarDetail.id);
-      messageApi.success("已同步到用户端");
+      messageApi.success("定制图像与描述已同步到用户端");
       await refreshCurrentAvatar(selectedAvatarDetail.id);
     } catch (error) {
       messageApi.error(error instanceof Error ? error.message : "同步失败");
@@ -311,110 +431,99 @@ export default function Customization() {
   };
 
   const renderActionGrid = (title: string, actions: readonly ActionType[]) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: 16, fontWeight: 600 }}>{title}</div>
-      <Row gutter={[16, 16]}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <Text strong style={{ fontSize: 16 }}>
+          {title}
+        </Text>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          系统预置动作位，未上传显示 +，上传成功显示 ✓
+        </Text>
+      </div>
+      <Row gutter={[14, 14]}>
         {actions.map((actionType) => {
           const action = actionMap[actionType];
+          const isUploading = uploadingActionType === actionType;
           const isDeleting = deletingActionId === action?.id;
 
           return (
-            <Col key={actionType} xs={12} sm={8} xl={6} xxl={4}>
-              <Badge
-                count={action ? "✓" : 0}
-                showZero={false}
-                offset={[-10, 10]}
-                style={{ backgroundColor: "#52c41a", boxShadow: "none" }}
+            <Col key={actionType} xs={24} sm={12} xl={8} xxl={6}>
+              <Card
+                hoverable={canEditActions}
+                bodyStyle={{ padding: 14 }}
+                style={{
+                  borderRadius: 16,
+                  borderColor: action ? "#b7eb8f" : "#e8e8e8",
+                  boxShadow: action ? "0 8px 22px rgba(82, 196, 26, 0.08)" : "0 6px 18px rgba(15, 23, 42, 0.05)",
+                }}
               >
-                <Card
-                  size="small"
-                  styles={{
-                    body: {
-                      minHeight: 120,
-                      height: 120,
-                      padding: 12,
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                    },
-                  }}
-                >
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <Text strong style={{ fontSize: 15 }}>
+                      {ACTION_LABELS[actionType] ?? actionType}
+                    </Text>
+                    {isUploading ? (
+                      <LoadingOutlined style={{ color: "#1677ff", fontSize: 16 }} />
+                    ) : action ? (
+                      <CheckCircleFilled style={{ color: "#52c41a", fontSize: 18 }} />
+                    ) : (
+                      <PlusOutlined style={{ color: "#bfbfbf", fontSize: 16 }} />
+                    )}
+                  </div>
+
                   {action ? (
-                    <>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                        <div
-                          style={{
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: "#262626",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {ACTION_LABELS[actionType] ?? actionType}
-                        </div>
-                        <CheckOutlined style={{ color: "#52c41a" }} />
-                      </div>
-                      <Image
-                        src={action.imageUrl}
-                        alt={ACTION_LABELS[actionType] ?? actionType}
-                        width="100%"
-                        height={58}
-                        style={{ objectFit: "cover", borderRadius: 8 }}
-                      />
+                    <Image
+                      src={action.imageUrl}
+                      alt={ACTION_LABELS[actionType] ?? actionType}
+                      height={120}
+                      style={{ width: "100%", objectFit: "cover", borderRadius: 12 }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        height: 120,
+                        borderRadius: 12,
+                        border: "1px dashed #d9d9d9",
+                        background: "linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#8c8c8c",
+                        gap: 10,
+                      }}
+                    >
+                      <PlusOutlined style={{ fontSize: 22 }} />
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        点击从本地上传
+                      </Text>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <Button
+                      type={action ? "default" : "primary"}
+                      icon={<UploadOutlined />}
+                      loading={isUploading}
+                      disabled={!canEditActions}
+                      onClick={() => handleTriggerUpload(actionType)}
+                    >
+                      {action ? "重新上传" : "上传"}
+                    </Button>
+                    {action ? (
                       <Button
                         danger
-                        size="small"
                         icon={<DeleteOutlined />}
-                        disabled={!canEditActions}
                         loading={isDeleting}
+                        disabled={!canEditActions}
                         onClick={() => void handleDeleteAction(action)}
                       >
                         删除
                       </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div
-                        style={{
-                          minHeight: 44,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          textAlign: "center",
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: "#262626",
-                        }}
-                      >
-                        {ACTION_LABELS[actionType] ?? actionType}
-                      </div>
-                      <div
-                        style={{
-                          flex: 1,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          color: "#8c8c8c",
-                          fontSize: 12,
-                        }}
-                      >
-                        暂未上传
-                      </div>
-                      <Button
-                        type="primary"
-                        size="small"
-                        icon={<UploadOutlined />}
-                        disabled={!canEditActions}
-                        onClick={() => handleOpenUploadModal(actionType)}
-                      >
-                        上传
-                      </Button>
-                    </>
-                  )}
-                </Card>
-              </Badge>
+                    ) : null}
+                  </div>
+                </div>
+              </Card>
             </Col>
           );
         })}
@@ -425,88 +534,124 @@ export default function Customization() {
   return (
     <>
       {contextHolder}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        style={{ display: "none" }}
+        onChange={(event) => void handleUploadFileChange(event)}
+      />
       <Spin spinning={loading} size="large">
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Card>
-                <Statistic title="累计定制总量" value={totalDoneCount} valueStyle={{ color: "#52c41a" }} />
+            <Col xs={24} md={8}>
+              <Card bordered={false} style={{ borderRadius: 18 }}>
+                <Statistic title="待处理累计" value={pendingCount} valueStyle={{ color: "#1677ff" }} />
+                <Text type="secondary">审核通过后进入定制流程</Text>
               </Card>
             </Col>
-            <Col xs={24} md={12}>
-              <Card>
-                <Statistic title="今日新增待定制数" value={todayNewApprovedCount} valueStyle={{ color: "#1677ff" }} />
+            <Col xs={24} md={8}>
+              <Card bordered={false} style={{ borderRadius: 18 }}>
+                <Statistic title="已完成累计" value={totalDoneCount} valueStyle={{ color: "#52c41a" }} />
+                <Text type="secondary">完成全部动作并同步成功</Text>
+              </Card>
+            </Col>
+            <Col xs={24} md={8}>
+              <Card bordered={false} style={{ borderRadius: 18 }}>
+                <Statistic title="今日新增定制数" value={todayNewCount} valueStyle={{ color: "#fa8c16" }} />
+                <Text type="secondary">按进入定制池时间统计</Text>
               </Card>
             </Col>
           </Row>
 
           <Row gutter={[16, 16]} align="stretch">
-            <Col xs={24} lg={8}>
+            <Col xs={24} lg={9}>
               <Card
-                title="任务列表"
-                extra={
-                  <Select
-                    value={filter}
-                    onChange={(value) => setFilter(value)}
-                    options={filterOptions}
-                    style={{ width: 160 }}
-                  />
-                }
+                title="宠物-用户-定制任务"
+                bordered={false}
+                style={{ borderRadius: 20 }}
+                extra={(
+                  <Space wrap size={8} style={{ justifyContent: "flex-end" }}>
+                    <Select
+                      value={categoryFilter}
+                      onChange={(value) => setCategoryFilter(value)}
+                      options={categoryOptions}
+                      style={{ width: 146 }}
+                    />
+                    <Select
+                      value={statusFilter}
+                      onChange={(value) => setStatusFilter(value)}
+                      options={statusOptions}
+                      style={{ width: 132 }}
+                    />
+                  </Space>
+                )}
                 styles={{ body: { padding: 16 } }}
               >
                 {filteredAvatars.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "calc(100vh - 280px)", overflowY: "auto", paddingRight: 4 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12, maxHeight: "calc(100vh - 276px)", overflowY: "auto", paddingRight: 4 }}>
                     {filteredAvatars.map((avatar) => {
                       const status = statusMeta[avatar.status as CustomizationStatus];
+                      const category = resolveCustomizationCategory(avatar);
+                      const categoryMeta = getCategoryMeta(category);
                       const isSelected = avatar.id === selectedAvatarId;
+                      const referenceCount = parseAdditionalImages(avatar.additionalImageUrls).length;
 
                       return (
                         <Card
                           key={avatar.id}
                           hoverable
                           onClick={() => setSelectedAvatarId(avatar.id)}
+                          bodyStyle={{ padding: 14 }}
                           style={{
-                            borderColor: isSelected ? "#1677ff" : "#f0f0f0",
-                            boxShadow: isSelected ? "0 0 0 2px rgba(22,119,255,0.12)" : "none",
                             cursor: "pointer",
+                            borderRadius: 18,
+                            borderColor: isSelected ? "#1677ff" : "#f0f0f0",
+                            boxShadow: isSelected ? "0 0 0 3px rgba(22,119,255,0.12)" : "0 8px 24px rgba(15, 23, 42, 0.04)",
+                            background: isSelected ? "linear-gradient(180deg, #f6fbff 0%, #ffffff 100%)" : "#fff",
                           }}
-                          styles={{ body: { padding: 16 } }}
                         >
-                          <div style={{ display: "flex", gap: 12 }}>
+                          <div style={{ display: "flex", gap: 14 }}>
                             <Image
                               src={avatar.sourceImageUrl}
                               alt={avatar.pet?.name ?? "宠物原图"}
-                              width={64}
-                              height={64}
+                              width={88}
+                              height={88}
                               preview={false}
-                              style={{ objectFit: "cover", borderRadius: 8 }}
+                              style={{ objectFit: "cover", borderRadius: 14, flexShrink: 0 }}
                             />
+
                             <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
-                              <div
-                                style={{
-                                  fontSize: 16,
-                                  fontWeight: 600,
-                                  color: "#262626",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {avatar.user?.nickname ?? "未知用户"}
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontSize: 16, fontWeight: 700, color: "#262626", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {getUserDisplayName(avatar.user)}
+                                  </div>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    ID：{avatar.user?.id ?? "-"}
+                                  </Text>
+                                </div>
+
+                                <Space size={[6, 6]} wrap style={{ justifyContent: "flex-end" }}>
+                                  <Tag color={categoryMeta.color}>{categoryMeta.label}</Tag>
+                                  <Tag color={status.color}>{status.label}</Tag>
+                                </Space>
                               </div>
-                              <div
-                                style={{
-                                  fontSize: 14,
-                                  color: "#595959",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {avatar.pet?.name ?? "未命名宠物"}
+
+                              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <Text strong>{avatar.pet?.name ?? "未命名宠物"}</Text>
+                                <Text type="secondary" style={{ fontSize: 12, lineHeight: 1.6 }}>
+                                  {buildPetInfoLine(avatar.pet)}
+                                </Text>
                               </div>
-                              <div>
-                                <Tag color={status?.color}>{status?.label ?? avatar.status}</Tag>
+
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  原图 1 张{referenceCount > 0 ? ` · 参考图 ${referenceCount} 张` : ""}
+                                </Text>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                  {status.helper}
+                                </Text>
                               </div>
                             </div>
                           </div>
@@ -515,59 +660,159 @@ export default function Customization() {
                     })}
                   </div>
                 ) : (
-                  <Empty description="暂无定制任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  <Empty description="暂无符合筛选条件的定制任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 )}
               </Card>
             </Col>
 
-            <Col xs={24} lg={16}>
+            <Col xs={24} lg={15}>
               {!selectedAvatarId || !selectedAvatarSummary ? (
-                <Card style={{ minHeight: 520 }}>
-                  <Empty description="请选择左侧任务" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                <Card bordered={false} style={{ minHeight: 560, borderRadius: 20 }}>
+                  <Empty description="请选择左侧任务，查看该宠物的定制进度和内容分类" image={Empty.PRESENTED_IMAGE_SIMPLE} />
                 </Card>
               ) : (
                 <Spin spinning={detailLoading}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <Card title="工作区" styles={{ body: { padding: 16 } }}>
-                      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-                        <Image
-                          src={selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary.sourceImageUrl}
-                          alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "宠物原图"}
-                          width={96}
-                          height={96}
-                          preview={false}
-                          style={{ objectFit: "cover", borderRadius: 12 }}
-                        />
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          <div style={{ fontSize: 22, fontWeight: 700, color: "#262626" }}>
-                            {selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "未命名宠物"}
-                          </div>
-                          <div style={{ fontSize: 14, color: "#595959" }}>
-                            类型：{getSpeciesLabel(selectedAvatarDetail?.pet?.species ?? selectedAvatarSummary.pet?.species)}
-                          </div>
-                          <div style={{ fontSize: 14, color: "#595959" }}>
-                            所属用户：{selectedAvatarDetail?.user?.nickname ?? selectedAvatarSummary.user?.nickname ?? "未知用户"}
-                          </div>
-                          <div>
-                            <Tag color={statusMeta[(selectedAvatarDetail?.status ?? selectedAvatarSummary.status) as CustomizationStatus]?.color}>
-                              {statusMeta[(selectedAvatarDetail?.status ?? selectedAvatarSummary.status) as CustomizationStatus]?.label ??
-                                (selectedAvatarDetail?.status ?? selectedAvatarSummary.status)}
-                            </Tag>
-                            <Tag color="default">{completedActionCount}/14 已上传</Tag>
+                    <Card bordered={false} style={{ borderRadius: 20 }} styles={{ body: { padding: 20 } }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                        <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
+                          <Image.PreviewGroup>
+                            <Image
+                              src={selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary.sourceImageUrl}
+                              alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "宠物原图"}
+                              width={140}
+                              height={140}
+                              style={{ objectFit: "cover", borderRadius: 18 }}
+                            />
+                            {referenceImages.map((url) => (
+                              <Image
+                                key={url}
+                                src={url}
+                                alt="个性化参考图"
+                                width={0}
+                                height={0}
+                                style={{ display: "none" }}
+                              />
+                            ))}
+                          </Image.PreviewGroup>
+
+                          <div style={{ minWidth: 260, flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                              <Text strong style={{ fontSize: 24 }}>
+                                {selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "未命名宠物"}
+                              </Text>
+                              <Space wrap>
+                                <Tag color={selectedCategoryMeta.color}>{selectedCategoryMeta.label}</Tag>
+                                <Tag color={statusMeta[(selectedAvatarDetail?.status ?? selectedAvatarSummary.status) as CustomizationStatus]?.color}>
+                                  {statusMeta[(selectedAvatarDetail?.status ?? selectedAvatarSummary.status) as CustomizationStatus]?.label}
+                                </Tag>
+                              </Space>
+                            </div>
+
+                            <Text type="secondary">微信用户：{getUserDisplayName(selectedAvatarDetail?.user ?? selectedAvatarSummary.user)}</Text>
+                            <Text type="secondary">用户 ID：{selectedAvatarDetail?.user?.id ?? selectedAvatarSummary.user?.id ?? "-"}</Text>
+                            <Text type="secondary">宠物信息：{buildPetInfoLine(selectedAvatarDetail?.pet ?? selectedAvatarSummary.pet)}</Text>
+                            <Text type="secondary">
+                              内容分类：{selectedCategoryMeta.label}
+                              {referenceImages.length > 0 ? ` · 额外参考图 ${referenceImages.length} 张` : ""}
+                            </Text>
+
+                            <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                                <Text strong>宠物定制进度</Text>
+                                <Text type="secondary">
+                                  {completedActionCount}/{ALL_ACTIONS.length} 已完成
+                                </Text>
+                              </div>
+                              <Progress percent={completionPercent} strokeColor="#52c41a" />
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                {statusMeta[(selectedAvatarDetail?.status ?? selectedAvatarSummary.status) as CustomizationStatus]?.helper}
+                              </Text>
+                            </div>
                           </div>
                         </div>
+
+                        {referenceImages.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <Text strong>个性化参考图</Text>
+                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                              {referenceImages.map((url) => (
+                                <Image
+                                  key={url}
+                                  src={url}
+                                  alt="个性化参考图"
+                                  width={84}
+                                  height={84}
+                                  style={{ objectFit: "cover", borderRadius: 12 }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        ) : null}
                       </div>
                     </Card>
 
-                    <Card styles={{ body: { padding: 16 } }}>
+                    <Card bordered={false} style={{ borderRadius: 20 }} styles={{ body: { padding: 20 } }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                          <Text strong style={{ fontSize: 16 }}>
+                            宠物定制描述
+                          </Text>
+                          <Button
+                            type="primary"
+                            icon={<SaveOutlined />}
+                            loading={savingMeta}
+                            onClick={() => void handleSaveMeta()}
+                          >
+                            保存描述
+                          </Button>
+                        </div>
+
+                        <Row gutter={[16, 16]}>
+                          <Col xs={24} xl={14}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <Text strong>宠物描述</Text>
+                              <TextArea
+                                rows={4}
+                                maxLength={300}
+                                placeholder="可填写该宠物的性格、外观特点、拟人化描述，供定制完成后同步给用户端。"
+                                value={petDescription}
+                                onChange={(event) => setPetDescription(event.target.value)}
+                              />
+                            </div>
+                          </Col>
+                          <Col xs={24} xl={10}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <Text strong>趣味小点</Text>
+                              <TextArea
+                                rows={4}
+                                maxLength={120}
+                                placeholder="例如：最爱晒太阳、跑两步就想躺、听到开罐头会立刻冲来。"
+                                value={funFact}
+                                onChange={(event) => setFunFact(event.target.value)}
+                              />
+                            </div>
+                          </Col>
+                        </Row>
+                      </div>
+                    </Card>
+
+                    <Card bordered={false} style={{ borderRadius: 20 }} styles={{ body: { padding: 20 } }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                         {renderActionGrid("基础动作", BASIC_ACTIONS)}
                         {renderActionGrid("趣味动作", FUN_ACTIONS)}
                       </div>
                     </Card>
 
-                    <Card styles={{ body: { padding: 16 } }}>
-                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <Card bordered={false} style={{ borderRadius: 20 }} styles={{ body: { padding: 20 } }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <Text strong>同步到用户端</Text>
+                          <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                            需要 14 个动作全部上传完成后才可同步。同步后任务状态变为“已完成”，图像与描述会一起进入用户端。
+                          </Paragraph>
+                        </div>
+
                         <Button
                           type="primary"
                           size="large"
@@ -576,9 +821,19 @@ export default function Customization() {
                           loading={syncing}
                           onClick={() => void handleSyncAvatar()}
                         >
-                          {selectedAvatarDetail?.status === "done" ? "已同步" : "一键同步"}
+                          {selectedAvatarDetail?.status === "done" ? "已同步" : "完成定制并同步"}
                         </Button>
                       </div>
+                      {!canSync && selectedAvatarDetail?.status !== "done" ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          当前还差 {ALL_ACTIONS.length - completedActionCount} 个动作未完成
+                        </Text>
+                      ) : null}
+                      {selectedAvatarDetail?.status === "done" ? (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          当前任务已完成同步
+                        </Text>
+                      ) : null}
                     </Card>
                   </div>
                 </Spin>
@@ -587,39 +842,6 @@ export default function Customization() {
           </Row>
         </div>
       </Spin>
-
-      <Modal
-        title={uploadActionType ? `上传${ACTION_LABELS[uploadActionType] ?? uploadActionType}` : "上传动作素材"}
-        open={uploadModalOpen}
-        onOk={() => void handleSubmitAction()}
-        okText="确认"
-        cancelText="取消"
-        confirmLoading={submittingAction}
-        onCancel={handleCloseUploadModal}
-        destroyOnClose
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Input
-            placeholder="请输入图片 URL"
-            value={uploadImageUrl}
-            onChange={(event) => setUploadImageUrl(event.target.value)}
-          />
-
-          {uploadImageUrl.trim() ? (
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <Image
-                src={uploadImageUrl.trim()}
-                alt={uploadActionType ? ACTION_LABELS[uploadActionType] ?? uploadActionType : "动作预览"}
-                width={240}
-                height={240}
-                style={{ objectFit: "cover", borderRadius: 12 }}
-              />
-            </div>
-          ) : (
-            <Empty description="输入图片 URL 后可预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-          )}
-        </div>
-      </Modal>
     </>
   );
 }
