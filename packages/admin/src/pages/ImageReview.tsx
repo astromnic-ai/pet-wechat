@@ -289,11 +289,13 @@ function applyDemoDataState(
   return nextDemoDetails;
 }
 
+const initialDemoDetails = createMockAvatarDetails();
+
 export default function ImageReview() {
   const [messageApi, contextHolder] = message.useMessage();
-  const [avatars, setAvatars] = useState<ReviewAvatar[]>([]);
-  const [demoAvatarDetails, setDemoAvatarDetails] = useState<ReviewAvatarDetail[]>([]);
-  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [avatars, setAvatars] = useState<ReviewAvatar[]>(() => initialDemoDetails.map(toReviewAvatarSummary));
+  const [demoAvatarDetails, setDemoAvatarDetails] = useState<ReviewAvatarDetail[]>(() => initialDemoDetails);
+  const [isDemoMode, setIsDemoMode] = useState(true);
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ReviewTabKey>("all");
@@ -386,10 +388,6 @@ export default function ImageReview() {
       }
     }
   };
-
-  useEffect(() => {
-    void loadAvatars();
-  }, []);
 
   const tabCounts = useMemo(
     () =>
@@ -690,7 +688,11 @@ export default function ImageReview() {
                 <Button size="small" onClick={isDemoMode ? () => void handleShowRealData() : handleShowDemoData}>
                   {isDemoMode ? "返回真实数据" : "查看演示数据"}
                 </Button>
-                <Button size="small" icon={<ReloadOutlined />} onClick={() => void loadAvatars()}>
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined />}
+                  onClick={isDemoMode ? handleShowDemoData : () => void loadAvatars()}
+                >
                   刷新
                 </Button>
               </Space>
