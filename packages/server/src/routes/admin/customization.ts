@@ -127,10 +127,10 @@ function getCustomizationTaskCtes() {
     WITH action_stats_by_avatar AS (
       SELECT
         paa.pet_avatar_id,
-        COUNT(*) FILTER (
+        COUNT(DISTINCT paa.action_type) FILTER (
           WHERE paa.action_type = ANY(${toTextArraySql(BASIC_ACTIONS)})
         )::int AS base_action_count,
-        COUNT(*) FILTER (
+        COUNT(DISTINCT paa.action_type) FILTER (
           WHERE paa.action_type = ANY(${toTextArraySql(FUN_ACTIONS)})
         )::int AS personalized_action_count
       FROM pet_avatar_actions paa
