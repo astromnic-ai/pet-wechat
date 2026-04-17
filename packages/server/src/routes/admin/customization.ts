@@ -14,7 +14,6 @@ const customizationRoute = new Hono();
 
 const BASE_ACTION_TOTAL = BASIC_ACTIONS.length;
 const PERSONALIZED_ACTION_TOTAL = FUN_ACTIONS.length;
-const TOTAL_ACTION_TOTAL = BASE_ACTION_TOTAL + PERSONALIZED_ACTION_TOTAL;
 const VALID_AVATAR_STATUSES = new Set<AvatarStatus>([
   "pending",
   "processing",
@@ -231,7 +230,6 @@ function toCustomizationTask(row: RawCustomizationTaskRow): CustomizationTask {
     totalActionCount: toInt(row.total_action_count),
     baseActionTotal: BASE_ACTION_TOTAL,
     personalizedActionTotal: PERSONALIZED_ACTION_TOTAL,
-    totalActionTotal: TOTAL_ACTION_TOTAL,
     categoryStatus: row.category_status,
     isNewToday: toBoolean(row.is_new_today),
     createdAt: toRequiredIsoString(row.created_at),
@@ -281,12 +279,7 @@ customizationRoute.get("/customization/tasks", async (c) => {
   const items = itemsRows.map(toCustomizationTask);
   const total = toInt(countRows[0]?.total);
 
-  return c.json({
-    ...buildPageResponse(items, total, pagination),
-    baseActionTotal: BASE_ACTION_TOTAL,
-    personalizedActionTotal: PERSONALIZED_ACTION_TOTAL,
-    totalActionTotal: TOTAL_ACTION_TOTAL,
-  });
+  return c.json(buildPageResponse(items, total, pagination));
 });
 
 export default customizationRoute;

@@ -280,7 +280,6 @@ export interface CustomizationTask {
   totalActionCount: number;
   baseActionTotal: number;
   personalizedActionTotal: number;
-  totalActionTotal: number;
   categoryStatus: CustomizationTaskCategoryStatus;
   isNewToday: boolean;
   createdAt: string;
