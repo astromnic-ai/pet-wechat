@@ -101,6 +101,10 @@ async function executeRows<T extends Record<string, unknown>>(query: SQL): Promi
   return await db.execute(query) as unknown as T[];
 }
 
+function toTextArraySql(values: readonly string[]) {
+  return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+}
+
 function parseStatuses(rawStatus: string | undefined): AvatarStatus[] | null {
   if (!rawStatus) {
     return [];
@@ -124,10 +128,10 @@ function getCustomizationTaskCtes() {
       SELECT
         paa.pet_avatar_id,
         COUNT(*) FILTER (
-          WHERE paa.action_type = ANY(${BASIC_ACTIONS}::text[])
+          WHERE paa.action_type = ANY(${toTextArraySql(BASIC_ACTIONS)})
         )::int AS base_action_count,
         COUNT(*) FILTER (
-          WHERE paa.action_type = ANY(${FUN_ACTIONS}::text[])
+          WHERE paa.action_type = ANY(${toTextArraySql(FUN_ACTIONS)})
         )::int AS personalized_action_count
       FROM pet_avatar_actions paa
       GROUP BY paa.pet_avatar_id

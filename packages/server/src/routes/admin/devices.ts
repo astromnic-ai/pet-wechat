@@ -223,6 +223,10 @@ async function executeRows<T extends Record<string, unknown>>(query: SQL): Promi
   return await db.execute(query) as unknown as T[];
 }
 
+function toTextArraySql(values: readonly string[]) {
+  return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+}
+
 function getDeviceAggregationCtes() {
   return sql`
     WITH avatar_counts_by_pet AS (
@@ -230,7 +234,7 @@ function getDeviceAggregationCtes() {
         pa.pet_id,
         BOOL_OR(pa.status IN ('approved', 'done')) AS has_uploaded_avatar,
         COUNT(DISTINCT paa.action_type) FILTER (
-          WHERE paa.action_type = ANY(${ALL_ACTIONS}::text[])
+          WHERE paa.action_type = ANY(${toTextArraySql(ALL_ACTIONS)})
         )::int AS uploaded_actions,
         COUNT(DISTINCT pa.id) FILTER (
           WHERE pa.status IN ('approved', 'done')
