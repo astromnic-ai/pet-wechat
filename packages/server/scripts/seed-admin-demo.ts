@@ -407,8 +407,7 @@ async function main() {
     }
     if (bindingCleanupConditions.length > 0) {
       await tx
-        .update(desktopPetBindings)
-        .set({ unboundAt: new Date() })
+        .delete(desktopPetBindings)
         .where(or(...bindingCleanupConditions));
     }
 
