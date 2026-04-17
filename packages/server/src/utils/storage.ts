@@ -4,8 +4,11 @@ import {
   HeadBucketCommand,
   CreateBucketCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+import type { PresignResponse } from "shared";
+import { createId } from "./id";
 
 const s3 = new S3Client({
   endpoint: process.env.S3_ENDPOINT ?? "http://localhost:9000",
@@ -20,6 +23,11 @@ const s3 = new S3Client({
 export const BUCKET = process.env.S3_BUCKET ?? "pet-uploads";
 const LOCAL_STORAGE_ROOT = path.resolve(process.cwd(), "storage");
 let ensureBucketPromise: Promise<void> | null = null;
+export const ALLOWED_IMAGE_CONTENT_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+} as const;
 
 export async function ensureBucket(): Promise<void> {
   if (!ensureBucketPromise) {
@@ -74,4 +82,42 @@ export async function uploadFile(
   );
   const endpoint = process.env.S3_PUBLIC_URL ?? "http://localhost:9000";
   return `${endpoint}/${BUCKET}/${key}`;
+}
+
+export async function createPresignedPutUrl(opts: {
+  contentType: keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
+  scope?: string;
+}): Promise<PresignResponse> {
+  await ensureBucket();
+
+  const now = new Date();
+  const ext = ALLOWED_IMAGE_CONTENT_TYPES[opts.contentType];
+  const key = `uploads/${opts.scope ?? "admin"}/${now.getUTCFullYear()}/${String(
+    now.getUTCMonth() + 1,
+  ).padStart(2, "0")}/${createId()}.${ext}`;
+  const expiresIn = 900;
+  const signUrl = getSignedUrl as unknown as (
+    client: unknown,
+    command: unknown,
+    options: { expiresIn: number },
+  ) => Promise<string>;
+
+  const uploadUrl = await signUrl(
+    s3,
+    new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ContentType: opts.contentType,
+      ACL: "public-read",
+    }),
+    { expiresIn },
+  );
+  const endpoint = process.env.S3_PUBLIC_URL ?? "http://localhost:9000";
+
+  return {
+    uploadUrl,
+    publicUrl: `${endpoint}/${BUCKET}/${key}`,
+    key,
+    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+  };
 }
