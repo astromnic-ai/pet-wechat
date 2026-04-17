@@ -40,9 +40,9 @@ const menuItems: MenuProps["items"] = [
       { key: "/schedules", icon: <CalendarOutlined />, label: "行为日程" },
       { key: "/image-review", icon: <PictureOutlined />, label: "图像审核" },
       { key: "/customization", icon: <ScissorOutlined />, label: "定制中心" },
-      { key: "/devices", icon: <MobileOutlined />, label: "设备管理" },
       { key: "/analytics", icon: <BarChartOutlined />, label: "数据看板" },
-      { key: "/users", icon: <UserOutlined />, label: "用户管理" },
+      { key: "/devices", icon: <MobileOutlined />, label: "设备管理" },
+      { key: "/users", icon: <UserOutlined />, label: "用户会员" },
     ],
   },
   {

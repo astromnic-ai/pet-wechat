@@ -62,6 +62,9 @@ const statusMeta: Record<
   done: { label: "已同步", color: "blue" },
 };
 
+const REVIEW_GRID_IMAGE_SIZE = 96;
+const REVIEW_DETAIL_IMAGE_HEIGHT = 180;
+
 function isSameDay(value: string | null | undefined, date: Dayjs) {
   return !!value && dayjs(value).isValid() && dayjs(value).isSame(date, "day");
 }
@@ -94,25 +97,16 @@ function openImageDownload(imageUrl: string, fallbackName: string) {
   link.remove();
 }
 
-function formatDeltaText(delta: number, positiveLabel = "较昨日增加", negativeLabel = "较昨日减少") {
-  if (delta === 0) {
-    return "较昨日持平";
+function formatComparedToYesterday(delta: number) {
+  if (delta > 0) {
+    return `较昨日 +${delta}`;
   }
 
-  return `${delta > 0 ? positiveLabel : negativeLabel} ${Math.abs(delta)}`;
-}
-
-function formatRate(value: number) {
-  return `${Math.round(value * 100)}%`;
-}
-
-function getCompletionRate(completed: number, pending: number) {
-  const total = completed + pending;
-  if (total === 0) {
-    return 0;
+  if (delta < 0) {
+    return `较昨日 ${delta}`;
   }
 
-  return completed / total;
+  return "较昨日 0";
 }
 
 function getStatusLabel(status: AvatarStatus) {
@@ -442,14 +436,20 @@ export default function ImageReview() {
     [avatars],
   );
 
-  const todayCompletionRate = useMemo(
-    () => getCompletionRate(todayCompletedCount, todayPendingCount),
-    [todayCompletedCount, todayPendingCount],
+  const todaySyncedCount = useMemo(
+    () =>
+      avatars.filter(
+        (avatar) => avatar.status === "done" && isSameDay(avatar.reviewedAt ?? avatar.createdAt, today),
+      ).length,
+    [avatars, today],
   );
 
-  const yesterdayCompletionRate = useMemo(
-    () => getCompletionRate(yesterdayCompletedCount, yesterdayPendingCount),
-    [yesterdayCompletedCount, yesterdayPendingCount],
+  const yesterdaySyncedCount = useMemo(
+    () =>
+      avatars.filter(
+        (avatar) => avatar.status === "done" && isSameDay(avatar.reviewedAt ?? avatar.createdAt, yesterday),
+      ).length,
+    [avatars, yesterday],
   );
 
   const filteredAvatars = useMemo(() => {
@@ -652,26 +652,19 @@ export default function ImageReview() {
             <Col xs={24} md={8}>
               <Card>
                 <Statistic title="今日待处理" value={todayPendingCount} valueStyle={{ color: "#faad14" }} />
-                <Text type="secondary">{formatDeltaText(todayPendingCount - yesterdayPendingCount)} 项</Text>
+                <Text type="secondary">{formatComparedToYesterday(todayPendingCount - yesterdayPendingCount)}</Text>
               </Card>
             </Col>
             <Col xs={24} md={8}>
               <Card>
                 <Statistic title="今日已完成" value={todayCompletedCount} valueStyle={{ color: "#52c41a" }} />
-                <Text type="secondary">
-                  完成率 {formatRate(todayCompletionRate)}，较昨日
-                  {todayCompletionRate === yesterdayCompletionRate
-                    ? "持平"
-                    : todayCompletionRate > yesterdayCompletionRate
-                      ? `提升 ${formatRate(todayCompletionRate - yesterdayCompletionRate)}`
-                      : `下降 ${formatRate(yesterdayCompletionRate - todayCompletionRate)}`}
-                </Text>
+                <Text type="secondary">{formatComparedToYesterday(todayCompletedCount - yesterdayCompletedCount)}</Text>
               </Card>
             </Col>
             <Col xs={24} md={8}>
               <Card>
                 <Statistic title="已同步设备" value={syncedDeviceCount} valueStyle={{ color: "#1677ff" }} />
-                <Text type="secondary">累计同步成功的设备任务总数</Text>
+                <Text type="secondary">{formatComparedToYesterday(todaySyncedCount - yesterdaySyncedCount)}</Text>
               </Card>
             </Col>
           </Row>
@@ -706,14 +699,14 @@ export default function ImageReview() {
             <Tabs activeKey={activeTab} items={tabItems} onChange={(key) => setActiveTab(key as ReviewTabKey)} />
 
             {filteredAvatars.length > 0 ? (
-              <Row gutter={[16, 16]}>
+              <Row gutter={[12, 12]}>
                 {filteredAvatars.map((avatar) => {
                   const status = statusMeta[avatar.status];
                   const isSelected = avatar.id === selectedAvatarId;
                   const petName = avatar.pet?.name ?? "未命名宠物";
 
                   return (
-                    <Col xs={24} sm={12} xl={8} xxl={6} key={avatar.id}>
+                    <Col xs={12} sm={8} md={6} lg={6} xl={4} xxl={3} key={avatar.id}>
                       <Card
                         hoverable
                         onClick={() => setSelectedAvatarId(avatar.id)}
@@ -721,43 +714,61 @@ export default function ImageReview() {
                           borderColor: isSelected ? "#1677ff" : undefined,
                           boxShadow: isSelected ? "0 0 0 2px rgba(22,119,255,0.12)" : undefined,
                         }}
-                        bodyStyle={{ padding: 12 }}
+                        bodyStyle={{ padding: 8 }}
                       >
-                        <Space direction="vertical" size={12} style={{ display: "flex" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                            <Title level={5} style={{ margin: 0 }}>
-                              {petName}
-                            </Title>
-                            <Tag color={status.color} style={{ marginInlineEnd: 0 }}>
-                              {status.label}
-                            </Tag>
-                          </div>
-
+                        <div>
                           <div
                             style={{
-                              height: 180,
+                              width: "100%",
+                              aspectRatio: "1 / 1",
                               overflow: "hidden",
-                              borderRadius: 12,
+                              borderRadius: 8,
                               background: "#f5f5f5",
+                              position: "relative",
+                              marginBottom: 8,
                             }}
                           >
+                            <Tag
+                              color={status.color}
+                              style={{
+                                position: "absolute",
+                                top: 6,
+                                right: 6,
+                                marginInlineEnd: 0,
+                                fontSize: 11,
+                                lineHeight: "18px",
+                                paddingInline: 6,
+                                zIndex: 1,
+                              }}
+                            >
+                              {status.label}
+                            </Tag>
                             <Image
                               alt={petName}
                               src={avatar.sourceImageUrl}
                               width="100%"
-                              height={180}
+                              height={REVIEW_GRID_IMAGE_SIZE}
                               preview={false}
                               style={{ objectFit: "cover" }}
                             />
                           </div>
 
-                          <Space size={[8, 8]} wrap>
-                            <Tag>{getSpeciesLabel(avatar.pet?.species)}</Tag>
-                            {avatar.user?.nickname ? <Tag color="blue">{avatar.user.nickname}</Tag> : null}
-                          </Space>
-
-                          <Text type="secondary">上传时间：{formatDateTime(avatar.createdAt)}</Text>
-                        </Space>
+                          <Text
+                            strong
+                            style={{
+                              fontSize: 12,
+                              lineHeight: 1.25,
+                              display: "block",
+                              marginBottom: 2,
+                            }}
+                            ellipsis={{ tooltip: petName }}
+                          >
+                            {petName}
+                          </Text>
+                          <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.2 }}>
+                            {formatDateTime(avatar.createdAt)}
+                          </Text>
+                        </div>
                       </Card>
                     </Col>
                   );
@@ -784,7 +795,7 @@ export default function ImageReview() {
                     <Col xs={24} lg={12}>
                       <div
                         style={{
-                          minHeight: 360,
+                          minHeight: REVIEW_DETAIL_IMAGE_HEIGHT,
                           borderRadius: 16,
                           overflow: "hidden",
                           background: "#f5f5f5",
@@ -794,7 +805,7 @@ export default function ImageReview() {
                           alt={selectedAvatarDetail.pet?.name ?? "宠物图片"}
                           src={selectedAvatarDetail.sourceImageUrl}
                           width="100%"
-                          height={360}
+                          height={REVIEW_DETAIL_IMAGE_HEIGHT}
                           style={{ objectFit: "cover" }}
                         />
                       </div>

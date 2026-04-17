@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { and, asc, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
 import { db } from "../../db";
-import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petBehaviors } from "../../db/schema";
+import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petAvatars, petBehaviors } from "../../db/schema";
 import { createId } from "../../utils/id";
 import { pick } from "./utils";
 
@@ -24,7 +24,47 @@ type AdminDesktopRow = {
   bindingId: string | null;
   bindingPetId: string | null;
   bindingPetName: string | null;
+  bindingPetSpecies: string | null;
+  avatarId: string | null;
 };
+
+type AdminCollarRow = {
+  collar: typeof collarDevices.$inferSelect;
+  ownerNickname: string | null;
+  petName: string | null;
+  petSpecies: string | null;
+  avatarId: string | null;
+};
+
+function mapCollarRows(rows: AdminCollarRow[]) {
+  const collars = new Map<
+    string,
+    typeof collarDevices.$inferSelect & {
+      ownerNickname: string | null;
+      petName: string | null;
+      petSpecies: string | null;
+      hasUploadedImage: boolean;
+    }
+  >();
+
+  for (const row of rows) {
+    const existing = collars.get(row.collar.id);
+    if (existing) {
+      existing.hasUploadedImage = existing.hasUploadedImage || !!row.avatarId;
+      continue;
+    }
+
+    collars.set(row.collar.id, {
+      ...row.collar,
+      ownerNickname: row.ownerNickname,
+      petName: row.petName,
+      petSpecies: row.petSpecies,
+      hasUploadedImage: !!row.avatarId,
+    });
+  }
+
+  return Array.from(collars.values());
+}
 
 function mapDesktopRows(rows: AdminDesktopRow[]) {
   const desktops = new Map<
@@ -32,7 +72,9 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
     typeof desktopDevices.$inferSelect & {
       ownerNickname: string | null;
       bindingPetNames: string[];
+      bindingPetSpeciesList: string[];
       activeBindingCount: number;
+      hasUploadedImage: boolean;
     }
   >();
 
@@ -43,6 +85,10 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
       if (row.bindingId && !existing.bindingPetNames.includes(bindingPetLabel)) {
         existing.bindingPetNames.push(bindingPetLabel);
       }
+      if (row.bindingPetSpecies && !existing.bindingPetSpeciesList.includes(row.bindingPetSpecies)) {
+        existing.bindingPetSpeciesList.push(row.bindingPetSpecies);
+      }
+      existing.hasUploadedImage = existing.hasUploadedImage || !!row.avatarId;
       continue;
     }
 
@@ -50,7 +96,9 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
       ...row.desktop,
       ownerNickname: row.ownerNickname,
       bindingPetNames: row.bindingId ? [bindingPetLabel] : [],
+      bindingPetSpeciesList: row.bindingPetSpecies ? [row.bindingPetSpecies] : [],
       activeBindingCount: 0,
+      hasUploadedImage: !!row.avatarId,
     });
   }
 
@@ -91,18 +139,17 @@ devicesRoute.get("/collars", async (c) => {
       collar: collarDevices,
       ownerNickname: users.nickname,
       petName: pets.name,
+      petSpecies: pets.species,
+      avatarId: petAvatars.id,
     })
     .from(collarDevices)
     .leftJoin(users, eq(collarDevices.userId, users.id))
     .leftJoin(pets, eq(collarDevices.petId, pets.id))
+    .leftJoin(petAvatars, eq(collarDevices.petId, petAvatars.petId))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
   return c.json({
-    collars: result.map((row) => ({
-      ...row.collar,
-      ownerNickname: row.ownerNickname,
-      petName: row.petName,
-    })),
+    collars: mapCollarRows(result as AdminCollarRow[]),
   });
 });
 
@@ -172,6 +219,8 @@ devicesRoute.get("/desktops", async (c) => {
       bindingId: desktopPetBindings.id,
       bindingPetId: desktopPetBindings.petId,
       bindingPetName: pets.name,
+      bindingPetSpecies: pets.species,
+      avatarId: petAvatars.id,
     })
     .from(desktopDevices)
     .leftJoin(users, eq(desktopDevices.userId, users.id))
@@ -183,6 +232,7 @@ devicesRoute.get("/desktops", async (c) => {
       ),
     )
     .leftJoin(pets, eq(desktopPetBindings.petId, pets.id))
+    .leftJoin(petAvatars, eq(desktopPetBindings.petId, petAvatars.petId))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
   return c.json({
