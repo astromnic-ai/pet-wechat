@@ -49,7 +49,7 @@ function isMembershipBenefit(value: unknown): value is MembershipBenefit {
     typeof benefit.key === "string" &&
     typeof benefit.label === "string" &&
     (typeof benefit.value === "string" ||
-      typeof benefit.value === "number" ||
+      (typeof benefit.value === "number" && Number.isFinite(benefit.value)) ||
       benefit.value === null) &&
     typeof benefit.enabled === "boolean"
   );
@@ -60,11 +60,29 @@ function parseBenefits(value: unknown): MembershipBenefit[] | null {
     return null;
   }
 
-  if (!value.every(isMembershipBenefit)) {
-    return null;
+  const benefitKeys = new Set<string>();
+  const benefits: MembershipBenefit[] = [];
+
+  for (const item of value) {
+    if (!isMembershipBenefit(item)) {
+      return null;
+    }
+
+    const key = item.key.trim();
+    const label = item.label.trim();
+    if (!key || !label || benefitKeys.has(key)) {
+      return null;
+    }
+
+    benefitKeys.add(key);
+    benefits.push({
+      ...item,
+      key,
+      label,
+    });
   }
 
-  return value.map((benefit) => ({ ...benefit }));
+  return benefits;
 }
 
 function resolveStoredBenefits(value: unknown): MembershipBenefit[] {
