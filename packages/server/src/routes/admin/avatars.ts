@@ -24,6 +24,9 @@ type AvatarRow = {
   petId: string | null;
   petName: string | null;
   petSpecies: string | null;
+  petBreed: string | null;
+  petGender: string | null;
+  petBirthday: string | null;
   userId: string | null;
   userNickname: string | null;
   userAvatarUrl: string | null;
@@ -44,10 +47,13 @@ function toAvatarResponse(row: AvatarRow) {
   return {
     ...row.avatar,
     pet: row.petId
-      ? {
+        ? {
           id: row.petId,
           name: row.petName,
           species: row.petSpecies,
+          breed: row.petBreed,
+          gender: row.petGender,
+          birthday: row.petBirthday,
         }
       : null,
     user: row.userId
@@ -69,6 +75,9 @@ async function getAvatarRow(avatarId: string) {
       petId: pets.id,
       petName: pets.name,
       petSpecies: pets.species,
+      petBreed: pets.breed,
+      petGender: pets.gender,
+      petBirthday: pets.birthday,
       userId: users.id,
       userNickname: users.nickname,
       userAvatarUrl: users.avatarUrl,
@@ -116,6 +125,9 @@ avatarsRoute.get("/avatars", async (c) => {
       petId: pets.id,
       petName: pets.name,
       petSpecies: pets.species,
+      petBreed: pets.breed,
+      petGender: pets.gender,
+      petBirthday: pets.birthday,
       userId: users.id,
       userNickname: users.nickname,
       userAvatarUrl: users.avatarUrl,
