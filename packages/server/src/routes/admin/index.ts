@@ -8,6 +8,7 @@ import schedulesRoute from "./schedules";
 import avatarsRoute from "./avatars";
 import uploadsRoute from "./uploads";
 import membershipsRoute from "./memberships";
+import customizationRoute from "./customization";
 
 const adminRoute = new Hono();
 
@@ -20,5 +21,6 @@ adminRoute.route("/", schedulesRoute);
 adminRoute.route("/", avatarsRoute);
 adminRoute.route("/", uploadsRoute);
 adminRoute.route("/", membershipsRoute);
+adminRoute.route("/", customizationRoute);
 
 export default adminRoute;
