@@ -4,10 +4,12 @@ import {
   HeadBucketCommand,
   CreateBucketCommand,
 } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { PresignResponse } from "shared";
+import { Hash } from "@smithy/hash-node";
+import { HttpRequest } from "@smithy/protocol-http";
+import { SignatureV4 } from "@smithy/signature-v4";
 import { createId } from "./id";
 
 const s3 = new S3Client({
@@ -90,34 +92,61 @@ export async function createPresignedPutUrl(opts: {
 }): Promise<PresignResponse> {
   await ensureBucket();
 
-  const now = new Date();
+  const signingDate = new Date();
   const ext = ALLOWED_IMAGE_CONTENT_TYPES[opts.contentType];
-  const key = `uploads/${opts.scope ?? "admin"}/${now.getUTCFullYear()}/${String(
-    now.getUTCMonth() + 1,
+  const key = `uploads/${opts.scope ?? "admin"}/${signingDate.getUTCFullYear()}/${String(
+    signingDate.getUTCMonth() + 1,
   ).padStart(2, "0")}/${createId()}.${ext}`;
   const expiresIn = 900;
-  const signUrl = getSignedUrl as unknown as (
-    client: unknown,
-    command: unknown,
-    options: { expiresIn: number },
-  ) => Promise<string>;
-
-  const uploadUrl = await signUrl(
-    s3,
-    new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: key,
-      ContentType: opts.contentType,
-      ACL: "public-read",
-    }),
-    { expiresIn },
+  const endpoint = new URL(process.env.S3_ENDPOINT ?? "http://localhost:9000");
+  const basePath = endpoint.pathname === "/" ? "" : endpoint.pathname.replace(/\/$/, "");
+  const signer = new SignatureV4({
+    service: "s3",
+    region: "us-east-1",
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY ?? "minioadmin",
+      secretAccessKey: process.env.S3_SECRET_KEY ?? "minioadmin",
+    },
+    sha256: Hash.bind(null, "sha256"),
+    uriEscapePath: false,
+  });
+  const request = new HttpRequest({
+    protocol: endpoint.protocol,
+    hostname: endpoint.hostname,
+    port: endpoint.port ? Number(endpoint.port) : undefined,
+    method: "PUT",
+    path: `${basePath}/${BUCKET}/${key}`,
+    headers: {
+      host: endpoint.host,
+      "content-type": opts.contentType,
+      "x-amz-acl": "public-read",
+      "x-amz-content-sha256": "UNSIGNED-PAYLOAD",
+    },
+  });
+  const presigned = await signer.presign(request, {
+    expiresIn,
+    signingDate,
+    unhoistableHeaders: new Set(["content-type"]),
+  });
+  const uploadUrl = new URL(
+    `${presigned.protocol}//${presigned.hostname}${presigned.port ? `:${presigned.port}` : ""}${presigned.path}`,
   );
-  const endpoint = process.env.S3_PUBLIC_URL ?? "http://localhost:9000";
+  for (const [name, value] of Object.entries(presigned.query ?? {})) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        uploadUrl.searchParams.append(name, item);
+      }
+      continue;
+    }
+
+    uploadUrl.searchParams.set(name, String(value));
+  }
+  const publicEndpoint = process.env.S3_PUBLIC_URL ?? "http://localhost:9000";
 
   return {
-    uploadUrl,
-    publicUrl: `${endpoint}/${BUCKET}/${key}`,
+    uploadUrl: uploadUrl.toString(),
+    publicUrl: `${publicEndpoint}/${BUCKET}/${key}`,
     key,
-    expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+    expiresAt: new Date(signingDate.getTime() + expiresIn * 1000).toISOString(),
   };
 }
