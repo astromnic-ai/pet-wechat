@@ -14,8 +14,27 @@ import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petAvatars, petBehaviors } from "../../db/schema";
 import { createId } from "../../utils/id";
+import { normalizeMac, NORMALIZED_MAC_REGEX } from "../../utils/mac";
 import { buildPageResponse, parsePagination } from "../../utils/pagination";
 import { pick } from "./utils";
+
+function normalizeMacOrError(raw: unknown): { ok: true; mac: string } | { ok: false; error: string } {
+  if (typeof raw !== "string" || !raw.trim()) {
+    return { ok: false, error: "macAddress is required" };
+  }
+  const mac = normalizeMac(raw);
+  if (!NORMALIZED_MAC_REGEX.test(mac)) {
+    return { ok: false, error: "Invalid macAddress format" };
+  }
+  return { ok: true, mac };
+}
+
+function randomMac(): string {
+  const hex = "0123456789ABCDEF";
+  let out = "";
+  for (let i = 0; i < 12; i++) out += hex[Math.floor(Math.random() * 16)];
+  return out;
+}
 
 async function validateCollarPetBinding(collarDeviceId: string, petId: string) {
   const [collar] = await db.select().from(collarDevices).where(eq(collarDevices.id, collarDeviceId));
@@ -580,12 +599,22 @@ devicesRoute.get("/collars", async (c) => {
 
 devicesRoute.post("/collars", async (c) => {
   const body = await c.req.json();
+
+  let macAddress: string;
+  if (body.macAddress === undefined || body.macAddress === null || body.macAddress === "") {
+    macAddress = randomMac();
+  } else {
+    const check = normalizeMacOrError(body.macAddress);
+    if (!check.ok) return c.json({ error: check.error }, 400);
+    macAddress = check.mac;
+  }
+
   const [collar] = await db
     .insert(collarDevices)
     .values({
       userId: body.userId ?? null,
       name: body.name?.trim() || "未命名项圈",
-      macAddress: body.macAddress ?? `MOCK:${createId().slice(0, 11).replace(/(.{2})/g, "$1:").slice(0, 17)}`,
+      macAddress,
       petId: body.userId ? (body.petId ?? null) : null,
       status: body.status ?? "offline",
       battery: body.battery ?? 100,
@@ -600,6 +629,11 @@ devicesRoute.put("/collars/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const allowed = pick(body, ["name", "macAddress", "petId", "status", "battery", "signal", "firmwareVersion", "userId"]);
+  if (allowed.macAddress !== undefined) {
+    const check = normalizeMacOrError(allowed.macAddress);
+    if (!check.ok) return c.json({ error: check.error }, 400);
+    allowed.macAddress = check.mac;
+  }
   const [collar] = await db
     .update(collarDevices)
     .set({ ...allowed, updatedAt: new Date() })
@@ -667,12 +701,22 @@ devicesRoute.get("/desktops", async (c) => {
 
 devicesRoute.post("/desktops", async (c) => {
   const body = await c.req.json();
+
+  let macAddress: string;
+  if (body.macAddress === undefined || body.macAddress === null || body.macAddress === "") {
+    macAddress = randomMac();
+  } else {
+    const check = normalizeMacOrError(body.macAddress);
+    if (!check.ok) return c.json({ error: check.error }, 400);
+    macAddress = check.mac;
+  }
+
   const [desktop] = await db
     .insert(desktopDevices)
     .values({
       userId: body.userId ?? null,
       name: body.name?.trim() || "未命名桌面端",
-      macAddress: body.macAddress ?? `MOCK:${createId().slice(0, 11).replace(/(.{2})/g, "$1:").slice(0, 17)}`,
+      macAddress,
       status: body.status ?? "offline",
       firmwareVersion: body.firmwareVersion ?? "1.0.0",
     })
@@ -684,6 +728,11 @@ devicesRoute.put("/desktops/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
   const allowed = pick(body, ["name", "macAddress", "status", "firmwareVersion", "userId"]);
+  if (allowed.macAddress !== undefined) {
+    const check = normalizeMacOrError(allowed.macAddress);
+    if (!check.ok) return c.json({ error: check.error }, 400);
+    allowed.macAddress = check.mac;
+  }
   const [desktop] = await db
     .update(desktopDevices)
     .set({ ...allowed, updatedAt: new Date() })

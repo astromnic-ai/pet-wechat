@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { generateInviteCode, verifyInviteCode } from "../utils/invite";
+import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { deviceTypeSchema } from "../validators/user-end";
 
 const devicesRoute = new Hono();
@@ -20,12 +21,6 @@ const devicesRoute = new Hono();
 function getInviteCodeHash(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
-
-function normalizeMac(mac: string): string {
-  return mac.replace(/[:\-\s]/g, "").toUpperCase();
-}
-
-const NORMALIZED_MAC_REGEX = /^[0-9A-F]{12}$/;
 
 async function findCollarByMac(macAddress: string) {
   const [collar] = await db

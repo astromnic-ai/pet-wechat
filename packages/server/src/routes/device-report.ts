@@ -3,6 +3,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db";
+import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import {
   collarDevices,
   desktopDevices,
@@ -13,7 +14,6 @@ import {
 
 const deviceReportRoute = new Hono();
 
-const NORMALIZED_MAC_REGEX = /^[0-9A-F]{12}$/;
 const deviceTypeSchema = z.enum(["collar", "desktop"]);
 const deviceStatusSchema = z.enum(["online", "offline", "pairing"]);
 const isoDatetimeSchema = z
@@ -49,10 +49,6 @@ const eventBodySchema = z.object({
   actionType: z.string().trim().min(1).max(64),
   occurredAt: isoDatetimeSchema.optional(),
 });
-
-function normalizeMac(mac: string): string {
-  return mac.replace(/[:\-\s]/g, "").toUpperCase();
-}
 
 function toIsoString(value: Date | string | null | undefined): string | null {
   if (!value) {
