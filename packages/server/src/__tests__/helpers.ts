@@ -20,6 +20,7 @@ import settingsRoute from "../routes/settings";
 import accountRoute from "../routes/account";
 import contentRoute from "../routes/content";
 import debugRoute from "../routes/debug";
+import deviceReportRoute from "../routes/device-report";
 import uploadRoute from "../routes/upload";
 import invitePublicRoute from "../routes/invite-public";
 
@@ -37,6 +38,7 @@ export function createApp(): InstanceType<typeof Hono> {
   // Public routes
   app.route("/api/auth", authRoute);
   app.route("/api/invite", invitePublicRoute);
+  app.route("/api/device-report", deviceReportRoute);
 
   // Protected routes
   app.use("/api/*", authMiddleware);
