@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
@@ -496,6 +496,49 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
         status: "done",
       },
     }),
+  });
+});
+
+avatarsRoute.get("/avatar-review/stats", async (c) => {
+  const [row] = await db.execute<{
+    pending_review: number | string;
+    approved_total: number | string;
+    synced_to_devices: number | string;
+    today_new_uploads: number | string;
+  }>(sql`
+    SELECT
+      COUNT(*) FILTER (WHERE pa.status = 'pending')::int AS pending_review,
+      COUNT(*) FILTER (
+        WHERE pa.status IN ('approved', 'processing', 'done')
+      )::int AS approved_total,
+      COUNT(*) FILTER (
+        WHERE pa.status = 'approved'
+          AND (
+            EXISTS (
+              SELECT 1
+              FROM collar_devices cd
+              WHERE cd.pet_id = pa.pet_id
+                AND cd.status = 'online'
+            )
+            OR EXISTS (
+              SELECT 1
+              FROM desktop_pet_bindings b
+              WHERE b.pet_id = pa.pet_id
+                AND b.unbound_at IS NULL
+            )
+          )
+      )::int AS synced_to_devices,
+      COUNT(*) FILTER (
+        WHERE pa.created_at >= date_trunc('day', now())
+      )::int AS today_new_uploads
+    FROM pet_avatars pa
+  `);
+
+  return c.json({
+    pendingReview: Number(row?.pending_review ?? 0),
+    approvedTotal: Number(row?.approved_total ?? 0),
+    syncedToDevices: Number(row?.synced_to_devices ?? 0),
+    todayNewUploads: Number(row?.today_new_uploads ?? 0),
   });
 });
 

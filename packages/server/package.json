@@ -6,13 +6,18 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed:demo": "bun scripts/seed-admin-demo.ts",
     "db:studio": "drizzle-kit studio",
     "test": "bun test src/__tests__/"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.888.0",
+    "@smithy/hash-node": "^4.2.12",
+    "@smithy/protocol-http": "^5.3.5",
+    "@smithy/signature-v4": "^5.3.14",
     "drizzle-orm": "^0.39",
     "hono": "^4",
     "postgres": "^3",
