@@ -19,6 +19,7 @@ import settingsRoute from "./routes/settings";
 import accountRoute from "./routes/account";
 import contentRoute from "./routes/content";
 import debugRoute from "./routes/debug";
+import deviceReportRoute from "./routes/device-report";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
 import schedulesRoute from "./routes/schedules";
@@ -49,6 +50,7 @@ export function createApp() {
   app.route("/api/auth", authRoute);
   app.route("/api/invite", invitePublicRoute);
   app.route("/api/schedules", schedulesRoute);
+  app.route("/api/device-report", deviceReportRoute);
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);

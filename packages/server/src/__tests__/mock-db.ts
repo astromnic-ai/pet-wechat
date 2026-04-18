@@ -90,7 +90,8 @@ export function createMockDb(): MockDb {
 
     select() {
       const idx = db._calls.select.length;
-      db._calls.select.push({});
+      const call: Record<string, unknown> = {};
+      db._calls.select.push(call);
       const result = () => db._results.select[idx] ?? [];
 
       // Build a terminal chain that supports .limit() and is thenable
@@ -104,24 +105,29 @@ export function createMockDb(): MockDb {
 
       const chain: any = {
         from(_table: unknown) {
+          call.from = _table;
           const selectChain: ChainSelectWhere & { then: (resolve: any) => void } = {
             leftJoin(_table: unknown, _on: unknown) {
               return selectChain;
             },
             where(..._args: unknown[]) {
+              call.where = _args;
               // where() returns something that supports .orderBy() and .limit()
               // and is also directly thenable (awaitable)
               return {
                 orderBy(..._a: unknown[]) {
+                  call.orderBy = _a;
                   return makeTerminal();
                 },
                 ...makeTerminal(),
               };
             },
             orderBy(..._args: unknown[]) {
+              call.orderBy = _args;
               return makeTerminal();
             },
             limit(_n: number) {
+              call.limit = _n;
               return Promise.resolve(result());
             },
             // Allow direct await on from() (no where)
@@ -135,7 +141,8 @@ export function createMockDb(): MockDb {
 
     insert(_table: unknown) {
       const idx = db._calls.insert.length;
-      db._calls.insert.push({});
+      const call: Record<string, unknown> = { table: _table };
+      db._calls.insert.push(call);
       const result = () => db._results.insert[idx] ?? [];
 
       const returningChain = {
@@ -151,6 +158,7 @@ export function createMockDb(): MockDb {
       };
       return {
         values(_v: unknown) {
+          call.values = _v;
           return returningChain;
         },
       } as any;
@@ -158,13 +166,16 @@ export function createMockDb(): MockDb {
 
     update(_table: unknown) {
       const idx = db._calls.update.length;
-      db._calls.update.push({});
+      const call: Record<string, unknown> = { table: _table };
+      db._calls.update.push(call);
       const result = () => db._results.update[idx] ?? [];
 
       return {
         set(_v: unknown) {
+          call.set = _v;
           const whereChain: any = {
             where(..._args: unknown[]) {
+              call.where = _args;
               const p = Promise.resolve(result());
               (p as any).returning = () => Promise.resolve(result());
               return p;
