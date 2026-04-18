@@ -50,6 +50,8 @@ const menuItems: MenuProps["items"] = [
     label: "开发工具",
     children: [
       { key: "/pets", icon: <HeartOutlined />, label: "宠物管理" },
+      { key: "/collars", icon: <MobileOutlined />, label: "项圈管理" },
+      { key: "/desktops", icon: <MobileOutlined />, label: "桌面端管理" },
       { key: "/events", icon: <ThunderboltOutlined />, label: "模拟事件" },
     ],
   },
