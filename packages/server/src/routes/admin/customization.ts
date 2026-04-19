@@ -4,6 +4,7 @@ import type {
   AvatarStatus,
   CustomizationTask,
   CustomizationTaskCategoryStatus,
+  Gender,
   Species,
 } from "shared";
 import { BASIC_ACTIONS, FUN_ACTIONS } from "shared";
@@ -37,8 +38,13 @@ type RawCustomizationTaskRow = {
   pet_id: string;
   pet_name: string;
   pet_species: Species;
+  pet_breed: string | null;
+  pet_gender: Gender;
+  pet_birthday: string | null;
   user_id: string;
   user_nickname: string;
+  user_avatar_url: string | null;
+  user_phone: string | null;
   status: AvatarStatus;
   default_preview_url: string | null;
   base_action_count: number | string | null;
@@ -149,8 +155,13 @@ function getCustomizationTaskCtes() {
         pa.pet_id,
         p.name AS pet_name,
         p.species AS pet_species,
+        p.breed AS pet_breed,
+        p.gender AS pet_gender,
+        p.birthday AS pet_birthday,
         u.id AS user_id,
         u.nickname AS user_nickname,
+        u.avatar_url AS user_avatar_url,
+        u.phone AS user_phone,
         pa.status,
         COALESCE(
           NULLIF(pa.source_image_url, ''),
@@ -221,8 +232,13 @@ function toCustomizationTask(row: RawCustomizationTaskRow): CustomizationTask {
     petId: row.pet_id,
     petName: row.pet_name,
     petSpecies: row.pet_species,
+    petBreed: row.pet_breed,
+    petGender: row.pet_gender,
+    petBirthday: row.pet_birthday,
     userId: row.user_id,
     userNickname: row.user_nickname,
+    userAvatarUrl: row.user_avatar_url,
+    userPhone: row.user_phone,
     status: row.status,
     defaultPreviewUrl: row.default_preview_url,
     baseActionCount: toInt(row.base_action_count),

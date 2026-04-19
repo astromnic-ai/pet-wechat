@@ -24,6 +24,7 @@ import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
 import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
+import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
 export function createApp() {
@@ -44,6 +45,25 @@ export function createApp() {
     }
 
     return new Response(file);
+  });
+  app.put("/storage/*", async (c) => {
+    if (process.env.ENABLE_DEV_LOGIN !== "true") {
+      return c.json({ error: "Upload endpoint unavailable" }, 404);
+    }
+
+    const relativePath = c.req.path.replace(/^\/storage\//, "");
+    const body = new Uint8Array(await c.req.arrayBuffer());
+
+    try {
+      await saveLocalDevUpload(relativePath, body);
+    } catch (error) {
+      if (error instanceof Error && error.message === "INVALID_STORAGE_KEY") {
+        return c.json({ error: "Invalid storage path" }, 400);
+      }
+      throw error;
+    }
+
+    return new Response(null, { status: 200 });
   });
 
   // 公开路由（登录接口 + 邀请预览）

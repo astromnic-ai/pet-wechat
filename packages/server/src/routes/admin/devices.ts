@@ -59,7 +59,7 @@ const VALID_DEVICE_TYPES = new Set<DeviceType>(["collar", "desktop"]);
 const VALID_STATUS_FILTERS = new Set(["all", "online", "offline", "pairing"]);
 const VALID_BINDING_FILTERS = new Set(["all", "bound", "unbound"]);
 const VALID_IMAGE_STATUS_FILTERS = new Set(["all", "uploaded", "pending"]);
-const VALID_SPECIES_FILTERS = new Set(["all", "cat", "dog"]);
+const VALID_SPECIES_FILTERS = new Set(["all", "cat", "dog", "other"]);
 const VALID_SORT_FIELDS = new Set(["createdAt", "lastOnlineAt"]);
 const VALID_SORT_ORDERS = new Set(["asc", "desc"]);
 
@@ -89,6 +89,7 @@ type RawDeviceRow = {
   status: DeviceStatus;
   claim_status: DeviceClaimStatus;
   upgrade_status: DeviceUpgradeStatus;
+  firmware_version: string | null;
   user_id: string | null;
   user_nickname: string | null;
   pet_id: string | null;
@@ -129,7 +130,7 @@ type DeviceListFilters = {
   model: string;
   imageStatus: "all" | "uploaded" | "pending";
   bindingStatus: "all" | "bound" | "unbound";
-  species: "all" | Species;
+  species: "all" | Species | "other";
   status: "all" | DeviceStatus;
   sort: "createdAt" | "lastOnlineAt";
   order: "asc" | "desc";
@@ -207,6 +208,7 @@ function toAdminDeviceListItem(row: RawDeviceRow): AdminDeviceListItem {
     status: row.status,
     claimStatus: row.claim_status,
     upgradeStatus: row.upgrade_status,
+    firmwareVersion: row.firmware_version,
     userId: row.user_id,
     userNickname: row.user_nickname,
     petId: row.pet_id,
@@ -314,6 +316,7 @@ function getDeviceAggregationCtes() {
         cd.status,
         cd.claim_status,
         cd.upgrade_status,
+        cd.firmware_version,
         cd.user_id,
         u.nickname AS user_nickname,
         cd.pet_id,
@@ -345,6 +348,7 @@ function getDeviceAggregationCtes() {
         dd.status,
         dd.claim_status,
         dd.upgrade_status,
+        dd.firmware_version,
         dd.user_id,
         u.nickname AS user_nickname,
         dlb.pet_id,
@@ -409,7 +413,25 @@ function buildDeviceListWhereClause(filters: DeviceListFilters) {
     conditions.push(sql`merged_devices.binding_count = 0`);
   }
 
-  if (filters.species !== "all") {
+  if (filters.species === "other") {
+    conditions.push(sql`
+      (
+        (merged_devices.type = 'collar' AND merged_devices.pet_species IS NULL)
+        OR
+        (
+          merged_devices.type = 'desktop'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM desktop_pet_bindings b
+            INNER JOIN pets p ON p.id = b.pet_id
+            WHERE b.desktop_device_id = merged_devices.id
+              AND b.unbound_at IS NULL
+              AND p.species IN ('cat', 'dog')
+          )
+        )
+      )
+    `);
+  } else if (filters.species !== "all") {
     conditions.push(sql`
       (
         (merged_devices.type = 'collar' AND merged_devices.pet_species = ${filters.species})
@@ -882,6 +904,7 @@ devicesRoute.get("/devices", async (c) => {
         merged_devices.status,
         merged_devices.claim_status,
         merged_devices.upgrade_status,
+        merged_devices.firmware_version,
         merged_devices.user_id,
         merged_devices.user_nickname,
         merged_devices.pet_id,
@@ -940,6 +963,7 @@ devicesRoute.get("/devices/:type/:id/detail", async (c) => {
       merged_devices.status,
       merged_devices.claim_status,
       merged_devices.upgrade_status,
+      merged_devices.firmware_version,
       merged_devices.user_id,
       merged_devices.user_nickname,
       merged_devices.pet_id,
