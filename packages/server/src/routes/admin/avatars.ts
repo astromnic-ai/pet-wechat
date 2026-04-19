@@ -17,6 +17,7 @@ const VALID_AVATAR_STATUSES = new Set([
 ]);
 const EDITABLE_ACTION_STATUSES = new Set(["approved", "processing"]);
 const VALID_ACTIONS = new Set<string>(ALL_ACTIONS);
+const ADMIN_TIME_ZONE = "Asia/Shanghai";
 type AvatarStatus = (typeof petAvatars.$inferSelect)["status"];
 
 type AvatarRow = {
@@ -505,6 +506,7 @@ avatarsRoute.get("/avatar-review/stats", async (c) => {
     approved_total: number | string;
     synced_to_devices: number | string;
     today_new_uploads: number | string;
+    today_completed: number | string;
   }>(sql`
     SELECT
       COUNT(*) FILTER (WHERE pa.status = 'pending')::int AS pending_review,
@@ -529,8 +531,12 @@ avatarsRoute.get("/avatar-review/stats", async (c) => {
           )
       )::int AS synced_to_devices,
       COUNT(*) FILTER (
-        WHERE pa.created_at >= date_trunc('day', now())
-      )::int AS today_new_uploads
+        WHERE (pa.created_at AT TIME ZONE ${ADMIN_TIME_ZONE})::date = (now() AT TIME ZONE ${ADMIN_TIME_ZONE})::date
+      )::int AS today_new_uploads,
+      COUNT(*) FILTER (
+        WHERE pa.status IN ('approved', 'rejected')
+          AND (pa.reviewed_at AT TIME ZONE ${ADMIN_TIME_ZONE})::date = (now() AT TIME ZONE ${ADMIN_TIME_ZONE})::date
+      )::int AS today_completed
     FROM pet_avatars pa
   `);
 
@@ -539,6 +545,7 @@ avatarsRoute.get("/avatar-review/stats", async (c) => {
     approvedTotal: Number(row?.approved_total ?? 0),
     syncedToDevices: Number(row?.synced_to_devices ?? 0),
     todayNewUploads: Number(row?.today_new_uploads ?? 0),
+    todayCompleted: Number(row?.today_completed ?? 0),
   });
 });
 

@@ -174,6 +174,7 @@ export interface AdminDeviceListItem {
   status: DeviceStatus;
   claimStatus: DeviceClaimStatus;
   upgradeStatus: DeviceUpgradeStatus;
+  firmwareVersion: string | null;
   userId: string | null;
   userNickname: string | null;
   petId: string | null;
@@ -271,8 +272,13 @@ export interface CustomizationTask {
   petId: string;
   petName: string;
   petSpecies: Species;
+  petBreed: string | null;
+  petGender: Gender;
+  petBirthday: string | null;
   userId: string;
   userNickname: string;
+  userAvatarUrl: string | null;
+  userPhone: string | null;
   status: AvatarStatus;
   defaultPreviewUrl: string | null;
   baseActionCount: number;
@@ -291,6 +297,7 @@ export interface AvatarReviewStats {
   approvedTotal: number;
   syncedToDevices: number;
   todayNewUploads: number;
+  todayCompleted: number;
 }
 
 export interface PresignResponse {

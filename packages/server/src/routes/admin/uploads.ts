@@ -13,10 +13,6 @@ function isAllowedContentType(value: unknown): value is AllowedContentType {
 }
 
 uploadsRoute.post("/uploads/presign", async (c) => {
-  if (process.env.ENABLE_DEV_LOGIN === "true") {
-    return c.json({ error: "Presigned uploads are not available in dev mode" }, 501);
-  }
-
   const body = await c.req.json<{ contentType?: unknown }>();
 
   if (!isAllowedContentType(body.contentType)) {

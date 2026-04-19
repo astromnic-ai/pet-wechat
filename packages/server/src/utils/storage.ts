@@ -31,6 +31,62 @@ export const ALLOWED_IMAGE_CONTENT_TYPES = {
   "image/webp": "webp",
 } as const;
 
+function getLocalStorageBaseUrl(): string {
+  return process.env.APP_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 9527}`;
+}
+
+function normalizeLocalStorageKey(key: string): string {
+  return key.replace(/^\/+/, "");
+}
+
+function resolveLocalStoragePath(key: string): string {
+  const normalizedKey = normalizeLocalStorageKey(key);
+  const targetPath = path.resolve(LOCAL_STORAGE_ROOT, normalizedKey);
+
+  if (targetPath !== LOCAL_STORAGE_ROOT && !targetPath.startsWith(`${LOCAL_STORAGE_ROOT}${path.sep}`)) {
+    throw new Error("INVALID_STORAGE_KEY");
+  }
+
+  return targetPath;
+}
+
+async function writeLocalStorageFile(key: string, body: Buffer | Uint8Array): Promise<string> {
+  const normalizedKey = normalizeLocalStorageKey(key);
+  const targetPath = resolveLocalStoragePath(normalizedKey);
+  await mkdir(path.dirname(targetPath), { recursive: true });
+  await writeFile(targetPath, body);
+  return `${getLocalStorageBaseUrl()}/storage/${normalizedKey}`;
+}
+
+function buildStorageKey(contentType: keyof typeof ALLOWED_IMAGE_CONTENT_TYPES, scope = "admin", date = new Date()): string {
+  const ext = ALLOWED_IMAGE_CONTENT_TYPES[contentType];
+  return `uploads/${scope}/${date.getUTCFullYear()}/${String(date.getUTCMonth() + 1).padStart(2, "0")}/${createId()}.${ext}`;
+}
+
+function createLocalDevPresignedPutUrl(opts: {
+  contentType: keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
+  scope?: string;
+}): PresignResponse {
+  const signingDate = new Date();
+  const expiresIn = 900;
+  const key = buildStorageKey(opts.contentType, opts.scope ?? "admin", signingDate);
+  const publicUrl = `${getLocalStorageBaseUrl()}/storage/${key}`;
+
+  return {
+    uploadUrl: publicUrl,
+    publicUrl,
+    key,
+    expiresAt: new Date(signingDate.getTime() + expiresIn * 1000).toISOString(),
+  };
+}
+
+export async function saveLocalDevUpload(
+  key: string,
+  body: Buffer | Uint8Array,
+): Promise<string> {
+  return await writeLocalStorageFile(key, body);
+}
+
 export async function ensureBucket(): Promise<void> {
   if (!ensureBucketPromise) {
     ensureBucketPromise = (async () => {
@@ -65,11 +121,7 @@ export async function uploadFile(
   contentType: string,
 ): Promise<string> {
   if (process.env.ENABLE_DEV_LOGIN === "true") {
-    const targetPath = path.join(LOCAL_STORAGE_ROOT, key);
-    await mkdir(path.dirname(targetPath), { recursive: true });
-    await writeFile(targetPath, body);
-    const baseUrl = process.env.APP_PUBLIC_URL ?? `http://localhost:${process.env.PORT ?? 9527}`;
-    return `${baseUrl}/storage/${key}`;
+    return await writeLocalStorageFile(key, body);
   }
 
   await ensureBucket();
@@ -90,13 +142,14 @@ export async function createPresignedPutUrl(opts: {
   contentType: keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
   scope?: string;
 }): Promise<PresignResponse> {
+  if (process.env.ENABLE_DEV_LOGIN === "true") {
+    return createLocalDevPresignedPutUrl(opts);
+  }
+
   await ensureBucket();
 
   const signingDate = new Date();
-  const ext = ALLOWED_IMAGE_CONTENT_TYPES[opts.contentType];
-  const key = `uploads/${opts.scope ?? "admin"}/${signingDate.getUTCFullYear()}/${String(
-    signingDate.getUTCMonth() + 1,
-  ).padStart(2, "0")}/${createId()}.${ext}`;
+  const key = buildStorageKey(opts.contentType, opts.scope ?? "admin", signingDate);
   const expiresIn = 900;
   const endpoint = new URL(process.env.S3_ENDPOINT ?? "http://localhost:9000");
   const basePath = endpoint.pathname === "/" ? "" : endpoint.pathname.replace(/\/$/, "");

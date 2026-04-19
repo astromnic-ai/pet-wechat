@@ -22,9 +22,31 @@ mock.module("../db/index.ts", () => ({ db: mockDb }));
 const dbPath = new URL("../db", import.meta.url).pathname;
 mock.module(dbPath, () => ({ db: mockDb }));
 
+const ALLOWED_IMAGE_CONTENT_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+} as const;
+
 const uploadFile = async (key: string) => `https://test-storage.local/${key}`;
-mock.module("../utils/storage", () => ({ uploadFile }));
-mock.module("../utils/storage.ts", () => ({ uploadFile }));
+const createPresignedPutUrl = async (opts: {
+  contentType: keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
+  scope?: string;
+}) => {
+  const ext = ALLOWED_IMAGE_CONTENT_TYPES[opts.contentType];
+  const key = `uploads/${opts.scope ?? "admin"}/mock.${ext}`;
+
+  return {
+    uploadUrl: `http://localhost:9527/storage/${key}`,
+    publicUrl: `http://localhost:9527/storage/${key}`,
+    key,
+    expiresAt: new Date("2026-01-01T00:00:00.000Z").toISOString(),
+  };
+};
+
+const saveLocalDevUpload = async (key: string) => `http://localhost:9527/storage/${key}`;
+mock.module("../utils/storage", () => ({ uploadFile, createPresignedPutUrl, saveLocalDevUpload, ALLOWED_IMAGE_CONTENT_TYPES }));
+mock.module("../utils/storage.ts", () => ({ uploadFile, createPresignedPutUrl, saveLocalDevUpload, ALLOWED_IMAGE_CONTENT_TYPES }));
 
 const storagePath = new URL("../utils/storage.ts", import.meta.url).pathname;
-mock.module(storagePath, () => ({ uploadFile }));
+mock.module(storagePath, () => ({ uploadFile, createPresignedPutUrl, saveLocalDevUpload, ALLOWED_IMAGE_CONTENT_TYPES }));
