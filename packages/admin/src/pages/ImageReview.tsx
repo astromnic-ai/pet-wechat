@@ -295,6 +295,9 @@ export default function ImageReview() {
     approvedTotal: initialDemoDetails.filter((avatar) => ["approved", "processing", "done"].includes(avatar.status)).length,
     syncedToDevices: initialDemoDetails.filter((avatar) => avatar.status === "done").length,
     todayNewUploads: initialDemoDetails.filter((avatar) => isSameDay(avatar.createdAt, dayjs())).length,
+    todayCompleted: initialDemoDetails.filter(
+      (avatar) => (avatar.status === "approved" || avatar.status === "rejected") && isSameDay(avatar.reviewedAt, dayjs()),
+    ).length,
   });
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -329,6 +332,9 @@ export default function ImageReview() {
           approvedTotal: nextDemoDetails.filter((avatar) => ["approved", "processing", "done"].includes(avatar.status)).length,
           syncedToDevices: nextDemoDetails.filter((avatar) => avatar.status === "done").length,
           todayNewUploads: nextDemoDetails.filter((avatar) => isSameDay(avatar.createdAt, dayjs())).length,
+          todayCompleted: nextDemoDetails.filter(
+            (avatar) => (avatar.status === "approved" || avatar.status === "rejected") && isSameDay(avatar.reviewedAt, dayjs()),
+          ).length,
         });
         return nextDemoDetails.map(toReviewAvatarSummary);
       }
@@ -354,6 +360,9 @@ export default function ImageReview() {
         approvedTotal: nextDemoDetails.filter((avatar) => ["approved", "processing", "done"].includes(avatar.status)).length,
         syncedToDevices: nextDemoDetails.filter((avatar) => avatar.status === "done").length,
         todayNewUploads: nextDemoDetails.filter((avatar) => isSameDay(avatar.createdAt, dayjs())).length,
+        todayCompleted: nextDemoDetails.filter(
+          (avatar) => (avatar.status === "approved" || avatar.status === "rejected") && isSameDay(avatar.reviewedAt, dayjs()),
+        ).length,
       });
       messageApi.warning("未获取到真实数据，当前展示演示数据");
       return nextDemoDetails.map(toReviewAvatarSummary);
@@ -439,11 +448,12 @@ export default function ImageReview() {
 
   const todayCompletedCount = useMemo(
     () =>
+      reviewStats?.todayCompleted ??
       avatars.filter(
         (avatar) =>
           (avatar.status === "approved" || avatar.status === "rejected") && isSameDay(avatar.reviewedAt, today),
       ).length,
-    [avatars, today],
+    [avatars, reviewStats, today],
   );
 
   const yesterdayCompletedCount = useMemo(
