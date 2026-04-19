@@ -20,6 +20,7 @@ import {
   BASIC_ACTIONS,
   FUN_ACTIONS,
   type ActionType,
+  type CustomizationTask,
   type Gender,
   type Pet,
   type PetAvatar,
@@ -43,6 +44,7 @@ type CustomizationAvatar = PetAvatar & {
       })
     | null;
   user: Pick<User, "id" | "nickname" | "avatarUrl" | "wechatOpenid" | "phone"> | null;
+  task?: CustomizationTask | null;
 };
 
 type CustomizationAvatarDetail = CustomizationAvatar & {
@@ -57,6 +59,8 @@ type CategoryProgress = {
   completed: number;
   total: number;
 };
+
+type UploadContentType = "image/jpeg" | "image/png" | "image/webp";
 
 const TASK_STATUSES: CustomizationStatus[] = ["approved", "processing", "done"];
 
@@ -216,6 +220,108 @@ function getDefaultPreviewActionType(actions: PetAvatarAction[]) {
   return actions[0].actionType as ActionType;
 }
 
+function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): CustomizationTask {
+  const baseActionCount = countCompletedActions(avatar.actions, BASIC_ACTIONS);
+  const personalizedActionCount = countCompletedActions(avatar.actions, FUN_ACTIONS);
+  const totalActionCount = avatar.actions.length;
+
+  return {
+    avatarId: avatar.id,
+    petId: avatar.petId,
+    petName: avatar.pet?.name ?? "未命名宠物",
+    petSpecies: (avatar.pet?.species === "dog" ? "dog" : "cat") as Species,
+    userId: avatar.user?.id ?? "demo-user",
+    userNickname: avatar.user?.nickname ?? "未知微信用户",
+    status: avatar.status,
+    defaultPreviewUrl: avatar.actions[0]?.imageUrl ?? avatar.sourceImageUrl,
+    baseActionCount,
+    personalizedActionCount,
+    totalActionCount,
+    baseActionTotal: BASIC_ACTIONS.length,
+    personalizedActionTotal: FUN_ACTIONS.length,
+    categoryStatus:
+      totalActionCount === 0
+        ? "empty"
+        : totalActionCount >= BASIC_ACTIONS.length + FUN_ACTIONS.length
+          ? "all_done"
+          : baseActionCount > 0
+            ? "base_done"
+            : "partial",
+    isNewToday: enteredCustomizationToday(avatar),
+    createdAt: avatar.createdAt,
+    reviewedAt: avatar.reviewedAt ?? null,
+  };
+}
+
+function createTaskPreview(task: CustomizationTask) {
+  return buildMockImageUrl(task.petName, "#91caff", `${task.userNickname} · 定制任务`);
+}
+
+function mergeTasksWithAvatarSummaries(
+  tasks: CustomizationTask[],
+  avatarSummaries: CustomizationAvatar[],
+): CustomizationAvatar[] {
+  const avatarMap = new Map(avatarSummaries.map((avatar) => [avatar.id, avatar]));
+
+  return tasks.map((task) => {
+    const avatar = avatarMap.get(task.avatarId);
+    return {
+      id: task.avatarId,
+      petId: task.petId,
+      sourceImageUrl: avatar?.sourceImageUrl ?? task.defaultPreviewUrl ?? createTaskPreview(task),
+      status: task.status,
+      rejectReason: avatar?.rejectReason ?? null,
+      reviewedAt: task.reviewedAt ?? avatar?.reviewedAt ?? null,
+      createdAt: task.createdAt,
+      pet:
+        avatar?.pet ??
+        ({
+          id: task.petId,
+          name: task.petName,
+          species: task.petSpecies,
+          breed: null,
+          gender: "unknown",
+          birthday: null,
+        } satisfies CustomizationAvatar["pet"]),
+      user:
+        avatar?.user ??
+        {
+          id: task.userId,
+          nickname: task.userNickname,
+          avatarUrl: null,
+          wechatOpenid: null,
+          phone: null,
+        },
+      task,
+    };
+  });
+}
+
+function getTaskProgress(task: CustomizationTask | null | undefined, category: CategoryFilter): CategoryProgress | null {
+  if (!task) {
+    return null;
+  }
+
+  if (category === "basic") {
+    return {
+      completed: task.baseActionCount,
+      total: task.baseActionTotal,
+    };
+  }
+
+  if (category === "fun") {
+    return {
+      completed: task.personalizedActionCount,
+      total: task.personalizedActionTotal,
+    };
+  }
+
+  return {
+    completed: task.totalActionCount,
+    total: task.baseActionTotal + task.personalizedActionTotal,
+  };
+}
+
 function buildMockImageUrl(title: string, accent: string, subtitle: string) {
   const svg = `
     <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
@@ -240,7 +346,10 @@ function buildMockImageUrl(title: string, accent: string, subtitle: string) {
 
 function toCustomizationAvatarSummary(avatar: CustomizationAvatarDetail): CustomizationAvatar {
   const { actions: _actions, ...summary } = avatar;
-  return summary;
+  return {
+    ...summary,
+    task: toCustomizationTaskSummary(avatar),
+  };
 }
 
 function createMockCustomizationDetails(): CustomizationAvatarDetail[] {
@@ -380,6 +489,9 @@ export default function Customization() {
   const [demoAvatarDetails, setDemoAvatarDetails] = useState<CustomizationAvatarDetail[]>(() => initialDemoDetails);
   const [isDemoMode, setIsDemoMode] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [todayNewPendingCount, setTodayNewPendingCount] = useState(
+    initialDemoDetails.filter((avatar) => enteredCustomizationToday(avatar)).length,
+  );
   const [taskTab, setTaskTab] = useState<TaskTab>("pending");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
@@ -389,6 +501,8 @@ export default function Customization() {
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadActionType, setUploadActionType] = useState<ActionType | null>(null);
   const [uploadImageUrl, setUploadImageUrl] = useState("");
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadPreviewUrl, setUploadPreviewUrl] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
@@ -398,13 +512,31 @@ export default function Customization() {
     setLoading(true);
 
     try {
-      const response = await api.getAvatars();
-      const nextAvatars = ((response.avatars as CustomizationAvatar[]) ?? []).filter((avatar) =>
+      const [tasksResponse, pendingBadgeResponse, avatarResponse] = await Promise.all([
+        api.getCustomizationTasks({
+          page: "1",
+          pageSize: "100",
+          status: "approved,processing,done",
+          category: "all",
+        }),
+        api.getCustomizationTasks({
+          page: "1",
+          pageSize: "100",
+          status: "approved,processing",
+          category: "all",
+        }),
+        api.getAvatars(),
+      ]);
+
+      const nextAvatarSummaries = ((avatarResponse.avatars as CustomizationAvatar[]) ?? []).filter((avatar) =>
         TASK_STATUSES.includes(avatar.status as CustomizationStatus),
       );
+      const nextAvatars = mergeTasksWithAvatarSummaries(tasksResponse.items ?? [], nextAvatarSummaries);
+      const pendingTasks = pendingBadgeResponse.items ?? [];
 
       if (nextAvatars.length === 0) {
-        applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+        const demoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+        setTodayNewPendingCount(demoDetails.filter((avatar) => enteredCustomizationToday(avatar)).length);
         messageApi.warning("未获取到真实定制任务，当前展示演示数据");
         return;
       }
@@ -412,8 +544,10 @@ export default function Customization() {
       setIsDemoMode(false);
       setDemoAvatarDetails([]);
       setAvatars(nextAvatars);
+      setTodayNewPendingCount(pendingTasks.filter((task) => task.isNewToday).length);
     } catch (error) {
-      applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+      const demoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+      setTodayNewPendingCount(demoDetails.filter((avatar) => enteredCustomizationToday(avatar)).length);
       messageApi.warning("定制任务加载失败，当前展示演示数据");
     } finally {
       setLoading(false);
@@ -472,27 +606,34 @@ export default function Customization() {
   };
 
   useEffect(() => {
+    if (uploadImageUrl.trim()) {
+      setUploadPreviewUrl(uploadImageUrl.trim());
+      return;
+    }
+
+    if (!uploadFile) {
+      setUploadPreviewUrl("");
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(uploadFile);
+    setUploadPreviewUrl(objectUrl);
+
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [uploadFile, uploadImageUrl]);
+
+  useEffect(() => {
     void loadAvatars();
   }, []);
 
-  const pendingAvatars = useMemo(
-    () => avatars.filter((avatar) => avatar.status === "approved" || avatar.status === "processing"),
-    [avatars],
-  );
-
-  const doneAvatars = useMemo(
-    () => avatars.filter((avatar) => avatar.status === "done"),
-    [avatars],
-  );
-
-  const todayNewPendingCount = useMemo(
-    () => pendingAvatars.filter((avatar) => enteredCustomizationToday(avatar)).length,
-    [pendingAvatars],
-  );
-
   const tabAvatars = useMemo(
-    () => (taskTab === "pending" ? pendingAvatars : doneAvatars),
-    [doneAvatars, pendingAvatars, taskTab],
+    () =>
+      avatars.filter((avatar) =>
+        taskTab === "pending" ? avatar.status === "approved" || avatar.status === "processing" : avatar.status === "done",
+      ),
+    [avatars, taskTab],
   );
 
   const filteredAvatars = useMemo(
@@ -502,7 +643,8 @@ export default function Customization() {
           return true;
         }
 
-        return avatar.status === "done" || avatar.status === "processing" || avatar.status === "approved";
+        const progress = getTaskProgress(avatar.task, categoryFilter);
+        return (progress?.completed ?? 0) > 0;
       }),
     [categoryFilter, tabAvatars],
   );
@@ -566,6 +708,7 @@ export default function Customization() {
   const handleOpenUploadModal = (actionType: ActionType) => {
     setUploadActionType(actionType);
     setUploadImageUrl("");
+    setUploadFile(null);
     setUploadModalOpen(true);
   };
 
@@ -573,6 +716,8 @@ export default function Customization() {
     setUploadModalOpen(false);
     setUploadActionType(null);
     setUploadImageUrl("");
+    setUploadFile(null);
+    setUploadPreviewUrl("");
   };
 
   const handleSubmitAction = async () => {
@@ -580,15 +725,42 @@ export default function Customization() {
       return;
     }
 
-    const imageUrl = uploadImageUrl.trim();
-    if (!imageUrl) {
-      messageApi.warning("请输入图片 URL");
-      return;
-    }
-
     setSubmittingAction(true);
 
     try {
+      let imageUrl = uploadImageUrl.trim();
+
+      if (!imageUrl && uploadFile && isDemoMode) {
+        imageUrl = uploadPreviewUrl;
+      }
+
+      if (!imageUrl && uploadFile && !isDemoMode) {
+        if (!["image/jpeg", "image/png", "image/webp"].includes(uploadFile.type)) {
+          messageApi.warning("仅支持 JPG、PNG、WEBP 图片");
+          return;
+        }
+
+        const presign = await api.createUploadPresign(uploadFile.type as UploadContentType);
+        const uploadResponse = await fetch(presign.uploadUrl, {
+          method: "PUT",
+          headers: {
+            "Content-Type": uploadFile.type,
+          },
+          body: uploadFile,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error("素材文件上传失败");
+        }
+
+        imageUrl = presign.publicUrl;
+      }
+
+      if (!imageUrl) {
+        messageApi.warning("请先选择图片文件或输入图片 URL");
+        return;
+      }
+
       if (isDemoMode) {
         const nextDemoDetails: CustomizationAvatarDetail[] = demoAvatarDetails.map((avatar) => {
           if (avatar.id !== selectedAvatarDetail.id) {
@@ -723,8 +895,10 @@ export default function Customization() {
 
   const renderCategoryStatus = (avatar: CustomizationAvatar) => {
     const avatarActions = selectedAvatarDetail?.id === avatar.id ? selectedAvatarDetail.actions : [];
+    const basicTaskProgress = getTaskProgress(avatar.task, "basic");
+    const funTaskProgress = getTaskProgress(avatar.task, "fun");
 
-    if (avatarActions.length === 0) {
+    if (avatarActions.length === 0 && !avatar.task) {
       const meta = getStatusMetaForAvatarStatus(avatar.status as CustomizationStatus);
 
       if (categoryFilter === "basic") {
@@ -744,17 +918,17 @@ export default function Customization() {
     }
 
     if (categoryFilter === "basic") {
-      const meta = getCategoryStatusTag(getCategoryProgress(avatarActions, "basic"));
+      const meta = getCategoryStatusTag(basicTaskProgress ?? getCategoryProgress(avatarActions, "basic"));
       return <Tag color={meta.color}>{`基础动作 · ${meta.label}`}</Tag>;
     }
 
     if (categoryFilter === "fun") {
-      const meta = getCategoryStatusTag(getCategoryProgress(avatarActions, "fun"));
+      const meta = getCategoryStatusTag(funTaskProgress ?? getCategoryProgress(avatarActions, "fun"));
       return <Tag color={meta.color}>{`个性化动作 · ${meta.label}`}</Tag>;
     }
 
-    const basicMeta = getCategoryStatusTag(getCategoryProgress(avatarActions, "basic"));
-    const funMeta = getCategoryStatusTag(getCategoryProgress(avatarActions, "fun"));
+    const basicMeta = getCategoryStatusTag(basicTaskProgress ?? getCategoryProgress(avatarActions, "basic"));
+    const funMeta = getCategoryStatusTag(funTaskProgress ?? getCategoryProgress(avatarActions, "fun"));
 
     return (
       <Space size={[6, 6]} wrap>
@@ -1084,16 +1258,36 @@ export default function Customization() {
         destroyOnClose
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <Text type="secondary">上传图片文件</Text>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={(event) => {
+                const nextFile = event.target.files?.[0] ?? null;
+                setUploadFile(nextFile);
+                if (nextFile) {
+                  setUploadImageUrl("");
+                }
+              }}
+            />
+          </div>
+
           <Input
-            placeholder="请输入图片 URL"
+            placeholder="或输入图片 URL"
             value={uploadImageUrl}
-            onChange={(event) => setUploadImageUrl(event.target.value)}
+            onChange={(event) => {
+              setUploadImageUrl(event.target.value);
+              if (event.target.value.trim()) {
+                setUploadFile(null);
+              }
+            }}
           />
 
-          {uploadImageUrl.trim() ? (
+          {uploadPreviewUrl ? (
             <div style={{ display: "flex", justifyContent: "center" }}>
               <Image
-                src={uploadImageUrl.trim()}
+                src={uploadPreviewUrl}
                 alt={uploadActionType ? ACTION_LABELS[uploadActionType] ?? uploadActionType : "动作预览"}
                 width={240}
                 height={240}
@@ -1101,7 +1295,7 @@ export default function Customization() {
               />
             </div>
           ) : (
-            <Empty description="输入图片 URL 后可预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            <Empty description="选择图片文件或输入图片 URL 后可预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           )}
         </div>
       </Modal>

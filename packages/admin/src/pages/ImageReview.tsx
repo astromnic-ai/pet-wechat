@@ -17,7 +17,7 @@ import {
   message,
 } from "antd";
 import dayjs, { type Dayjs } from "dayjs";
-import type { AvatarStatus, PetAvatar, Species, User } from "shared";
+import type { AvatarReviewStats, AvatarStatus, PetAvatar, Species, User } from "shared";
 import type { Pet, PetAvatarAction } from "shared";
 import { api } from "../api/client";
 
@@ -290,6 +290,12 @@ export default function ImageReview() {
   const [avatars, setAvatars] = useState<ReviewAvatar[]>(() => initialDemoDetails.map(toReviewAvatarSummary));
   const [demoAvatarDetails, setDemoAvatarDetails] = useState<ReviewAvatarDetail[]>(() => initialDemoDetails);
   const [isDemoMode, setIsDemoMode] = useState(true);
+  const [reviewStats, setReviewStats] = useState<AvatarReviewStats | null>({
+    pendingReview: initialDemoDetails.filter((avatar) => avatar.status === "pending").length,
+    approvedTotal: initialDemoDetails.filter((avatar) => ["approved", "processing", "done"].includes(avatar.status)).length,
+    syncedToDevices: initialDemoDetails.filter((avatar) => avatar.status === "done").length,
+    todayNewUploads: initialDemoDetails.filter((avatar) => isSameDay(avatar.createdAt, dayjs())).length,
+  });
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ReviewTabKey>("all");
@@ -303,34 +309,52 @@ export default function ImageReview() {
     setLoading(true);
 
     try {
-      const response = await api.getAvatars();
+      const [response, statsResponse] = await Promise.all([
+        api.getAvatars(),
+        api.getAvatarReviewStats().catch(() => null),
+      ]);
       const nextAvatars = (response.avatars as ReviewAvatar[]) ?? [];
       if (nextAvatars.length === 0) {
         if (options?.skipDemoFallback) {
           setDemoAvatarDetails([]);
           setAvatars([]);
           setIsDemoMode(false);
+          setReviewStats(statsResponse);
           return [];
         }
 
         const nextDemoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+        setReviewStats({
+          pendingReview: nextDemoDetails.filter((avatar) => avatar.status === "pending").length,
+          approvedTotal: nextDemoDetails.filter((avatar) => ["approved", "processing", "done"].includes(avatar.status)).length,
+          syncedToDevices: nextDemoDetails.filter((avatar) => avatar.status === "done").length,
+          todayNewUploads: nextDemoDetails.filter((avatar) => isSameDay(avatar.createdAt, dayjs())).length,
+        });
         return nextDemoDetails.map(toReviewAvatarSummary);
       }
 
       setIsDemoMode(false);
       setDemoAvatarDetails([]);
       setAvatars(nextAvatars);
+      setReviewStats(statsResponse);
       return nextAvatars;
     } catch (error) {
       if (options?.skipDemoFallback) {
         setDemoAvatarDetails([]);
         setAvatars([]);
         setIsDemoMode(false);
+        setReviewStats(null);
         messageApi.error(error instanceof Error ? error.message : "图像审核数据加载失败");
         return [];
       }
 
       const nextDemoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
+      setReviewStats({
+        pendingReview: nextDemoDetails.filter((avatar) => avatar.status === "pending").length,
+        approvedTotal: nextDemoDetails.filter((avatar) => ["approved", "processing", "done"].includes(avatar.status)).length,
+        syncedToDevices: nextDemoDetails.filter((avatar) => avatar.status === "done").length,
+        todayNewUploads: nextDemoDetails.filter((avatar) => isSameDay(avatar.createdAt, dayjs())).length,
+      });
       messageApi.warning("未获取到真实数据，当前展示演示数据");
       return nextDemoDetails.map(toReviewAvatarSummary);
     } finally {
@@ -432,8 +456,8 @@ export default function ImageReview() {
   );
 
   const syncedDeviceCount = useMemo(
-    () => avatars.filter((avatar) => avatar.status === "done").length,
-    [avatars],
+    () => reviewStats?.syncedToDevices ?? avatars.filter((avatar) => avatar.status === "done").length,
+    [avatars, reviewStats],
   );
 
   const todaySyncedCount = useMemo(

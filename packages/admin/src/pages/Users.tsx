@@ -16,6 +16,7 @@ import {
   message,
 } from "antd";
 import { ArrowLeftOutlined, CheckSquareFilled, PlusOutlined } from "@ant-design/icons";
+import { DEFAULT_FREE_BENEFITS, type Membership, type MembershipBenefit } from "shared";
 import { api } from "../api/client";
 import dayjs from "dayjs";
 
@@ -80,13 +81,6 @@ interface UserDetail {
   };
 }
 
-const membershipPerks = [
-  { label: "尊享 60fps 帧率", enabled: true },
-  { label: "优先生成权", enabled: true },
-  { label: "无限定制额度", enabled: false },
-  { label: "专属客服支持", enabled: false },
-] as const;
-
 function formatTime(value: string | null | undefined) {
   return value ? dayjs(value).format("YYYY-MM-DD HH:mm") : "-";
 }
@@ -108,28 +102,32 @@ function buildDisplayUserCode(user: Pick<UserRecord, "id" | "nickname">) {
   return `${user.id.slice(0, 8)}(${user.nickname})`;
 }
 
-function getMembershipLevel(quota: number) {
-  if (quota >= 8) {
-    return "黄金会员";
-  }
-
-  if (quota >= 4) {
-    return "白银会员";
-  }
-
-  return "普通会员";
-}
-
-function getMembershipColor(level: string) {
-  if (level === "黄金会员") {
+function getMembershipColor(level: Membership["level"]) {
+  if (level === "premium") {
     return "#f59e0b";
   }
 
-  if (level === "白银会员") {
+  if (level === "pro") {
+    return "#2563eb";
+  }
+
+  if (level === "basic") {
     return "#64748b";
   }
 
-  return "#2563eb";
+  return "#64748b";
+}
+
+function getMembershipStatusTag(status: Membership["status"]) {
+  if (status === "active") {
+    return { color: "success" as const, label: "账号正常" };
+  }
+
+  if (status === "expired") {
+    return { color: "warning" as const, label: "会员过期" };
+  }
+
+  return { color: "error" as const, label: "账号暂停" };
 }
 
 export default function UsersPage() {
@@ -140,6 +138,7 @@ export default function UsersPage() {
   const [detailUserId, setDetailUserId] = useState<string | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detail, setDetail] = useState<UserDetail | null>(null);
+  const [membership, setMembership] = useState<Membership | null>(null);
   const [savingQuota, setSavingQuota] = useState(false);
   const [quotaValue, setQuotaValue] = useState<number>(0);
   const [form] = Form.useForm();
@@ -166,11 +165,15 @@ export default function UsersPage() {
       setDetailLoading(true);
 
       try {
-        const result = await api.getUserDetail(userId);
+        const [result, membershipResult] = await Promise.all([
+          api.getUserDetail(userId),
+          api.getMembership(userId),
+        ]);
         if (!cancelled) {
           const nextDetail = result as UserDetail;
           setDetail(nextDetail);
-          setQuotaValue(nextDetail.user.avatarQuota);
+          setMembership(membershipResult);
+          setQuotaValue(membershipResult.avatarQuotaTotal);
         }
       } catch (e) {
         if (!cancelled) {
@@ -206,10 +209,14 @@ export default function UsersPage() {
       setEditingId(null);
       load();
       if (currentEditingId && detailUserId === currentEditingId) {
-        const result = await api.getUserDetail(currentEditingId);
+        const [result, membershipResult] = await Promise.all([
+          api.getUserDetail(currentEditingId),
+          api.getMembership(currentEditingId),
+        ]);
         const nextDetail = result as UserDetail;
         setDetail(nextDetail);
-        setQuotaValue(nextDetail.user.avatarQuota);
+        setMembership(membershipResult);
+        setQuotaValue(membershipResult.avatarQuotaTotal);
       }
     } catch (e: any) {
       if (e.message) {
@@ -231,6 +238,7 @@ export default function UsersPage() {
       if (detailUserId === id) {
         setDetailUserId(null);
         setDetail(null);
+        setMembership(null);
       }
       load();
     } catch (e: any) {
@@ -243,15 +251,25 @@ export default function UsersPage() {
   };
 
   const handleSaveQuota = async () => {
-    if (!detail) {
+    if (!detail || !membership) {
       return;
     }
 
     setSavingQuota(true);
 
     try {
-      await api.updateUser(detail.user.id, { avatarQuota: quotaValue });
+      const nextMembership = await api.updateMembership(detail.user.id, {
+        level: membership.level,
+        status: membership.status,
+        expireAt: membership.expireAt,
+        benefits:
+          membership.benefits.length > 0
+            ? membership.benefits
+            : DEFAULT_FREE_BENEFITS.map((benefit) => ({ ...benefit })),
+        avatarQuotaTotal: quotaValue,
+      });
       message.success("配额已保存");
+      setMembership(nextMembership);
       const nextDetail = {
         ...detail,
         user: {
@@ -346,13 +364,13 @@ export default function UsersPage() {
   const listSelectedUser = data.find((item) => item.id === detailUserId) ?? null;
 
   const membershipLevel = useMemo(
-    () => (detailUser ? getMembershipLevel(detailUser.avatarQuota) : "普通会员"),
-    [detailUser],
+    () => membership?.levelLabel ?? "免费版",
+    [membership],
   );
 
   const membershipExpireAt = useMemo(
-    () => (detailUser ? dayjs(detailUser.createdAt).add(1, "year").format("YYYY-MM-DD") : "-"),
-    [detailUser],
+    () => (membership?.expireAt ? dayjs(membership.expireAt).format("YYYY-MM-DD") : "-"),
+    [membership],
   );
 
   const boundDevices = useMemo(
@@ -369,6 +387,15 @@ export default function UsersPage() {
     () => (detailUser ? buildDisplayUserCode(detailUser) : "-"),
     [detailUser],
   );
+  const membershipStatusMeta = membership ? getMembershipStatusTag(membership.status) : getMembershipStatusTag("active");
+  const membershipBenefits = useMemo(
+    () =>
+      membership?.benefits && membership.benefits.length > 0
+        ? membership.benefits
+        : DEFAULT_FREE_BENEFITS.map((benefit) => ({ ...benefit })),
+    [membership],
+  );
+  const remainingQuota = Math.max(0, quotaValue - (membership?.avatarQuotaUsed ?? 0));
 
   if (detailUserId && detailUser) {
     return (
@@ -429,8 +456,8 @@ export default function UsersPage() {
                     </div>
 
                     <div style={{ textAlign: "right" }}>
-                      <Tag color="success" style={{ marginInlineEnd: 0, paddingInline: 12, lineHeight: "24px", borderRadius: 999, fontSize: 12 }}>
-                        ● 账号正常
+                      <Tag color={membershipStatusMeta.color} style={{ marginInlineEnd: 0, paddingInline: 12, lineHeight: "24px", borderRadius: 999, fontSize: 12 }}>
+                        {`● ${membershipStatusMeta.label}`}
                       </Tag>
                       <div style={{ marginTop: 12 }}>
                         <Text type="secondary" style={{ fontSize: 13 }}>{`注册时间: ${dayjs(detailUser.createdAt).format("YYYY-MM-DD")}`}</Text>
@@ -448,7 +475,7 @@ export default function UsersPage() {
                     <div style={{ padding: 14, borderRadius: 12, background: "#fff" }}>
                       <Text type="secondary" style={{ fontSize: 13 }}>会员等级</Text>
                       <div style={{ marginTop: 8 }}>
-                        <Text strong style={{ fontSize: 16, color: getMembershipColor(membershipLevel) }}>
+                        <Text strong style={{ fontSize: 16, color: getMembershipColor(membership?.level ?? "free") }}>
                           {membershipLevel}
                         </Text>
                       </div>
@@ -488,7 +515,7 @@ export default function UsersPage() {
                         定制额度
                       </Title>
                       <div style={{ marginTop: 6 }}>
-                        <Text type="secondary" style={{ fontSize: 13 }}>{`剩余免费次数: ${Math.max(0, quotaValue)} 次 / 共 15 次`}</Text>
+                        <Text type="secondary" style={{ fontSize: 13 }}>{`剩余免费次数: ${remainingQuota} 次 / 共 ${quotaValue} 次`}</Text>
                       </div>
                     </div>
 
@@ -511,9 +538,9 @@ export default function UsersPage() {
                     </Text>
 
                     <Space direction="vertical" size={10} style={{ display: "flex" }}>
-                      {membershipPerks.map((perk) => (
+                      {membershipBenefits.map((perk: MembershipBenefit) => (
                         <div
-                          key={perk.label}
+                          key={perk.key}
                           style={{
                             padding: "12px 14px",
                             borderRadius: 12,
@@ -524,7 +551,7 @@ export default function UsersPage() {
                           }}
                         >
                           <CheckSquareFilled style={{ color: perk.enabled ? "#10b981" : "#cbd5e1", fontSize: 18 }} />
-                          <Text style={{ fontSize: 14 }}>{perk.label}</Text>
+                          <Text style={{ fontSize: 14 }}>{perk.value ? `${perk.label} · ${perk.value}` : perk.label}</Text>
                         </div>
                       ))}
                     </Space>
