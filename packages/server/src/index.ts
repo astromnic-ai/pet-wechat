@@ -71,6 +71,7 @@ export function createApp() {
   app.route("/api/invite", invitePublicRoute);
   app.route("/api/schedules", schedulesRoute);
   app.route("/api/device-report", deviceReportRoute);
+  app.route("/api/content", contentRoute);
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);
@@ -89,7 +90,6 @@ export function createApp() {
   app.route("/api/debug", debugRoute);
   app.route("/api/settings", settingsRoute);
   app.route("/api/account", accountRoute);
-  app.route("/api/content", contentRoute);
 
   return app;
 }
