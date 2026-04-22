@@ -6,7 +6,7 @@
 
 ## 根因分析
 
-两个页面（collar-bind、desktop-bind）的 `handleSearch` 函数在搜索完成后无条件执行 `setStep(2)`，导致按钮从「Mock 搜索设备」切换为「Mock 连接设备」。即使搜索结果为空，step 仍然是 2，用户无法重新触发搜索。
+旧稿中的两类设备搜索入口在搜索完成后都会无条件进入下一步，导致按钮从「Mock 搜索设备」切换为「Mock 连接设备」。即使搜索结果为空，step 仍然是 2，用户无法重新触发搜索。
 
 ## 修复方案
 
@@ -22,8 +22,7 @@
 
 ## 需要修改的文件
 
-1. `packages/app/src/pages/collar-bind/index.tsx` — handleSearch 逻辑
-2. `packages/app/src/pages/desktop-bind/index.tsx` — handleSearch 逻辑
+1. `packages/app/src/pages/collar-bind/index.tsx` — 统一设备搜索逻辑
 
 ## 具体变更
 
