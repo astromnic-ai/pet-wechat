@@ -250,6 +250,9 @@
 
 .trend-head {
   margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .trend-title,
@@ -259,8 +262,27 @@
   color: #1f1f1f;
 }
 
+.trend-dots {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.trend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  background: #e3dfd7;
+}
+
+.trend-dot--active {
+  background: #4ba0ff;
+}
+
 .chart-card {
   margin-top: 14rpx;
+  padding: 20rpx 18rpx 18rpx;
+  background: #f5f6f8;
 }
 
 .chart-card--empty {
@@ -274,8 +296,10 @@
   justify-content: space-between;
 }
 
-.chart-wrap--dense {
-  gap: 8rpx;
+.chart-wrap--weekly {
+  gap: 14rpx;
+  padding: 18rpx 14rpx 0;
+  box-sizing: border-box;
 }
 
 .chart-item {
@@ -285,10 +309,11 @@
   align-items: center;
 }
 
-.chart-item--dense {
-  width: auto;
+.chart-item--weekly {
   flex: 1;
-  min-width: 0;
+  min-width: 52rpx;
+  max-width: 74rpx;
+  justify-content: flex-end;
 }
 
 .chart-bar {
@@ -305,10 +330,37 @@
   background: #4ba0ff;
 }
 
+.chart-bar--weekly {
+  width: 100%;
+  min-height: 54rpx;
+  border-radius: 18rpx;
+}
+
+.chart-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.chart-label-row--weekly {
+  margin-top: 20rpx;
+  padding: 0 14rpx 4rpx;
+  gap: 14rpx;
+}
+
 .chart-label {
   margin-top: 16rpx;
   font-size: 22rpx;
   color: #b3afa8;
+}
+
+.chart-label--weekly {
+  flex: 1;
+  min-width: 52rpx;
+  max-width: 74rpx;
+  margin-top: 0;
+  text-align: center;
+  font-size: 24rpx;
 }
 
 .chart-label--active {
