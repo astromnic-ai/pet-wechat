@@ -4,11 +4,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, CollarDevice, DesktopDevice, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
-import { getPetActivityMode, getPetModeSlots } from "../../utils/storage";
+import { getPetActivityMode, getPetModeSchedule, getPetModeSlots } from "../../utils/storage";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import { getPetDisplayImage, getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
 import "./index.scss";
+
+type DesktopDeviceWithBindings = DesktopDevice & {
+  bindings?: Array<{
+    id: string;
+    petId: string;
+    bindingType: string;
+  }>;
+};
 
 const ACTION_LABELS: Record<string, string> = {
   walking: "散步",
@@ -96,13 +104,28 @@ function matchActionsByKeyword(actions: PetAvatarAction[], action?: string | nul
 }
 
 function getCurrentCustomAction(petId?: string) {
+  const schedule = getPetModeSchedule(petId);
   const slots = getPetModeSlots(petId);
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
+    now.getDate()
+  ).padStart(2, "0")}`;
+  const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+  const todayWeekday = dayMap[now.getDay()];
+
+  const appliesToToday =
+    schedule.repeat === "weekly"
+      ? schedule.days.includes(todayWeekday)
+      : schedule.date === today;
+
+  if (!appliesToToday) {
+    return "";
+  }
 
   const activeSlot = slots.find((slot) => {
-    const [startHour, startMinute] = slot.start.split(":").map(Number);
-    const [endHour, endMinute] = slot.end.split(":").map(Number);
+    const [startHour, startMinute] = String(slot.start).split(":").map(Number);
+    const [endHour, endMinute] = String(slot.end).split(":").map(Number);
     const start = startHour * 60 + startMinute;
     const end = endHour * 60 + endMinute;
     return currentMinutes >= start && currentMinutes < end;
@@ -114,7 +137,7 @@ function getCurrentCustomAction(petId?: string) {
 export default function Index() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [collars, setCollars] = useState<CollarDevice[]>([]);
-  const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
+  const [desktops, setDesktops] = useState<DesktopDeviceWithBindings[]>([]);
   const [petActionMap, setPetActionMap] = useState<Record<string, PetAvatarAction[]>>({});
   const [petAvatarTaskMap, setPetAvatarTaskMap] = useState<
     Record<string, { avatarId: string; status: AvatarStatus | null }>
@@ -280,7 +303,7 @@ export default function Index() {
     try {
       const [{ collars: collarList }, { desktops: desktopList }] = await Promise.all([
         request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }),
-        request<{ desktops: DesktopDevice[] }>({ url: "/api/devices/desktops" }),
+        request<{ desktops: DesktopDeviceWithBindings[] }>({ url: "/api/devices/desktops" }),
       ]);
       setCollars(collarList);
       setDesktops(desktopList);
@@ -294,12 +317,17 @@ export default function Index() {
   const currentPet = pets[currentPetIndex] ?? null;
   const petSlides = hasPet ? pets : [null];
   const activeCollar = useMemo(() => {
-    if (!currentPet) return collars[0] ?? null;
-    return collars.find((item) => item.petId === currentPet.id) ?? collars[0] ?? null;
+    if (!currentPet) return null;
+    return collars.find((item) => item.petId === currentPet.id) ?? null;
   }, [collars, currentPet]);
-  const activeDesktop = desktops[0] ?? null;
+  const activeDesktop = useMemo(() => {
+    if (!currentPet) return null;
+    return (
+      desktops.find((item) => item.bindings?.some((binding) => binding.petId === currentPet.id)) ?? null
+    );
+  }, [currentPet, desktops]);
   const primaryManagedDevice = activeDesktop ?? activeCollar;
-  const hasManagedDevices = Boolean(activeCollar || activeDesktop);
+  const hasManagedDevices = Boolean(primaryManagedDevice);
   const primaryManagedDeviceName = primaryManagedDevice
     ? getDeviceDisplayName({
         petName: currentPet?.name,
@@ -348,6 +376,7 @@ export default function Index() {
 
   const currentModeFrames = useMemo(() => {
     if (!currentPet) return [];
+    if (homeHeroState !== "done") return [];
     if (currentPetActions.length === 0) return [];
 
     if (petMode === "real") {
@@ -362,7 +391,7 @@ export default function Index() {
     }
 
     return currentPetActions.slice(0, Math.min(currentPetActions.length, 4));
-  }, [currentPet, currentPetActions, petMode]);
+  }, [currentPet, currentPetActions, petMode, homeHeroState]);
 
   useEffect(() => {
     setFrameIndex(0);
@@ -415,7 +444,7 @@ export default function Index() {
       return;
     }
 
-    if (homeHeroState === "processing" && currentPetAvatarTask?.avatarId) {
+    if (homeHeroState === "processing" && isAvatarGenerating && currentPetAvatarTask?.avatarId) {
       Taro.navigateTo({ url: `/pages/avatar-progress/index?avatarId=${currentPetAvatarTask.avatarId}` });
       return;
     }
@@ -466,9 +495,19 @@ export default function Index() {
                       className="avatar-image"
                       src={getPetDisplayImage(currentPet)}
                       mode="aspectFill"
+                      onClick={(e) => {
+                        e.stopPropagation?.();
+                        handleOpenPetInfo();
+                      }}
                     />
                 ) : (
-                  <View className="avatar-placeholder" />
+                  <View
+                    className="avatar-placeholder"
+                    onClick={(e) => {
+                      e.stopPropagation?.();
+                      handleAddPet();
+                    }}
+                  />
                 )}
               </View>
               <View className="title-block">
