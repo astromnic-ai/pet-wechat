@@ -179,6 +179,7 @@ export default function DataPage() {
   const [range, setRange] = useState<"day" | "week" | "month">("day");
   const [behaviors, setBehaviors] = useState<PetBehavior[]>([]);
   const [interactionStats, setInteractionStats] = useState<InteractionStats | null>(null);
+  const [interactionWeekStats, setInteractionWeekStats] = useState<InteractionStats | null>(null);
   const [interactionLoading, setInteractionLoading] = useState(false);
 
   useDidShow(() => {
@@ -216,6 +217,7 @@ export default function DataPage() {
   useEffect(() => {
     if (!currentPet?.id) {
       setInteractionStats(null);
+      setInteractionWeekStats(null);
       return;
     }
 
@@ -236,12 +238,42 @@ export default function DataPage() {
       .finally(() => setInteractionLoading(false));
   }, [currentPet?.id, range]);
 
+  useEffect(() => {
+    if (!currentPet?.id) {
+      setInteractionWeekStats(null);
+      return;
+    }
+
+    request<InteractionStats>({
+      url: `/api/pets/${currentPet.id}/interaction-stats?range=week`,
+    })
+      .then((res) => setInteractionWeekStats(res))
+      .catch(() =>
+        setInteractionWeekStats({
+          totalCount: 0,
+          todayCount: 0,
+          weekCount: 0,
+          monthCount: 0,
+          buckets: [],
+        })
+      );
+  }, [currentPet?.id]);
+
   const dayData = useMemo(() => buildDayBuckets(behaviors), [behaviors]);
   const weekData = useMemo(() => buildWeekBuckets(behaviors), [behaviors]);
   const monthData = useMemo(() => buildMonthBuckets(behaviors), [behaviors]);
   const activityChartData = range === "day" ? dayData : range === "week" ? weekData : monthData;
   const interactionChartData = useMemo(() => buildInteractionChart(range, interactionStats), [interactionStats, range]);
-  const chartData = activeTab === "interaction" ? interactionChartData : activityChartData;
+  const interactionWeekChartData = useMemo(
+    () => buildInteractionChart("week", interactionWeekStats),
+    [interactionWeekStats]
+  );
+  const chartData =
+    activeTab === "interaction"
+      ? range === "day"
+        ? interactionWeekChartData
+        : interactionChartData
+      : activityChartData;
   const activityStats = useMemo(() => formatActionStats(behaviors), [behaviors]);
   const summaryScore = useMemo(() => {
     if (!currentPet) return 0;
@@ -272,6 +304,8 @@ export default function DataPage() {
   const compareText = compareDelta >= 0 ? `上升${compareDelta}%` : `下降${Math.abs(compareDelta)}%`;
   const headerDescription =
     activeTab === "interaction" ? "查看真实互动事件聚合结果" : "查看佩戴项圈后的真实活跃表现";
+  const trendTitle =
+    activeTab === "interaction" && range === "day" ? "本周趋势" : getTrendTitle(range);
 
   const handleCyclePet = () => {
     if (!currentPet || mergedPets.length <= 1) return;
@@ -369,7 +403,12 @@ export default function DataPage() {
             </View>
 
             <View className="trend-head">
-              <Text className="trend-title">{getTrendTitle(range)}</Text>
+              <Text className="trend-title">{trendTitle}</Text>
+              <View className="trend-dots">
+                <View className="trend-dot trend-dot--active" />
+                <View className="trend-dot" />
+                <View className="trend-dot" />
+              </View>
             </View>
 
             <View className="chart-card">
@@ -384,22 +423,35 @@ export default function DataPage() {
                   <Text className="empty-state-desc">正在拉取当前宠物的互动事件聚合结果</Text>
                 </View>
               ) : (
-                <View className={`chart-wrap ${activeTab === "interaction" ? "chart-wrap--dense" : ""}`}>
-                  {chartData.bars.map((value, index) => (
-                    <View
-                      key={`${index}-${value}`}
-                      className={`chart-item ${activeTab === "interaction" ? "chart-item--dense" : ""}`}
-                    >
+                <>
+                  <View className={`chart-wrap ${activeTab === "interaction" ? "chart-wrap--weekly" : ""}`}>
+                    {chartData.bars.map((value, index) => (
                       <View
-                        className={`chart-bar ${index % 2 === 0 ? "chart-bar--yellow" : "chart-bar--blue"}`}
-                        style={{ height: `${value}%` }}
-                      />
-                      <Text className={`chart-label ${index === chartData.bars.length - 1 ? "chart-label--active" : ""}`}>
-                        {chartData.labels[index]}
+                        key={`${index}-${value}`}
+                        className={`chart-item ${activeTab === "interaction" ? "chart-item--weekly" : ""}`}
+                      >
+                        <View
+                          className={`chart-bar ${index % 2 === 0 ? "chart-bar--yellow" : "chart-bar--blue"} ${
+                            activeTab === "interaction" ? "chart-bar--weekly" : ""
+                          }`}
+                          style={{ height: `${value}%` }}
+                        />
+                      </View>
+                    ))}
+                  </View>
+                  <View className={`chart-label-row ${activeTab === "interaction" ? "chart-label-row--weekly" : ""}`}>
+                    {chartData.labels.map((label, index) => (
+                      <Text
+                        key={`${label}-${index}`}
+                        className={`chart-label ${index === chartData.labels.length - 1 ? "chart-label--active" : ""} ${
+                          activeTab === "interaction" ? "chart-label--weekly" : ""
+                        }`}
+                      >
+                        {label}
                       </Text>
-                    </View>
-                  ))}
-                </View>
+                    ))}
+                  </View>
+                </>
               )}
             </View>
 
