@@ -10,7 +10,6 @@ import {
 
 const API_BASE = process.env.API_BASE_URL || "http://localhost:9527";
 const PET_NAME = "毛毛";
-const PET_BREED = "英短蓝猫";
 const WIFI_SSID = "E2E-WIFI";
 const WIFI_PASSWORD = "12345678";
 const PHONE = `138${Date.now().toString().slice(-8)}`;
@@ -104,6 +103,18 @@ beforeAll(async () => {
     wx.clearStorageSync();
     return true;
   });
+  await mp.mockWxMethod("openBluetoothAdapter", {});
+  await mp.mockWxMethod("startBluetoothDevicesDiscovery", {});
+  await mp.mockWxMethod("getBluetoothDevices", {
+    devices: [
+      {
+        deviceId: MAC_ADDRESS,
+        name: "YEHEY-Collar-001",
+        RSSI: -48,
+      },
+    ],
+  });
+  await mp.mockWxMethod("createBLEConnection", {});
   await mp.mockWxMethod("startWifi", {});
   await mp.mockWxMethod("getConnectedWifi", {
     wifi: {
@@ -114,6 +125,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   if (mp) {
+    await mp.restoreWxMethod("openBluetoothAdapter");
+    await mp.restoreWxMethod("startBluetoothDevicesDiscovery");
+    await mp.restoreWxMethod("getBluetoothDevices");
+    await mp.restoreWxMethod("createBLEConnection");
     await mp.restoreWxMethod("startWifi");
     await mp.restoreWxMethod("getConnectedWifi");
   }
@@ -121,121 +136,114 @@ afterAll(async () => {
 }, 30000);
 
 describe("完整端到端用户旅程", () => {
-  test("第一阶段：登录、引导与项圈绑定", async () => {
+  test("第一阶段：开发鉴权注入后，从首页进入设备搜索", async () => {
     await mp.reLaunch("/pages/login/index");
     await sleep(2000);
 
     let page = await waitForPath("pages/login/index");
     const loginText = await getPageText(page);
-    expect(loginText).toContain("开发登录");
+    expect(loginText).toContain("微信账号登录");
 
-    const phoneInput = await page.$(".dev-login-input");
-    expect(phoneInput).toBeTruthy();
-    await phoneInput.input(PHONE);
-    await sleep(500);
+    token = await getDevToken(PHONE);
+    await mp.evaluate((value: string) => {
+      wx.setStorageSync("token", value);
+      return true;
+    }, token);
 
-    await tap(page, ".dev-login-box .btn");
+    await mp.reLaunch("/pages/index/index");
     await sleep(2000);
 
-    page = await waitForPath("pages/guide/index");
-    const guideText = await getPageText(page);
-    expect(guideText).toContain("我有宠物陪伴");
-    expect(guideText).toContain("开启桌面宠物");
-    expect(await textOf(page, ".module-top .module-title")).toContain("我有宠物陪伴");
-    expect(await textOf(page, ".module-bottom .module-title")).toContain("开启桌面宠物");
-    token = await getDevToken(PHONE);
-    await screenshot(mp, "full-flow-01-guide");
+    page = await waitForPath("pages/index/index");
+    expect(await getPageText(page)).toContain("设备管理");
+    await screenshot(mp, "full-flow-01-home-empty");
 
-    await tap(page, ".module-top");
+    await tap(page, ".device-plus-box");
     await sleep(2000);
 
     page = await waitForPath("pages/collar-bind/index");
     const collarBindText = await getPageText(page);
+    expect(collarBindText).toContain("搜索设备");
     expect(collarBindText).toContain("Step 1");
     expect(collarBindText).toContain("Step 2");
+    expect(collarBindText).toContain("YEHEY-Collar-001");
+    await screenshot(mp, "full-flow-02-device-search");
 
-    const macInput = await page.$(".dev-login-input");
-    expect(macInput).toBeTruthy();
-    await macInput.input(MAC_ADDRESS);
-    await sleep(500);
-
-    await tap(page, ".dev-bind-button");
-    await sleep(2000);
-
-    page = await waitForPath("pages/collar-bind/index");
-    expect(await textOf(page, ".dev-bind-button")).toContain("进入 WiFi 配置");
-    expect(await getPageText(page)).toContain(MAC_ADDRESS);
-    await screenshot(mp, "full-flow-02-collar-bound");
-  }, 20000);
-
-  test("第一阶段：WiFi 配置结果进入宠物信息页", async () => {
-    let page = await waitForPath("pages/collar-bind/index");
-    expect(await textOf(page, ".dev-bind-button")).toContain("进入 WiFi 配置");
-
-    await tap(page, ".dev-bind-button");
+    await tap(page, ".nearby-device-action");
     await sleep(2000);
 
     page = await waitForPath("pages/wifi-config/index");
+    expect(await getPageText(page)).toContain("WiFi 配置");
+  }, 20000);
+
+  test("第一阶段：WiFi 配置后进入绑定宠物，并创建新宠物", async () => {
+    let page = await waitForPath("pages/wifi-config/index");
     const wifiText = await getPageText(page);
-    expect(wifiText).toContain("Step 3");
     expect(wifiText).toContain(WIFI_SSID);
 
-    const passwordInput = await page.$(".password-input");
-    expect(passwordInput).toBeTruthy();
-    await passwordInput.input(WIFI_PASSWORD);
+    const inputs = await page.$$(".wifi-input-value");
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
+    await inputs[1].input(WIFI_PASSWORD);
     await sleep(500);
 
-    await tap(page, ".selected-network-card");
+    await tap(page, ".wifi-submit-btn");
     await sleep(2000);
 
-    page = await waitForPath("pages/wifi-result/index");
-    expect(await textOf(page, ".result-title")).toContain("成功");
-    expect(await textOf(page, ".result-button-text")).toContain("录入");
+    page = await waitForPath("pages/bind-pet/index");
+    expect(await getPageText(page)).toContain("绑定宠物");
+    expect(await getPageText(page)).toContain("创建新宠物");
 
-    await tap(page, ".result-button");
+    await tap(page, ".create-pet-card");
     await sleep(2000);
 
     page = await waitForPath("pages/pet-info/index");
-    expect(await textOf(page, ".page-title")).toContain("录入宠物信息");
+    expect(await textOf(page, ".page-title")).toContain("添加宠物");
   }, 20000);
 
-  test("第二阶段：信息录入与动态定制", async () => {
+  test("第二阶段：信息录入、绑定宠物与头像入口", async () => {
     let page = await waitForPath("pages/pet-info/index");
-    expect(await textOf(page, ".page-title")).toContain("录入宠物信息");
+    expect(await textOf(page, ".page-title")).toContain("添加宠物");
 
     const inputs = await page.$$(".single-input");
-    expect(inputs.length).toBeGreaterThanOrEqual(2);
+    expect(inputs.length).toBeGreaterThanOrEqual(1);
     await inputs[0].input(PET_NAME);
-    await sleep(500);
-    await inputs[1].input(PET_BREED);
     await sleep(500);
 
     await tap(page, ".submit-btn");
     await sleep(2000);
 
-    page = await waitForPath("pages/pet-avatar/index");
-    const avatarText = await getPageText(page);
-    expect(avatarText).toContain("定制宠物动态");
-    expect(avatarText).toContain("跳过，稍后再完成");
-    await screenshot(mp, "full-flow-03-pet-avatar");
+    page = await waitForPath("pages/bind-pet/index");
+    expect(await getPageText(page)).toContain(PET_NAME);
 
-    await tap(page, ".secondary-action");
+    await tap(page, ".bind-confirm-btn");
     await sleep(2000);
 
     page = await waitForPath("pages/index/index");
     const homeText = await getPageText(page);
     expect(homeText).toContain(PET_NAME);
-    expect(homeText).toContain(PET_BREED);
-    expect(homeText).toContain("我的项圈");
-    await screenshot(mp, "full-flow-04-home");
+    expect(homeText).toContain("设备管理");
+    await screenshot(mp, "full-flow-03-home");
+
+    await tap(page, ".pet-slide");
+    await sleep(2000);
+
+    page = await waitForPath("pages/pet-avatar/index");
+    const avatarText = await getPageText(page);
+    expect(avatarText).toContain("上传您的宠物照片");
+    expect(avatarText).toContain("跳过，稍后再完成");
+    await screenshot(mp, "full-flow-04-pet-avatar");
+
+    await tap(page, ".secondary-action");
+    await sleep(2000);
+
+    page = await waitForPath("pages/index/index");
+    expect(await getPageText(page)).toContain(PET_NAME);
   }, 20000);
 
   test("第三阶段：首页与行为气泡验证", async () => {
     const page = await waitForPath("pages/index/index");
     const homeText = await getPageText(page);
     expect(homeText).toContain(PET_NAME);
-    expect(homeText).toContain(PET_BREED);
-    expect(homeText).toContain("我的项圈");
+    expect(homeText).toContain("设备管理");
 
     const petsData = await fetchJson(`${API_BASE}/api/pets`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -314,9 +322,8 @@ describe("完整端到端用户旅程", () => {
 
     page = await waitForPath("pages/profile/index");
     const profileText = await getPageText(page);
-    expect(profileText).toContain("开发用户");
-    expect(profileText).toContain(PHONE);
-    expect(profileText).not.toContain("烨子");
+    expect(profileText).toContain("用户信息");
+    expect(profileText).toContain("我的宠物");
 
     await tap(page, ".page-back");
     await sleep(2000);
@@ -328,13 +335,13 @@ describe("完整端到端用户旅程", () => {
     page = await waitForPath("pages/devices/index");
     const devicesText = await getPageText(page);
     expect(devicesText).toContain(PET_NAME);
-    expect(devicesText).toContain(MAC_ADDRESS);
+    expect(devicesText).toContain("YEHEY-Collar-001");
 
     await tap(page, ".page-back");
     await sleep(2000);
 
     page = await waitForPath("pages/index/index");
-    expect(await getPageText(page)).toContain(PET_BREED);
+    expect(await getPageText(page)).toContain(PET_NAME);
   }, 20000);
 
   test("第四阶段：主页导航跳转验证（#40, #41）", async () => {
@@ -446,6 +453,6 @@ describe("完整端到端用户旅程", () => {
 
     page = await waitForPath("pages/login/index");
     const loginText = await getPageText(page);
-    expect(loginText).toContain("开发登录");
+    expect(loginText).toContain("微信账号登录");
   }, 20000);
 });
