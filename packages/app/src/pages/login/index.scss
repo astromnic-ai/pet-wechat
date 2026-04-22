@@ -31,7 +31,7 @@
 .login-card {
   width: 100%;
   margin-top: 8rpx;
-  padding: 44rpx 24rpx 0;
+  padding: 44rpx 24rpx 18rpx;
   box-sizing: border-box;
   display: flex;
   flex: 1;
@@ -82,6 +82,10 @@
 
 .agreement {
   margin-top: 64rpx;
+
+  &.shake {
+    animation: agreement-shake 0.36s ease-in-out;
+  }
 }
 
 .agreement-title {
@@ -122,11 +126,17 @@
   color: #5e5650;
 }
 
+.agreement-link {
+  color: #347ff7;
+  font-weight: 600;
+}
+
 .split-line {
   display: flex;
   align-items: center;
   gap: 20rpx;
-  margin: auto 0 20rpx;
+  margin-top: auto;
+  margin-bottom: 16rpx;
   padding-top: 24rpx;
 }
 
@@ -147,7 +157,8 @@
   justify-content: center;
   gap: 10rpx;
   font-size: 24rpx;
-  padding-bottom: 20rpx;
+  min-height: 32rpx;
+  padding-bottom: 16rpx;
 }
 
 .register-label {
@@ -157,4 +168,27 @@
 .register-link {
   color: #347ff7;
   font-weight: 600;
+}
+
+@keyframes agreement-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-10rpx);
+  }
+
+  40% {
+    transform: translateX(8rpx);
+  }
+
+  60% {
+    transform: translateX(-6rpx);
+  }
+
+  80% {
+    transform: translateX(4rpx);
+  }
 }

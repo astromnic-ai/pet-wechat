@@ -1,27 +1,89 @@
 import { View, Text, Input, Button } from "@tarojs/components";
-import Taro from "@tarojs/taro";
-import { useMemo, useState } from "react";
+import Taro, { useDidShow } from "@tarojs/taro";
+import { useEffect, useMemo, useState } from "react";
 import PageBack from "../../components/PageBack";
 import "./index.scss";
+
+const REGISTER_DRAFT_KEY = "registerFormDraft";
+const PHONE_PATTERN = /^1[3-9]\d{9}$/;
 
 export default function Register() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [agreed, setAgreed] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [agreementShaking, setAgreementShaking] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+
+  const normalizedPhone = phone.trim();
+  const isPhoneValid = PHONE_PATTERN.test(normalizedPhone);
 
   const canSubmit = useMemo(
-    () => Boolean(phone.trim() && code.trim() && password.trim() && confirmPassword.trim() && agreed),
-    [agreed, code, confirmPassword, password, phone],
+    () => Boolean(isPhoneValid && code.trim() && password.trim() && confirmPassword.trim() && agreed),
+    [agreed, code, confirmPassword, isPhoneValid, password],
   );
+
+  const triggerAgreementShake = () => {
+    setAgreementShaking(false);
+    setTimeout(() => setAgreementShaking(true), 10);
+    setTimeout(() => setAgreementShaking(false), 420);
+  };
+
+  const ensureAgreementAccepted = () => {
+    if (agreed) {
+      return true;
+    }
+
+    triggerAgreementShake();
+    Taro.showToast({ title: "请先勾选协议", icon: "none" });
+    return false;
+  };
+
+  const validatePhone = () => {
+    setPhoneTouched(true);
+    if (!normalizedPhone) {
+      Taro.showToast({ title: "请输入手机号", icon: "none" });
+      return false;
+    }
+
+    if (!PHONE_PATTERN.test(normalizedPhone)) {
+      Taro.showToast({ title: "请输入正确的11位手机号", icon: "none" });
+      return false;
+    }
+
+    return true;
+  };
+
+  useDidShow(() => {
+    const draft = Taro.getStorageSync(REGISTER_DRAFT_KEY);
+    if (draft && typeof draft === "object") {
+      setPhone(typeof draft.phone === "string" ? draft.phone : "");
+      setCode(typeof draft.code === "string" ? draft.code : "");
+      setPassword(typeof draft.password === "string" ? draft.password : "");
+      setConfirmPassword(typeof draft.confirmPassword === "string" ? draft.confirmPassword : "");
+      setAgreed(Boolean(draft.agreed));
+    }
+  });
+
+  useEffect(() => {
+    Taro.setStorageSync(REGISTER_DRAFT_KEY, {
+      phone,
+      code,
+      password,
+      confirmPassword,
+      agreed,
+    });
+  }, [agreed, code, confirmPassword, password, phone]);
 
   const handleSendCode = async () => {
     if (sendingCode) return;
-    if (!phone.trim()) {
-      Taro.showToast({ title: "请输入手机号", icon: "none" });
+    if (!ensureAgreementAccepted()) {
+      return;
+    }
+    if (!validatePhone()) {
       return;
     }
 
@@ -36,10 +98,7 @@ export default function Register() {
 
   const handleRegister = async () => {
     if (submitting) return;
-    if (!phone.trim()) {
-      Taro.showToast({ title: "请输入手机号", icon: "none" });
-      return;
-    }
+    if (!validatePhone()) return;
     if (!code.trim()) {
       Taro.showToast({ title: "请输入验证码", icon: "none" });
       return;
@@ -52,8 +111,7 @@ export default function Register() {
       Taro.showToast({ title: "两次输入密码不一致", icon: "none" });
       return;
     }
-    if (!agreed) {
-      Taro.showToast({ title: "请先勾选协议", icon: "none" });
+    if (!ensureAgreementAccepted()) {
       return;
     }
 
@@ -62,6 +120,11 @@ export default function Register() {
       icon: "none",
       duration: 2200,
     });
+  };
+
+  const openAgreementPage = (event: any, url: string) => {
+    event?.stopPropagation?.();
+    Taro.navigateTo({ url });
   };
 
   return (
@@ -77,17 +140,24 @@ export default function Register() {
         <Text className="register-subtitle">开始你的数字宠物之旅</Text>
 
         <Text className="field-label">手机号</Text>
-        <View className="phone-field">
+        <View className={`phone-field ${phoneTouched && !isPhoneValid ? "invalid" : ""}`}>
           <Text className="phone-prefix">+86</Text>
           <Input
-            className="field-input phone-input"
+            className="phone-input"
             type="number"
             maxlength={11}
             placeholder="请输入手机号"
+            placeholderClass="input-placeholder"
             value={phone}
-            onInput={(e) => setPhone(e.detail.value)}
+            onInput={(e) => {
+              setPhoneTouched(true);
+              setPhone(e.detail.value.replace(/\D/g, "").slice(0, 11));
+            }}
           />
         </View>
+        {phoneTouched && normalizedPhone && !isPhoneValid ? (
+          <Text className="field-error">请输入正确的 11 位手机号</Text>
+        ) : null}
 
         <Text className="field-label">验证码</Text>
         <View className="code-row">
@@ -96,8 +166,9 @@ export default function Register() {
             type="number"
             maxlength={6}
             placeholder="请输入验证码"
+            placeholderClass="input-placeholder"
             value={code}
-            onInput={(e) => setCode(e.detail.value)}
+            onInput={(e) => setCode(e.detail.value.replace(/\D/g, "").slice(0, 6))}
           />
           <Button className="code-btn" loading={sendingCode} onClick={handleSendCode}>
             发送验证码
@@ -109,6 +180,7 @@ export default function Register() {
           className="field-input"
           password
           placeholder="6-16位数字或字母"
+          placeholderClass="input-placeholder"
           value={password}
           onInput={(e) => setPassword(e.detail.value)}
         />
@@ -118,14 +190,28 @@ export default function Register() {
           className="field-input"
           password
           placeholder="再次输入密码"
+          placeholderClass="input-placeholder"
           value={confirmPassword}
           onInput={(e) => setConfirmPassword(e.detail.value)}
         />
 
-        <View className="agreement-row" onClick={() => setAgreed((prev) => !prev)}>
+        <View className={`agreement-row ${agreementShaking ? "shake" : ""}`} onClick={() => setAgreed((prev) => !prev)}>
           <View className={`agreement-check ${agreed ? "checked" : ""}`} />
           <Text className="agreement-text">
-            我已阅读并同意《用户协议》和《隐私政策》
+            我已阅读并同意
+            <Text
+              className="agreement-link"
+              onClick={(event) => openAgreementPage(event, "/pages/settings/user-agreement")}
+            >
+              《用户协议》
+            </Text>
+            和
+            <Text
+              className="agreement-link"
+              onClick={(event) => openAgreementPage(event, "/pages/settings/privacy")}
+            >
+              《隐私政策》
+            </Text>
           </Text>
         </View>
 

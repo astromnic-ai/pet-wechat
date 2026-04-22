@@ -21,6 +21,8 @@
   display: flex;
   flex-direction: column;
   padding-top: 18rpx;
+  padding-bottom: 18rpx;
+  box-sizing: border-box;
 }
 
 .register-header {
@@ -96,6 +98,11 @@
   border: 2rpx solid #ece3d7;
   padding: 0 24rpx;
   box-sizing: border-box;
+
+  &.invalid {
+    border-color: #ff8f8f;
+    box-shadow: 0 0 0 2rpx rgba(255, 143, 143, 0.16);
+  }
 }
 
 .phone-prefix {
@@ -117,8 +124,13 @@
 
 .phone-input {
   flex: 1;
+  height: 100%;
   border: 0;
+  background: transparent;
   padding: 0 0 0 14rpx;
+  font-size: 28rpx;
+  color: #1f1f1f;
+  box-sizing: border-box;
 }
 
 .code-input {
@@ -143,18 +155,30 @@
   font-weight: 600;
 }
 
+.field-error {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  line-height: 1.4;
+  color: #ff6b6b;
+}
+
 .agreement-row {
   display: flex;
   align-items: center;
   gap: 16rpx;
   margin-top: 20rpx;
+
+  &.shake {
+    animation: agreement-shake 0.36s ease-in-out;
+  }
 }
 
 .agreement-check {
   width: 36rpx;
   height: 36rpx;
   border-radius: 12rpx;
-  background: #dcecff;
+  background: #ffffff;
   border: 2rpx solid #c0dbff;
   flex-shrink: 0;
 
@@ -168,6 +192,11 @@
   font-size: 24rpx;
   line-height: 1.45;
   color: #7b746c;
+}
+
+.agreement-link {
+  color: #3a8fff;
+  font-weight: 600;
 }
 
 .submit-btn {
@@ -189,7 +218,8 @@
   justify-content: center;
   gap: 10rpx;
   font-size: 24rpx;
-  padding-bottom: 6rpx;
+  min-height: 32rpx;
+  padding-bottom: 16rpx;
 }
 
 .login-label {
@@ -199,4 +229,31 @@
 .login-link {
   color: #3a8fff;
   font-weight: 600;
+}
+
+.input-placeholder {
+  color: #c7c1b8;
+}
+
+@keyframes agreement-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-10rpx);
+  }
+
+  40% {
+    transform: translateX(8rpx);
+  }
+
+  60% {
+    transform: translateX(-6rpx);
+  }
+
+  80% {
+    transform: translateX(4rpx);
+  }
 }
