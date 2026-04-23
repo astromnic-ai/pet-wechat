@@ -3,6 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
+import { normalizePublicFileUrl } from "../../utils/storage";
 import { broadcast } from "../../ws";
 
 const avatarsRoute = new Hono();
@@ -45,8 +46,30 @@ function isSafeImageUrl(url: string): boolean {
 }
 
 function toAvatarResponse(row: AvatarRow) {
+  const normalizedAdditionalImages = row.avatar.additionalImageUrls
+    ? (() => {
+        try {
+          const parsed = JSON.parse(row.avatar.additionalImageUrls);
+          if (!Array.isArray(parsed)) {
+            return row.avatar.additionalImageUrls;
+          }
+
+          return JSON.stringify(
+            parsed.map((item) =>
+              typeof item === "string" ? normalizePublicFileUrl(item) ?? item : item,
+            ),
+          );
+        } catch {
+          return row.avatar.additionalImageUrls;
+        }
+      })()
+    : null;
+
   return {
     ...row.avatar,
+    sourceImageUrl:
+      normalizePublicFileUrl(row.avatar.sourceImageUrl) ?? row.avatar.sourceImageUrl,
+    additionalImageUrls: normalizedAdditionalImages,
     pet: row.petId
       ? {
           id: row.petId,
@@ -96,11 +119,16 @@ async function getAvatarRow(avatarId: string) {
 }
 
 async function getAvatarActions(avatarId: string) {
-  return db
+  const actions = await db
     .select()
     .from(petAvatarActions)
     .where(eq(petAvatarActions.petAvatarId, avatarId))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
+
+  return actions.map((action) => ({
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+  }));
 }
 
 function getAvatarOwnerContext(row: AvatarRow) {
