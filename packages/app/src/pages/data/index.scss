@@ -250,9 +250,6 @@
 
 .trend-head {
   margin-top: 24rpx;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 .trend-title,
@@ -260,23 +257,6 @@
   font-size: 34rpx;
   font-weight: 700;
   color: #1f1f1f;
-}
-
-.trend-dots {
-  display: flex;
-  align-items: center;
-  gap: 10rpx;
-}
-
-.trend-dot {
-  width: 16rpx;
-  height: 16rpx;
-  border-radius: 50%;
-  background: #e3dfd7;
-}
-
-.trend-dot--active {
-  background: #4ba0ff;
 }
 
 .chart-card {

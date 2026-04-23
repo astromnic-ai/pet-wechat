@@ -79,8 +79,8 @@ export default function Devices() {
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [firmwareDevices, setFirmwareDevices] = useState<DeviceFirmwareStatus[]>([]);
-  const [editingCollarId, setEditingCollarId] = useState("");
-  const [collarNameDraft, setCollarNameDraft] = useState("");
+  const [editingCardId, setEditingCardId] = useState("");
+  const [deviceNameDraft, setDeviceNameDraft] = useState("");
 
   const loadPets = async () => {
     try {
@@ -211,59 +211,27 @@ export default function Devices() {
     });
   }, [devices, firmwareMap, petMetaMap]);
 
-  const handleRenameCollar = async (deviceId: string) => {
-    const nextName = collarNameDraft.trim();
+  const handleRenameDevice = async (item: DeviceCard) => {
+    const nextName = deviceNameDraft.trim();
     if (!nextName) {
-      Taro.showToast({ title: "请输入项圈名称", icon: "none" });
+      Taro.showToast({ title: "请输入设备名称", icon: "none" });
       return;
     }
 
+    const devicePath = item.deviceType === "collar" ? "collars" : "desktops";
+
     try {
       await request({
-        url: `/api/devices/collars/${deviceId}`,
+        url: `/api/devices/${devicePath}/${item.deviceId}`,
         method: "PUT",
         data: { name: nextName },
       });
       await loadDevices();
       notifyHomeDevicesChanged();
-      setEditingCollarId("");
+      setEditingCardId("");
       Taro.showToast({ title: "名称已更新", icon: "success" });
     } catch (e: any) {
       Taro.showToast({ title: e.message || "修改失败", icon: "none" });
-    }
-  };
-
-  const handleUnbindCollar = async (deviceId: string) => {
-    try {
-      await request({
-        url: `/api/devices/collars/${deviceId}`,
-        method: "PUT",
-        data: { petId: null },
-      });
-      Taro.showToast({ title: "已解除绑定", icon: "success" });
-      await loadDevices();
-      notifyHomeDevicesChanged();
-    } catch (e: any) {
-      Taro.showToast({ title: e.message || "操作失败", icon: "none" });
-    }
-  };
-
-  const handleUnbindDesktop = async (desktopId: string, bindingId?: string) => {
-    if (!bindingId) {
-      Taro.showToast({ title: "当前没有可解绑的宠物", icon: "none" });
-      return;
-    }
-
-    try {
-      await request({
-        url: `/api/devices/desktops/${desktopId}/bind/${bindingId}`,
-        method: "DELETE",
-      });
-      Taro.showToast({ title: "已解除绑定", icon: "success" });
-      await loadDevices();
-      notifyHomeDevicesChanged();
-    } catch (e: any) {
-      Taro.showToast({ title: e.message || "操作失败", icon: "none" });
     }
   };
 
@@ -323,26 +291,10 @@ export default function Devices() {
     });
   };
 
-  const handleUnbind = (item: DeviceCard) => {
-    Taro.showModal({
-      title: "解除绑定",
-      content: "解除绑定后，设备会保留在当前账号下，你可以稍后重新绑定其他宠物。",
-      confirmText: "确认解绑",
-      success: (res) => {
-        if (!res.confirm) return;
-        if (item.deviceType === "collar") {
-          void handleUnbindCollar(item.deviceId);
-          return;
-        }
-        void handleUnbindDesktop(item.deviceId, item.bindingId);
-      },
-    });
-  };
-
   const handleDelete = (item: DeviceCard) => {
     Taro.showModal({
       title: "删除设备",
-      content: "删除后设备会释放为可认领状态，后续可重新绑定到其他账号。",
+      content: "删除后设备会释放为可认领状态，当前绑定宠物也会一并解除，后续可重新绑定到其他账号。",
       confirmText: "确认删除",
       confirmColor: "#ff4d4f",
       success: (res) => {
@@ -401,33 +353,31 @@ export default function Devices() {
 
                     <View className="device-card-main">
                       <View className="device-card-name-row">
-                        {item.deviceType === "collar" && editingCollarId === item.id ? (
+                        {editingCardId === item.id ? (
                           <>
                             <Input
                               className="device-name-input"
-                              value={collarNameDraft}
-                              onInput={(e) => setCollarNameDraft(e.detail.value)}
-                              placeholder="输入项圈名称"
-                              onConfirm={() => handleRenameCollar(item.deviceId)}
+                              value={deviceNameDraft}
+                              onInput={(e) => setDeviceNameDraft(e.detail.value)}
+                              placeholder="输入设备名称"
+                              onConfirm={() => handleRenameDevice(item)}
                             />
-                            <Text className="device-edit-text" onClick={() => handleRenameCollar(item.deviceId)}>
+                            <Text className="device-edit-text" onClick={() => handleRenameDevice(item)}>
                               保存
                             </Text>
                           </>
                         ) : (
                           <>
                             <Text className="device-card-name">{displayName}</Text>
-                            {item.deviceType === "collar" ? (
-                              <Text
-                                className="device-edit-text"
-                                onClick={() => {
-                                  setEditingCollarId(item.id);
-                                  setCollarNameDraft(item.name);
-                                }}
-                              >
-                                编辑
-                              </Text>
-                            ) : null}
+                            <Text
+                              className="device-edit-text"
+                              onClick={() => {
+                                setEditingCardId(item.id);
+                                setDeviceNameDraft(item.name);
+                              }}
+                            >
+                              编辑
+                            </Text>
                           </>
                         )}
                       </View>
@@ -475,15 +425,9 @@ export default function Devices() {
 
                     <View
                       className="device-action-btn"
-                      onClick={() => {
-                        if (hasBinding) {
-                          handleUnbind(item);
-                          return;
-                        }
-                        handleDelete(item);
-                      }}
+                      onClick={() => handleDelete(item)}
                     >
-                      <Text className="device-action-text">{hasBinding ? "解除当前绑定" : "删除当前设备"}</Text>
+                      <Text className="device-action-text">删除当前设备</Text>
                     </View>
 
                     <View

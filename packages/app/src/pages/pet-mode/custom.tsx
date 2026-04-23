@@ -106,7 +106,7 @@ function buildScheduleSummary(schedule: PetModeSchedule, selectedDay: PetModeWee
     return labels.length > 0 ? `周期重复 · ${labels.join(" / ")}` : "周期重复";
   }
 
-  return "单次 · 仅今天生效";
+  return "单次 · 本次生效";
 }
 
 export default function PetModeCustomPage() {
@@ -165,8 +165,7 @@ export default function PetModeCustomPage() {
 
   const selectedDaySlots = useMemo(() => sortSlots(slots), [slots]);
 
-  const todayWeekday = getTodayWeekday();
-  const displayDayLabel = selectedDay === todayWeekday ? "今天" : getWeekdayLabel(selectedDay);
+  const displayDayLabel = getWeekdayLabel(selectedDay);
   const scheduleSummary = useMemo(
     () => buildScheduleSummary(schedule, selectedDay),
     [schedule, selectedDay]
@@ -392,8 +391,8 @@ export default function PetModeCustomPage() {
 
         {selectedDaySlots.length === 0 ? (
           <View className="custom-empty-card">
-            <Text className="custom-empty-title">今天还没有添加活动时间段</Text>
-            <Text className="custom-empty-desc">点击下方按钮，为今天添加开始时间、结束时间和活动内容</Text>
+            <Text className="custom-empty-title">还没有添加活动时间段</Text>
+            <Text className="custom-empty-desc">点击下方按钮，添加开始时间、结束时间和活动内容</Text>
           </View>
         ) : null}
 

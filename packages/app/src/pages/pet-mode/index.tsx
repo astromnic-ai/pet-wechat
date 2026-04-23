@@ -1,6 +1,6 @@
 import { View, Text } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageBack from "../../components/PageBack";
 import { getPetActivityMode, setPetActivityMode, type PetActivityMode } from "../../utils/storage";
 import { request } from "../../utils/request";
@@ -52,6 +52,9 @@ export default function PetModePage() {
   const initialMode = (router.params.mode as PetActivityMode) || getPetActivityMode(petId);
   const [selectedMode, setSelectedMode] = useState<PetActivityMode>(initialMode);
   const [hasCollar, setHasCollar] = useState(false);
+  const [detailAnimating, setDetailAnimating] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
+  const isFirstRenderRef = useRef(true);
 
   useDidShow(() => {
     void request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" })
@@ -63,6 +66,46 @@ export default function PetModePage() {
 
   const orderedModes = useMemo(() => ORDER_MAP[selectedMode], [selectedMode]);
   const current = MODE_CONTENT[selectedMode];
+
+  useEffect(() => {
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      return;
+    }
+
+    setDetailAnimating(true);
+    const timer = setTimeout(() => setDetailAnimating(false), 220);
+    return () => clearTimeout(timer);
+  }, [selectedMode]);
+
+  const applyModeChange = (nextMode: PetActivityMode) => {
+    if (nextMode === selectedMode) return;
+    setSelectedMode(nextMode);
+  };
+
+  const handleModeSwipeStart = (e: any) => {
+    const touch = e.touches?.[0];
+    if (!touch) return;
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleModeSwipeEnd = (e: any) => {
+    const start = touchStartRef.current;
+    const touch = e.changedTouches?.[0];
+    touchStartRef.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 40 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+    if (deltaX < 0) {
+      applyModeChange(orderedModes[2]);
+      return;
+    }
+
+    applyModeChange(orderedModes[0]);
+  };
 
   const handleConfirm = () => {
     if (selectedMode === "custom") {
@@ -89,7 +132,7 @@ export default function PetModePage() {
       </View>
 
       <View className="pet-mode-shell">
-        <View className="mode-switch-row">
+        <View className="mode-switch-row" onTouchStart={handleModeSwipeStart} onTouchEnd={handleModeSwipeEnd}>
           {orderedModes.map((mode) => {
             const item = MODE_CONTENT[mode];
             const active = mode === selectedMode;
@@ -97,7 +140,6 @@ export default function PetModePage() {
               <View
                 key={mode}
                 className={`mode-option-card ${active ? "mode-option-card--active" : ""}`}
-                onClick={() => setSelectedMode(mode)}
               >
                 <View className={`mode-option-icon ${active ? "mode-option-icon--active" : ""}`} />
                 <Text className="mode-option-name">{item.title.replace("模式", "")}</Text>
@@ -109,7 +151,7 @@ export default function PetModePage() {
 
         <Text className="mode-switch-tip">滑动选择模式</Text>
 
-        <View className="mode-detail-card">
+        <View className={`mode-detail-card ${detailAnimating ? "mode-detail-card--animating" : ""}`}>
           <Text className="mode-detail-title">{current.title}</Text>
           <Text className="mode-detail-desc">{current.description}</Text>
           <View className="mode-tag-row">

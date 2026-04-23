@@ -210,6 +210,39 @@ describe("Device Routes", () => {
     });
   });
 
+  describe("PUT /api/devices/desktops/:id", () => {
+    it("updates own desktop", async () => {
+      const existing = fakeDesktop();
+      const updated = fakeDesktop({ name: "Updated Desktop" });
+      mockDb._results.select = [[existing]];
+      mockDb._results.update = [[updated]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("PUT", "/api/devices/desktops/desktop-1", {
+          headers,
+          body: { name: "Updated Desktop" },
+        })
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.desktop.name).toBe("Updated Desktop");
+    });
+
+    it("returns 404 for another user's desktop", async () => {
+      mockDb._results.select = [[]];
+
+      const headers = await authHeader("user-2");
+      const res = await app.request(
+        jsonReq("PUT", "/api/devices/desktops/desktop-1", {
+          headers,
+          body: { name: "Hack" },
+        })
+      );
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe("POST /api/devices/desktops/register", () => {
     it("creates a desktop with normalized mac address", async () => {
       const desktop = fakeDesktop({ macAddress: "112233445566" });

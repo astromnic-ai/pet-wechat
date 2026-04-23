@@ -170,6 +170,17 @@ function getCompareLabel(range: "day" | "week" | "month") {
   return "较上月";
 }
 
+function formatDeltaValue(activeTab: "interaction" | "activity", delta: number) {
+  const sign = delta > 0 ? "+" : delta < 0 ? "-" : "";
+  const absolute = Math.abs(delta);
+
+  if (activeTab === "interaction") {
+    return `${sign}${absolute}次`;
+  }
+
+  return `${sign}${absolute}`;
+}
+
 export default function DataPage() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
@@ -296,12 +307,9 @@ export default function DataPage() {
     const current = values[values.length - 1] || 0;
     const previous = values[values.length - 2] || 0;
 
-    if (current === previous) return 0;
-    if (previous === 0) return current > 0 ? 100 : 0;
-
-    return Math.round(((current - previous) / previous) * 100);
+    return current - previous;
   }, [chartData]);
-  const compareText = compareDelta >= 0 ? `上升${compareDelta}%` : `下降${Math.abs(compareDelta)}%`;
+  const compareText = formatDeltaValue(activeTab, compareDelta);
   const headerDescription =
     activeTab === "interaction" ? "查看真实互动事件聚合结果" : "查看佩戴项圈后的真实活跃表现";
   const trendTitle =
@@ -393,7 +401,6 @@ export default function DataPage() {
                 <Text className="today-title">{getRangeSummaryTitle(range, activeTab)}</Text>
                 <View className="today-score-row">
                   <Text className="today-score">{summaryScore}</Text>
-                  <Text className="today-score-unit">/100</Text>
                 </View>
               </View>
               <View className="today-badge">
@@ -404,11 +411,6 @@ export default function DataPage() {
 
             <View className="trend-head">
               <Text className="trend-title">{trendTitle}</Text>
-              <View className="trend-dots">
-                <View className="trend-dot trend-dot--active" />
-                <View className="trend-dot" />
-                <View className="trend-dot" />
-              </View>
             </View>
 
             <View className="chart-card">
@@ -475,7 +477,26 @@ export default function DataPage() {
                   </View>
                 )}
               </View>
-            ) : null}
+            ) : (
+              <View className="stats-card">
+                <Text className="stats-title">互动摘要</Text>
+                <View className="stats-summary-grid">
+                  <View className="stats-summary-card">
+                    <Text className="stats-summary-label">交互次数</Text>
+                    <Text className="stats-summary-value">
+                      {summaryScore}
+                      <Text className="stats-summary-unit">次</Text>
+                    </Text>
+                  </View>
+                  <View className="stats-summary-card">
+                    <Text className="stats-summary-label">数值变化</Text>
+                    <Text className="stats-summary-value">
+                      {formatDeltaValue(activeTab, compareDelta)}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </>
         ) : (
           <View className="chart-card chart-card--empty">

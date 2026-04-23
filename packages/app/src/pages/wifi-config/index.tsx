@@ -8,14 +8,6 @@ import "./index.scss";
 type WifiState = "loading" | "ready" | "manual";
 type DeviceType = "collar" | "desktop";
 
-function getWifiErrorText(error?: unknown) {
-  const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
-  if (message.includes("not init")) return "WiFi 模块未初始化";
-  if (message.includes("system not support")) return "当前设备暂不支持读取 WiFi";
-  if (message.includes("auth deny") || message.includes("permission")) return "请授权访问 WiFi 信息";
-  return "未能自动读取当前 WiFi，请手动填写";
-}
-
 function inferDeviceType(name?: string): DeviceType {
   const normalized = (name || "").toLowerCase();
   if (
@@ -41,7 +33,6 @@ export default function WifiConfig() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [wifiState, setWifiState] = useState<WifiState>("loading");
-  const [wifiHint, setWifiHint] = useState("正在读取当前连接的 WiFi…");
 
   const deviceImage = useMemo(
     () =>
@@ -59,7 +50,6 @@ export default function WifiConfig() {
 
   const initializeWifi = async () => {
     setWifiState("loading");
-    setWifiHint("正在读取当前连接的 WiFi…");
 
     try {
       await Taro.startWifi();
@@ -69,15 +59,12 @@ export default function WifiConfig() {
       if (connectedSsid) {
         setSsid(connectedSsid);
         setWifiState("ready");
-        setWifiHint("已自动读取当前 WiFi，可直接输入密码继续");
         return;
       }
 
       setWifiState("manual");
-      setWifiHint("未识别到当前 WiFi，请手动填写网络名称");
     } catch (error) {
       setWifiState("manual");
-      setWifiHint(getWifiErrorText(error));
     }
   };
 
@@ -173,7 +160,6 @@ export default function WifiConfig() {
             <Text className={`wifi-status-tag wifi-status-tag--${wifiState}`}>
               {wifiState === "ready" ? "已自动识别" : wifiState === "loading" ? "读取中" : "手动填写"}
             </Text>
-            <Text className="wifi-status-text">{wifiHint}</Text>
           </View>
 
           <View className="wifi-input-box wifi-input-box--highlight">

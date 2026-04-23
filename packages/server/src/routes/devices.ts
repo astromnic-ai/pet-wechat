@@ -481,6 +481,28 @@ devicesRoute.post("/desktops", async (c) => {
   return c.json({ desktop }, 201);
 });
 
+devicesRoute.put("/desktops/:id", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const id = c.req.param("id");
+  const body = await c.req.json();
+
+  const [existing] = await db
+    .select()
+    .from(desktopDevices)
+    .where(and(eq(desktopDevices.id, id), eq(desktopDevices.userId, userId)));
+  if (!existing) return c.json({ error: "Desktop not found" }, 404);
+
+  const [desktop] = await db
+    .update(desktopDevices)
+    .set({
+      name: body.name ?? existing.name,
+      updatedAt: new Date(),
+    })
+    .where(eq(desktopDevices.id, id))
+    .returning();
+  return c.json({ desktop });
+});
+
 devicesRoute.delete("/desktops/:id", async (c) => {
   const userId = c.get("userId" as never) as string;
   const id = c.req.param("id");

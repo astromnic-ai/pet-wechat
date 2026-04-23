@@ -146,7 +146,7 @@ export default function PetAvatar() {
             />
           </View>
           <Text className="upload-box-title">点击上传或拍摄照片</Text>
-          <Text className="upload-box-subtitle">支持 JPG、PNG 格式，最大 10MB</Text>
+          <Text className="upload-box-subtitle">支持图片，不支持视频</Text>
           <View className="upload-trigger" onClick={handleChooseImage}>
             <Text className="upload-trigger-text">点击上传照片</Text>
           </View>
