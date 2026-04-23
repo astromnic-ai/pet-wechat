@@ -27,6 +27,15 @@ function normalizeMac(mac: string): string {
 
 const NORMALIZED_MAC_REGEX = /^[0-9A-F]{12}$/;
 
+function buildOnlineDeviceState() {
+  const now = new Date();
+  return {
+    status: "online" as const,
+    lastOnlineAt: now,
+    updatedAt: now,
+  };
+}
+
 async function findCollarByMac(macAddress: string) {
   const [collar] = await db
     .select()
@@ -227,7 +236,7 @@ devicesRoute.post("/collars/register", async (c) => {
         userId,
         name: body.name ?? "我的项圈",
         macAddress,
-        status: "online" as const,
+        ...buildOnlineDeviceState(),
       })
       .onConflictDoNothing()
       .returning();
@@ -248,9 +257,8 @@ devicesRoute.post("/collars/register", async (c) => {
       .set({
         userId,
         name: body.name ?? existing.name,
-        status: "online" as const,
         claimStatus: "occupied" as const,
-        updatedAt: new Date(),
+        ...buildOnlineDeviceState(),
       })
       .where(and(eq(collarDevices.id, existing.id), isNull(collarDevices.userId)))
       .returning();
@@ -296,7 +304,7 @@ devicesRoute.post("/desktops/register", async (c) => {
         userId,
         name: body.name ?? "我的桌面端",
         macAddress,
-        status: "online" as const,
+        ...buildOnlineDeviceState(),
       })
       .onConflictDoNothing()
       .returning();
@@ -317,9 +325,8 @@ devicesRoute.post("/desktops/register", async (c) => {
       .set({
         userId,
         name: body.name ?? existing.name,
-        status: "online" as const,
         claimStatus: "occupied" as const,
-        updatedAt: new Date(),
+        ...buildOnlineDeviceState(),
       })
       .where(and(eq(desktopDevices.id, existing.id), isNull(desktopDevices.userId)))
       .returning();
@@ -356,9 +363,8 @@ devicesRoute.post("/collars/:id/claim", async (c) => {
     .set({
       userId,
       name: body.name ?? "我的项圈",
-      status: "online" as const,
       claimStatus: "occupied" as const,
-      updatedAt: new Date(),
+      ...buildOnlineDeviceState(),
     })
     .where(and(eq(collarDevices.id, id), isNull(collarDevices.userId)))
     .returning();
@@ -377,9 +383,8 @@ devicesRoute.post("/desktops/:id/claim", async (c) => {
     .set({
       userId,
       name: body.name ?? "我的桌面端",
-      status: "online" as const,
       claimStatus: "occupied" as const,
-      updatedAt: new Date(),
+      ...buildOnlineDeviceState(),
     })
     .where(and(eq(desktopDevices.id, id), isNull(desktopDevices.userId)))
     .returning();
@@ -419,6 +424,8 @@ devicesRoute.post("/collars", async (c) => {
       name: body.name ?? "我的项圈",
       macAddress: body.macAddress,
       petId: body.petId ?? null,
+      claimStatus: "occupied",
+      ...buildOnlineDeviceState(),
     })
     .returning();
   return c.json({ collar }, 201);
@@ -449,7 +456,7 @@ devicesRoute.put("/collars/:id", async (c) => {
     .set({
       name: body.name ?? existing.name,
       petId: body.petId !== undefined ? body.petId : existing.petId,
-      updatedAt: new Date(),
+      ...buildOnlineDeviceState(),
     })
     .where(eq(collarDevices.id, id))
     .returning();
@@ -481,6 +488,8 @@ devicesRoute.post("/desktops", async (c) => {
       userId,
       name: body.name ?? "我的桌面端",
       macAddress: body.macAddress,
+      claimStatus: "occupied",
+      ...buildOnlineDeviceState(),
     })
     .returning();
   return c.json({ desktop }, 201);
@@ -681,14 +690,23 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
     );
   if (existingBinding) return c.json({ binding: existingBinding });
 
-  const [binding] = await db
-    .insert(desktopPetBindings)
-    .values({
-      desktopDeviceId: desktopId,
-      petId: body.petId,
-      bindingType: body.bindingType,
-    })
-    .returning();
+  const [binding] = await db.transaction(async (tx) => {
+    const [createdBinding] = await tx
+      .insert(desktopPetBindings)
+      .values({
+        desktopDeviceId: desktopId,
+        petId: body.petId,
+        bindingType: body.bindingType,
+      })
+      .returning();
+
+    await tx
+      .update(desktopDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(desktopDevices.id, desktopId));
+
+    return [createdBinding];
+  });
   return c.json({ binding }, 201);
 });
 

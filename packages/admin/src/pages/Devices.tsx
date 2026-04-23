@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { TableProps, TabsProps } from "antd";
-import { Button, Col, Descriptions, Drawer, Row, Select, Space, Spin, Table, Tabs, Tag, message } from "antd";
+import { Avatar, Button, Col, Descriptions, Drawer, Row, Select, Space, Spin, Table, Tabs, Tag, Typography, message } from "antd";
 import { ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import { api } from "../api/client";
@@ -30,11 +30,16 @@ interface CollarDevice extends BaseDevice {
   battery: number | null;
   signal: number | null;
   petName: string | null;
+  petImageUrl: string | null;
 }
 
-interface DesktopDevice extends BaseDevice {}
 interface DesktopDevice extends BaseDevice {
   bindingPetNames: string[];
+  bindingPets: Array<{
+    id: string;
+    name: string;
+    avatarImageUrl: string | null;
+  }>;
   activeBindingCount: number;
 }
 
@@ -127,6 +132,18 @@ function renderBindingPets(names?: string[]) {
   return names.join(" / ");
 }
 
+function renderPetAvatar(imageUrl: string | null | undefined, label: string) {
+  if (imageUrl) {
+    return <Avatar shape="square" size={56} src={imageUrl} alt={label} />;
+  }
+
+  return (
+    <Avatar shape="square" size={56}>
+      {(label.trim()[0] ?? "宠").toUpperCase()}
+    </Avatar>
+  );
+}
+
 function buildCollarParams(filters: CollarFilters) {
   const params: Record<string, string> = {
     sort: filters.sort,
@@ -166,6 +183,7 @@ function buildDesktopParams(filters: DesktopFilters) {
 }
 
 export default function DevicesPage() {
+  const { Text } = Typography;
   const [activeTab, setActiveTab] = useState<DeviceTabKey>("collar");
   const [loading, setLoading] = useState(true);
   const [reloadToken, setReloadToken] = useState(0);
@@ -515,6 +533,21 @@ export default function DevicesPage() {
                       { key: "owner", label: "绑定用户", children: selectedDevice.record.ownerNickname ?? "-" },
                       { key: "pet", label: "绑定宠物", children: selectedDevice.record.petName ?? "-" },
                       {
+                        key: "petImage",
+                        label: "宠物上传图",
+                        children: selectedDevice.record.petName ? (
+                          <Space>
+                            {renderPetAvatar(
+                              selectedDevice.record.petImageUrl,
+                              selectedDevice.record.petName,
+                            )}
+                            <Text type="secondary">
+                              {selectedDevice.record.petImageUrl ? "已同步上传图" : "暂无上传图"}
+                            </Text>
+                          </Space>
+                        ) : "-",
+                      },
+                      {
                         key: "battery",
                         label: "电量",
                         children: selectedDevice.record.battery == null ? "-" : `${selectedDevice.record.battery}%`,
@@ -543,7 +576,24 @@ export default function DevicesPage() {
                       {
                         key: "pets",
                         label: "绑定宠物",
-                        children: renderBindingPets(selectedDevice.record.bindingPetNames),
+                        children:
+                          selectedDevice.record.bindingPets.length > 0 ? (
+                            <Space direction="vertical" size={8}>
+                              {selectedDevice.record.bindingPets.map((pet) => (
+                                <Space key={pet.id} align="center">
+                                  {renderPetAvatar(pet.avatarImageUrl, pet.name)}
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <span>{pet.name}</span>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                      {pet.avatarImageUrl ? "已同步上传图" : "暂无上传图"}
+                                    </Text>
+                                  </div>
+                                </Space>
+                              ))}
+                            </Space>
+                          ) : (
+                            renderBindingPets(selectedDevice.record.bindingPetNames)
+                          ),
                       },
                       { key: "firmware", label: "固件版本", children: selectedDevice.record.firmwareVersion ?? "-" },
                       { key: "lastOnlineAt", label: "最后在线时间", children: formatTime(selectedDevice.record.lastOnlineAt) },

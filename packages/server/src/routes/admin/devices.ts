@@ -1,8 +1,9 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, type SQL } from "drizzle-orm";
 import { db } from "../../db";
-import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petBehaviors } from "../../db/schema";
+import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petBehaviors, petAvatars } from "../../db/schema";
 import { createId } from "../../utils/id";
+import { normalizePublicFileUrl } from "../../utils/storage";
 import { pick } from "./utils";
 
 async function validateCollarPetBinding(collarDeviceId: string, petId: string) {
@@ -26,12 +27,45 @@ type AdminDesktopRow = {
   bindingPetName: string | null;
 };
 
+async function getLatestPetUploadImageMap(petIds: string[]) {
+  const uniquePetIds = Array.from(new Set(petIds.filter(Boolean)));
+  const imageMap = new Map<string, string>();
+
+  if (uniquePetIds.length === 0) {
+    return imageMap;
+  }
+
+  const avatarRows = await db
+    .select({
+      petId: petAvatars.petId,
+      sourceImageUrl: petAvatars.sourceImageUrl,
+    })
+    .from(petAvatars)
+    .where(inArray(petAvatars.petId, uniquePetIds))
+    .orderBy(desc(petAvatars.createdAt));
+
+  for (const row of avatarRows) {
+    if (imageMap.has(row.petId)) continue;
+    imageMap.set(
+      row.petId,
+      normalizePublicFileUrl(row.sourceImageUrl) ?? row.sourceImageUrl,
+    );
+  }
+
+  return imageMap;
+}
+
 function mapDesktopRows(rows: AdminDesktopRow[]) {
   const desktops = new Map<
     string,
     typeof desktopDevices.$inferSelect & {
       ownerNickname: string | null;
       bindingPetNames: string[];
+      bindingPets: Array<{
+        id: string;
+        name: string;
+        avatarImageUrl: string | null;
+      }>;
       activeBindingCount: number;
     }
   >();
@@ -43,6 +77,17 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
       if (row.bindingId && !existing.bindingPetNames.includes(bindingPetLabel)) {
         existing.bindingPetNames.push(bindingPetLabel);
       }
+      if (
+        row.bindingId &&
+        row.bindingPetId &&
+        !existing.bindingPets.some((pet) => pet.id === row.bindingPetId)
+      ) {
+        existing.bindingPets.push({
+          id: row.bindingPetId,
+          name: row.bindingPetName ?? row.bindingPetId,
+          avatarImageUrl: null,
+        });
+      }
       continue;
     }
 
@@ -50,6 +95,16 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
       ...row.desktop,
       ownerNickname: row.ownerNickname,
       bindingPetNames: row.bindingId ? [bindingPetLabel] : [],
+      bindingPets:
+        row.bindingId && row.bindingPetId
+          ? [
+              {
+                id: row.bindingPetId,
+                name: row.bindingPetName ?? row.bindingPetId,
+                avatarImageUrl: null,
+              },
+            ]
+          : [],
       activeBindingCount: 0,
     });
   }
@@ -97,11 +152,17 @@ devicesRoute.get("/collars", async (c) => {
     .leftJoin(pets, eq(collarDevices.petId, pets.id))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
+
+  const petImageMap = await getLatestPetUploadImageMap(
+    result.map((row) => row.collar.petId).filter((petId): petId is string => Boolean(petId)),
+  );
+
   return c.json({
     collars: result.map((row) => ({
       ...row.collar,
       ownerNickname: row.ownerNickname,
       petName: row.petName,
+      petImageUrl: row.collar.petId ? (petImageMap.get(row.collar.petId) ?? null) : null,
     })),
   });
 });
@@ -185,8 +246,20 @@ devicesRoute.get("/desktops", async (c) => {
     .leftJoin(pets, eq(desktopPetBindings.petId, pets.id))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
+
+  const desktops = mapDesktopRows(result as AdminDesktopRow[]);
+  const petImageMap = await getLatestPetUploadImageMap(
+    desktops.flatMap((desktop) => desktop.bindingPets.map((pet) => pet.id)),
+  );
+
   return c.json({
-    desktops: mapDesktopRows(result as AdminDesktopRow[]),
+    desktops: desktops.map((desktop) => ({
+      ...desktop,
+      bindingPets: desktop.bindingPets.map((pet) => ({
+        ...pet,
+        avatarImageUrl: petImageMap.get(pet.id) ?? null,
+      })),
+    })),
   });
 });
 

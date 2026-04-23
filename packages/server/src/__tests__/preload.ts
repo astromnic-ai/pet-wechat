@@ -23,8 +23,9 @@ const dbPath = new URL("../db", import.meta.url).pathname;
 mock.module(dbPath, () => ({ db: mockDb }));
 
 const uploadFile = async (key: string) => `https://test-storage.local/${key}`;
-mock.module("../utils/storage", () => ({ uploadFile }));
-mock.module("../utils/storage.ts", () => ({ uploadFile }));
+const normalizePublicFileUrl = (url: string | null | undefined) => url ?? null;
+mock.module("../utils/storage", () => ({ uploadFile, normalizePublicFileUrl }));
+mock.module("../utils/storage.ts", () => ({ uploadFile, normalizePublicFileUrl }));
 
 const storagePath = new URL("../utils/storage.ts", import.meta.url).pathname;
-mock.module(storagePath, () => ({ uploadFile }));
+mock.module(storagePath, () => ({ uploadFile, normalizePublicFileUrl }));
