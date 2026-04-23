@@ -165,7 +165,7 @@ export default function CollarBind() {
         if (found.length > 0) {
           mergeDevices(found);
           const hasTarget = found.some((item) => isTargetBleDevice(item));
-          setSearchMessage(hasTarget ? "已搜索到附近 YEHEY 设备，请点击连接" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
+          setSearchMessage(hasTarget ? "选择需要连接的设备" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
         }
       };
 
@@ -179,7 +179,7 @@ export default function CollarBind() {
       if (existing.length > 0) {
         mergeDevices(existing);
         const hasTarget = existing.some((item) => isTargetBleDevice(item));
-        setSearchMessage(hasTarget ? "已搜索到附近 YEHEY 设备，请点击连接" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
+        setSearchMessage(hasTarget ? "选择需要连接的设备" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
       }
     } catch (error) {
       setSearchMessage(getBluetoothErrorMessage(error));
@@ -255,6 +255,7 @@ export default function CollarBind() {
   const visibleDevices = showAllDevices ? devices : targetDevices;
   const hasRawDevices = devices.length > 0;
   const hasOnlyNonTargetDevices = targetDevices.length === 0 && hasRawDevices;
+  const stepSubCopy = targetDevices.length > 0 ? "选择需要连接的设备" : searchMessage;
   const renderDeviceType = (device: BleDevice) => inferDeviceType(device.name);
 
   const renderDeviceList = (list: BleDevice[]) =>
@@ -316,7 +317,7 @@ export default function CollarBind() {
             <Image className="step-circle-icon" src={require("@/assets/images/wifi-icon.png")} mode="aspectFit" />
           </View>
           <Text className="step-main-copy">{searching ? "正在搜索附近设备…" : "正在搜索附近设备"}</Text>
-          <Text className="step-sub-copy">{searchMessage}</Text>
+          <Text className="step-sub-copy">{stepSubCopy}</Text>
         </View>
 
         <View className="nearby-device-list">

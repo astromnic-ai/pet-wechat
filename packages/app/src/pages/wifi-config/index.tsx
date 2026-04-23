@@ -162,7 +162,7 @@ export default function WifiConfig() {
           <Text className="device-wifi-device-name">{displayDeviceName}</Text>
           <View className="device-wifi-device-status">
             <Text className="device-wifi-device-status-dot">•</Text>
-            <Text className="device-wifi-device-status-text">已连接</Text>
+            <Text className="device-wifi-device-status-text">蓝牙已连接</Text>
           </View>
         </View>
 
