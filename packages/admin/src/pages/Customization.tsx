@@ -2,6 +2,7 @@ import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   CheckCircleFilled,
   DeleteOutlined,
+  DownloadOutlined,
   LoadingOutlined,
   PlusOutlined,
   SaveOutlined,
@@ -194,6 +195,17 @@ function getUserDisplayName(user?: CustomizationAvatar["user"]) {
   return user?.nickname?.trim() || "微信用户";
 }
 
+function openImageDownload(imageUrl: string, fallbackName: string) {
+  const link = document.createElement("a");
+  link.href = imageUrl;
+  link.download = fallbackName;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 export default function Customization() {
   const [messageApi, contextHolder] = message.useMessage();
   const [avatars, setAvatars] = useState<CustomizationAvatar[]>([]);
@@ -332,6 +344,8 @@ export default function Customization() {
   const selectedCategory = resolveCustomizationCategory(selectedAvatarDetail ?? selectedAvatarSummary ?? { additionalImageUrls: null });
   const selectedCategoryMeta = getCategoryMeta(selectedCategory);
   const referenceImages = parseAdditionalImages(selectedAvatarDetail?.additionalImageUrls ?? selectedAvatarSummary?.additionalImageUrls ?? null);
+  const selectedAvatarImage = selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
+  const selectedAvatarFilePrefix = selectedAvatarSummary?.id ?? selectedAvatarId ?? "avatar";
 
   const refreshCurrentAvatar = async (avatarId: string) => {
     await Promise.all([loadAvatars(), loadAvatarDetail(avatarId, { keepLoading: true })]);
@@ -676,25 +690,39 @@ export default function Customization() {
                     <Card bordered={false} style={{ borderRadius: 20 }} styles={{ body: { padding: 20 } }}>
                       <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                         <div style={{ display: "flex", gap: 18, alignItems: "flex-start", flexWrap: "wrap" }}>
-                          <Image.PreviewGroup>
-                            <Image
-                              src={selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary.sourceImageUrl}
-                              alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "宠物原图"}
-                              width={140}
-                              height={140}
-                              style={{ objectFit: "cover", borderRadius: 18 }}
-                            />
-                            {referenceImages.map((url) => (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                            <Image.PreviewGroup>
                               <Image
-                                key={url}
-                                src={url}
-                                alt="个性化参考图"
-                                width={0}
-                                height={0}
-                                style={{ display: "none" }}
+                                src={selectedAvatarImage}
+                                alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "宠物原图"}
+                                width={140}
+                                height={140}
+                                style={{ objectFit: "cover", borderRadius: 18 }}
                               />
-                            ))}
-                          </Image.PreviewGroup>
+                              {referenceImages.map((url) => (
+                                <Image
+                                  key={url}
+                                  src={url}
+                                  alt="个性化参考图"
+                                  width={0}
+                                  height={0}
+                                  style={{ display: "none" }}
+                                />
+                              ))}
+                            </Image.PreviewGroup>
+
+                            <Button
+                              icon={<DownloadOutlined />}
+                              onClick={() =>
+                                openImageDownload(
+                                  selectedAvatarImage,
+                                  `${selectedAvatarFilePrefix}-source.jpg`,
+                                )
+                              }
+                            >
+                              下载原图
+                            </Button>
+                          </div>
 
                           <div style={{ minWidth: 260, flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -734,17 +762,43 @@ export default function Customization() {
 
                         {referenceImages.length > 0 ? (
                           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                            <Text strong>个性化参考图</Text>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                              <Text strong>个性化参考图</Text>
+                              <Text type="secondary" style={{ fontSize: 12 }}>
+                                每张图都可单独下载，便于离线手动定制
+                              </Text>
+                            </div>
                             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                              {referenceImages.map((url) => (
-                                <Image
+                              {referenceImages.map((url, index) => (
+                                <div
                                   key={url}
-                                  src={url}
-                                  alt="个性化参考图"
-                                  width={84}
-                                  height={84}
-                                  style={{ objectFit: "cover", borderRadius: 12 }}
-                                />
+                                  style={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    gap: 8,
+                                    alignItems: "stretch",
+                                  }}
+                                >
+                                  <Image
+                                    src={url}
+                                    alt="个性化参考图"
+                                    width={84}
+                                    height={84}
+                                    style={{ objectFit: "cover", borderRadius: 12 }}
+                                  />
+                                  <Button
+                                    size="small"
+                                    icon={<DownloadOutlined />}
+                                    onClick={() =>
+                                      openImageDownload(
+                                        url,
+                                        `${selectedAvatarFilePrefix}-reference-${index + 1}.jpg`,
+                                      )
+                                    }
+                                  >
+                                    下载
+                                  </Button>
+                                </div>
                               ))}
                             </div>
                           </div>
