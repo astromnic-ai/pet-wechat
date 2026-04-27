@@ -192,7 +192,9 @@ export const api = {
   },
 
   // Uploads
-  createUploadPresign: (contentType: "image/jpeg" | "image/png" | "image/webp") =>
+  createUploadPresign: (
+    contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+  ) =>
     request<PresignResponse>("/uploads/presign", {
       method: "POST",
       body: JSON.stringify({ contentType }),

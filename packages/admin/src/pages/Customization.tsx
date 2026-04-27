@@ -38,6 +38,7 @@ import dayjs from "dayjs";
 import { api } from "../api/client";
 
 const { Text, Title } = Typography;
+const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg";
 
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskTab = "pending" | "done";
@@ -66,7 +67,12 @@ type CategoryProgress = {
   total: number;
 };
 
-type UploadContentType = "image/jpeg" | "image/png" | "image/webp";
+type UploadContentType =
+  | "image/jpeg"
+  | "image/png"
+  | "image/webp"
+  | "video/mjpeg"
+  | "video/x-motion-jpeg";
 
 const TASK_STATUSES: CustomizationStatus[] = ["approved", "processing", "done"];
 
@@ -167,6 +173,34 @@ function formatDate(value?: string | null) {
 
   const parsed = dayjs(value);
   return parsed.isValid() ? parsed.format("YYYY-MM-DD") : "-";
+}
+
+function getFileExtension(filename?: string | null) {
+  const normalized = filename?.trim().toLowerCase() ?? "";
+  const segments = normalized.split(".");
+  return segments.length > 1 ? segments[segments.length - 1] ?? "" : "";
+}
+
+function isMjpegFile(file: File) {
+  const ext = getFileExtension(file.name);
+  const allowedTypes = new Set(["video/mjpeg", "video/x-motion-jpeg", "application/octet-stream", ""]);
+  return (ext === "mjpeg" || ext === "mjpg") && allowedTypes.has(file.type);
+}
+
+function resolveMjpegContentType(file: File): UploadContentType {
+  if (file.type === "video/mjpeg" || file.type === "video/x-motion-jpeg") {
+    return file.type;
+  }
+
+  return "video/x-motion-jpeg";
+}
+
+function isMjpegUrl(url?: string | null) {
+  if (!url) {
+    return false;
+  }
+
+  return /\.mjpeg(?:$|[?#])|\.mjpg(?:$|[?#])/i.test(url);
 }
 
 function parseAdditionalImages(rawValue?: string | null) {
@@ -778,16 +812,17 @@ export default function Customization() {
       }
 
       if (!imageUrl && uploadFile && !isDemoMode) {
-        if (!["image/jpeg", "image/png", "image/webp"].includes(uploadFile.type)) {
-          messageApi.warning("仅支持 JPG、PNG、WEBP 图片");
+        if (!isMjpegFile(uploadFile)) {
+          messageApi.warning("仅支持 MJPEG 视频文件（.mjpeg / .mjpg）");
           return;
         }
 
-        const presign = await api.createUploadPresign(uploadFile.type as UploadContentType);
+        const contentType = resolveMjpegContentType(uploadFile);
+        const presign = await api.createUploadPresign(contentType);
         const uploadResponse = await fetch(presign.uploadUrl, {
           method: "PUT",
           headers: {
-            "Content-Type": uploadFile.type,
+            "Content-Type": contentType,
           },
           body: uploadFile,
         });
@@ -800,7 +835,7 @@ export default function Customization() {
       }
 
       if (!imageUrl) {
-        messageApi.warning("请先选择图片文件或输入图片 URL");
+        messageApi.warning("请先选择 MJPEG 视频文件或输入视频 URL");
         return;
       }
 
@@ -1033,13 +1068,12 @@ export default function Customization() {
                 }}
               >
                 {action ? (
-                  <Image
+                  <video
                     src={action.imageUrl}
-                    alt={ACTION_LABELS[actionType] ?? actionType}
-                    width="100%"
-                    height="100%"
-                    preview={false}
-                    style={{ objectFit: "cover" }}
+                    controls
+                    preload="metadata"
+                    playsInline
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 ) : (
                   <div
@@ -1052,7 +1086,7 @@ export default function Customization() {
                       fontSize: 12,
                     }}
                   >
-                    暂未上传
+                    生成中
                   </div>
                 )}
               </div>
@@ -1227,16 +1261,26 @@ export default function Customization() {
                           flexShrink: 0,
                         }}
                       >
-                          {previewImageUrl ? (
+                        {previewImageUrl ? (
+                          previewAction && isMjpegUrl(previewImageUrl) ? (
+                            <video
+                              src={previewImageUrl}
+                              controls
+                              preload="metadata"
+                              playsInline
+                              style={{ width: 128, height: 128, objectFit: "cover" }}
+                            />
+                          ) : (
                             <Image
                               src={previewImageUrl}
-                            alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "预览图"}
-                            width={128}
-                            height={128}
-                            preview={false}
-                            style={{ objectFit: "cover" }}
+                              alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "预览图"}
+                              width={128}
+                              height={128}
+                              preview={false}
+                              style={{ objectFit: "cover" }}
                             />
-                          ) : null}
+                          )
+                        ) : null}
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -1364,10 +1408,10 @@ export default function Customization() {
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Text type="secondary">上传图片文件</Text>
+            <Text type="secondary">上传 MJPEG 视频文件</Text>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept={CUSTOMIZATION_VIDEO_ACCEPT}
               onChange={(event) => {
                 const nextFile = event.target.files?.[0] ?? null;
                 setUploadFile(nextFile);
@@ -1379,7 +1423,7 @@ export default function Customization() {
           </div>
 
           <Input
-            placeholder="或输入图片 URL"
+            placeholder="或输入 MJPEG 视频 URL"
             value={uploadImageUrl}
             onChange={(event) => {
               setUploadImageUrl(event.target.value);
@@ -1391,16 +1435,34 @@ export default function Customization() {
 
           {uploadPreviewUrl ? (
             <div style={{ display: "flex", justifyContent: "center" }}>
-              <Image
-                src={uploadPreviewUrl}
-                alt={uploadActionType ? ACTION_LABELS[uploadActionType] ?? uploadActionType : "动作预览"}
-                width={240}
-                height={240}
-                style={{ objectFit: "cover", borderRadius: 12 }}
-              />
+              {uploadFile && isMjpegFile(uploadFile) ? (
+                <video
+                  src={uploadPreviewUrl}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  style={{ width: 240, height: 240, objectFit: "cover", borderRadius: 12, background: "#0f172a" }}
+                />
+              ) : isMjpegUrl(uploadPreviewUrl) ? (
+                <video
+                  src={uploadPreviewUrl}
+                  controls
+                  preload="metadata"
+                  playsInline
+                  style={{ width: 240, height: 240, objectFit: "cover", borderRadius: 12, background: "#0f172a" }}
+                />
+              ) : (
+                <Image
+                  src={uploadPreviewUrl}
+                  alt={uploadActionType ? ACTION_LABELS[uploadActionType] ?? uploadActionType : "动作预览"}
+                  width={240}
+                  height={240}
+                  style={{ objectFit: "cover", borderRadius: 12 }}
+                />
+              )}
             </div>
           ) : (
-            <Empty description="选择图片文件或输入图片 URL 后可预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            <Empty description="选择 MJPEG 视频文件或输入视频 URL 后可预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
           )}
         </div>
       </Modal>

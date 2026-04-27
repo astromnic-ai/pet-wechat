@@ -6,6 +6,7 @@ import {
   Col,
   Divider,
   Input,
+  Popconfirm,
   Progress,
   Row,
   Space,
@@ -15,7 +16,7 @@ import {
   Typography,
   message,
 } from "antd";
-import { ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, ReloadOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { AdminDeviceDetail, AdminDeviceListItem, DeviceType } from "shared";
 import { api } from "../api/client";
@@ -267,6 +268,7 @@ function buildDeviceQuery(params: {
 export default function DevicesPage() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [devices, setDevices] = useState<AdminDeviceListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState("");
@@ -278,6 +280,7 @@ export default function DevicesPage() {
   const [sortOrder, setSortOrder] = useState<CreatedSortOrder>("desc");
   const [selectedDeviceRef, setSelectedDeviceRef] = useState<SelectedDeviceRef | null>(null);
   const [selectedDeviceDetail, setSelectedDeviceDetail] = useState<AdminDeviceDetail | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const deferredKeyword = useDeferredValue(keyword);
 
   useEffect(() => {
@@ -324,7 +327,7 @@ export default function DevicesPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [boundFilter, deferredKeyword, imageFilter, modelFilter, sortOrder, speciesFilter, statusFilter]);
+  }, [boundFilter, deferredKeyword, imageFilter, modelFilter, reloadToken, sortOrder, speciesFilter, statusFilter]);
 
   useEffect(() => {
     if (!selectedDeviceRef) {
@@ -360,7 +363,7 @@ export default function DevicesPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedDeviceRef]);
+  }, [reloadToken, selectedDeviceRef]);
 
   const filteredDevices = useMemo(() => {
     if (speciesFilter !== "other") {
@@ -374,6 +377,56 @@ export default function DevicesPage() {
     () => filteredDevices.filter((device) => device.bindingCount > 0).length,
     [filteredDevices],
   );
+
+  const handleShowAll = () => {
+    setKeyword("");
+    setModelFilter("all");
+    setImageFilter("all");
+    setBoundFilter("all");
+    setSpeciesFilter("all");
+    setStatusFilter("all");
+  };
+
+  const handleReset = () => {
+    setKeyword("");
+    setModelFilter("all");
+    setImageFilter("all");
+    setBoundFilter("all");
+    setSpeciesFilter("all");
+    setStatusFilter("all");
+    setSortOrder("desc");
+  };
+
+  const handleRefresh = () => {
+    setReloadToken((value) => value + 1);
+  };
+
+  const handleDeleteDevice = async (record: AdminDeviceListItem) => {
+    const deleteKey = `${record.type}:${record.id}`;
+    setDeletingKey(deleteKey);
+
+    try {
+      if (record.type === "collar") {
+        await api.deleteCollar(record.id);
+      } else {
+        await api.deleteDesktop(record.id);
+      }
+
+      setDevices((prev) => prev.filter((item) => !(item.id === record.id && item.type === record.type)));
+      setTotal((prev) => Math.max(0, prev - 1));
+
+      if (selectedDeviceRef?.id === record.id && selectedDeviceRef.type === record.type) {
+        setSelectedDeviceRef(null);
+        setSelectedDeviceDetail(null);
+      }
+
+      message.success("设备已删除");
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : "设备删除失败");
+    } finally {
+      setDeletingKey(null);
+    }
+  };
 
   const columns: TableProps<AdminDeviceListItem>["columns"] = [
     {
@@ -470,20 +523,37 @@ export default function DevicesPage() {
     {
       title: "管理设备",
       key: "actions",
-      width: 110,
+      width: 150,
       fixed: "right",
       render: (_value, record) => (
-        <Button
-          type="link"
-          onClick={() =>
-            setSelectedDeviceRef({
-              id: record.id,
-              type: record.type,
-            })
-          }
-        >
-          管理
-        </Button>
+        <Space size={6}>
+          <Button
+            type="link"
+            onClick={() =>
+              setSelectedDeviceRef({
+                id: record.id,
+                type: record.type,
+              })
+            }
+          >
+            管理
+          </Button>
+          <Popconfirm
+            title="确认删除设备？"
+            description="删除后设备将从后台移除。"
+            okText="删除"
+            cancelText="取消"
+            onConfirm={() => void handleDeleteDevice(record)}
+          >
+            <Button
+              type="link"
+              danger
+              loading={deletingKey === `${record.type}:${record.id}`}
+            >
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -840,13 +910,23 @@ export default function DevicesPage() {
       </div>
 
       <Card>
-        <Input
-          allowClear
-          value={keyword}
-          prefix={<SearchOutlined />}
-          placeholder="搜索ID设备、型号、用户..."
-          onChange={(event) => setKeyword(event.target.value)}
-        />
+        <Space wrap style={{ display: "flex", justifyContent: "space-between" }}>
+          <Input
+            allowClear
+            value={keyword}
+            prefix={<SearchOutlined />}
+            placeholder="搜索ID设备、型号、用户..."
+            onChange={(event) => setKeyword(event.target.value)}
+            style={{ width: 360, maxWidth: "100%" }}
+          />
+          <Space wrap>
+            <Button onClick={handleShowAll}>全部</Button>
+            <Button onClick={handleReset}>重置</Button>
+            <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
+              刷新
+            </Button>
+          </Space>
+        </Space>
       </Card>
 
       <Card

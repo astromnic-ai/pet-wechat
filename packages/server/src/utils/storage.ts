@@ -29,6 +29,8 @@ export const ALLOWED_IMAGE_CONTENT_TYPES = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "video/mjpeg": "mjpeg",
+  "video/x-motion-jpeg": "mjpeg",
 } as const;
 
 function getLocalStorageBaseUrl(): string {
