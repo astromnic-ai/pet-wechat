@@ -15,6 +15,30 @@
   margin-bottom: 22rpx;
 }
 
+.upload-page-title-row {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.upload-page-back {
+  width: 64rpx;
+  height: 64rpx;
+  border-radius: 32rpx;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.upload-page-back-icon {
+  font-size: 38rpx;
+  color: #222222;
+  line-height: 1;
+}
+
 .upload-page-title {
   display: block;
   font-size: 44rpx;
