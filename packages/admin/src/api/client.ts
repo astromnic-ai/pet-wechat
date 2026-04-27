@@ -1,3 +1,20 @@
+import type {
+  AdminDeviceDetail,
+  AdminDeviceListItem,
+  AvatarReviewStats,
+  CustomizationTask,
+  DeviceType,
+  Membership,
+  PresignResponse,
+} from "shared";
+
+type PageResponse<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export function getAdminKey() {
   return localStorage.getItem("adminKey") || "";
 }
@@ -138,6 +155,17 @@ export const api = {
   // Enhanced Users
   getEnhancedUsers: () => request<{ users: any[] }>("/users/enhanced"),
   getUserDetail: (id: string) => request<any>(`/users/${id}/detail`),
+  getMembership: (id: string) => request<Membership>(`/users/${id}/membership`),
+  updateMembership: (
+    id: string,
+    data: {
+      level: Membership["level"];
+      status?: Membership["status"];
+      expireAt?: string | null;
+      benefits?: Membership["benefits"];
+      avatarQuotaTotal?: number;
+    },
+  ) => request<Membership>(`/users/${id}/membership`, { method: "PUT", body: JSON.stringify(data) }),
 
   // Enhanced Devices (with filters)
   getFilteredCollars: (params?: Record<string, string>) => {
@@ -148,4 +176,25 @@ export const api = {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
     return request<{ desktops: any[] }>(`/desktops${qs}`);
   },
+  getDevices: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request<PageResponse<AdminDeviceListItem>>(`/devices${qs}`);
+  },
+  getDeviceDetail: (type: DeviceType, id: string) => request<AdminDeviceDetail>(`/devices/${type}/${id}/detail`),
+
+  // Avatar Review
+  getAvatarReviewStats: () => request<AvatarReviewStats>("/avatar-review/stats"),
+
+  // Customization
+  getCustomizationTasks: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request<PageResponse<CustomizationTask>>(`/customization/tasks${qs}`);
+  },
+
+  // Uploads
+  createUploadPresign: (contentType: "image/jpeg" | "image/png" | "image/webp") =>
+    request<PresignResponse>("/uploads/presign", {
+      method: "POST",
+      body: JSON.stringify({ contentType }),
+    }),
 };

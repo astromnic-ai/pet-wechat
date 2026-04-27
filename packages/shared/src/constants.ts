@@ -47,3 +47,37 @@ export const ACTION_LABELS: Record<string, string> = {
 };
 
 export const SCHEDULE_SPECIES = ["cat", "dog", "other"] as const;
+
+export const MEMBERSHIP_LEVEL_LABELS = {
+  free: "免费版",
+  basic: "基础版",
+  pro: "专业版",
+  premium: "旗舰版",
+} as const;
+
+export const DEFAULT_FREE_BENEFITS = [
+  {
+    key: "avatar_generation",
+    label: "AI 形象生成",
+    value: "2 次",
+    enabled: true,
+  },
+  {
+    key: "basic_actions",
+    label: "基础动作库",
+    value: `${BASIC_ACTIONS.length} 项`,
+    enabled: true,
+  },
+  {
+    key: "personalized_actions",
+    label: "个性化动作库",
+    value: `${FUN_ACTIONS.length} 项`,
+    enabled: false,
+  },
+  {
+    key: "priority_review",
+    label: "优先审核",
+    value: "标准队列",
+    enabled: false,
+  },
+] as const;

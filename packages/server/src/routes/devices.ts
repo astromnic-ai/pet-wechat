@@ -13,6 +13,7 @@ import {
 } from "../db/schema";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { generateInviteCode, verifyInviteCode } from "../utils/invite";
+import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { deviceTypeSchema } from "../validators/user-end";
 
 const devicesRoute = new Hono();
@@ -20,12 +21,6 @@ const devicesRoute = new Hono();
 function getInviteCodeHash(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
-
-function normalizeMac(mac: string): string {
-  return mac.replace(/[:\-\s]/g, "").toUpperCase();
-}
-
-const NORMALIZED_MAC_REGEX = /^[0-9A-F]{12}$/;
 
 function buildOnlineDeviceState() {
   const now = new Date();
@@ -276,7 +271,13 @@ devicesRoute.post("/collars/register", async (c) => {
   }
 
   if (existing.userId === userId) {
-    return c.json({ collar: existing });
+    const [collar] = await db
+      .update(collarDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(collarDevices.id, existing.id))
+      .returning();
+
+    return c.json({ collar: collar ?? existing });
   }
 
   return c.json({ error: "Collar is already registered to another user" }, 409);
@@ -344,7 +345,13 @@ devicesRoute.post("/desktops/register", async (c) => {
   }
 
   if (existing.userId === userId) {
-    return c.json({ desktop: existing });
+    const [desktop] = await db
+      .update(desktopDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(desktopDevices.id, existing.id))
+      .returning();
+
+    return c.json({ desktop: desktop ?? existing });
   }
 
   return c.json({ error: "Desktop is already registered to another user" }, 409);
@@ -424,7 +431,6 @@ devicesRoute.post("/collars", async (c) => {
       name: body.name ?? "我的项圈",
       macAddress: body.macAddress,
       petId: body.petId ?? null,
-      claimStatus: "occupied",
       ...buildOnlineDeviceState(),
     })
     .returning();
@@ -488,7 +494,6 @@ devicesRoute.post("/desktops", async (c) => {
       userId,
       name: body.name ?? "我的桌面端",
       macAddress: body.macAddress,
-      claimStatus: "occupied",
       ...buildOnlineDeviceState(),
     })
     .returning();
@@ -678,20 +683,28 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
     .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
   if (!pet) return c.json({ error: "Pet not found" }, 404);
 
-  const [existingBinding] = await db
-    .select()
-    .from(desktopPetBindings)
-    .where(
-      and(
-        eq(desktopPetBindings.desktopDeviceId, desktopId),
-        eq(desktopPetBindings.petId, body.petId),
-        isNull(desktopPetBindings.unboundAt),
-      )
-    );
-  if (existingBinding) return c.json({ binding: existingBinding });
+  const result = await db.transaction(async (tx) => {
+    await tx
+      .update(desktopDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(desktopDevices.id, desktopId));
 
-  const [binding] = await db.transaction(async (tx) => {
-    const [createdBinding] = await tx
+    const [activeBinding] = await tx
+      .select()
+      .from(desktopPetBindings)
+      .where(
+        and(
+          eq(desktopPetBindings.desktopDeviceId, desktopId),
+          eq(desktopPetBindings.petId, body.petId),
+          isNull(desktopPetBindings.unboundAt),
+        ),
+      );
+
+    if (activeBinding) {
+      return { binding: activeBinding, created: false };
+    }
+
+    const [binding] = await tx
       .insert(desktopPetBindings)
       .values({
         desktopDeviceId: desktopId,
@@ -700,14 +713,10 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
       })
       .returning();
 
-    await tx
-      .update(desktopDevices)
-      .set(buildOnlineDeviceState())
-      .where(eq(desktopDevices.id, desktopId));
-
-    return [createdBinding];
+    return { binding, created: true };
   });
-  return c.json({ binding }, 201);
+
+  return c.json({ binding: result.binding }, result.created ? 201 : 200);
 });
 
 devicesRoute.delete("/desktops/:id/bind/:bindingId", async (c) => {

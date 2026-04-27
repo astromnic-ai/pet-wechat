@@ -6,6 +6,7 @@ const REQUIRED_ENV_VARS = [
   "DATABASE_URL",
   "JWT_SECRET",
   "ADMIN_KEY",
+  "DEVICE_REPORT_SECRET",
   "WX_APPID",
   "WX_SECRET",
   "S3_ENDPOINT",
@@ -97,7 +98,7 @@ export async function checkMigrations(): Promise<void> {
     const [{ db }, journal] = await Promise.all([import("./db/index"), readMigrationJournal()]);
     const rows = await db.execute<{ count: number }>(sql`
       SELECT COUNT(*)::int AS count
-      FROM __drizzle_migrations
+      FROM drizzle.__drizzle_migrations
     `);
     const appliedCount = Number(rows[0]?.count ?? 0);
     const expectedCount = journal.entries?.length ?? 0;

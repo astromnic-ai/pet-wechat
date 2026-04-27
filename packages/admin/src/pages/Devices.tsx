@@ -1,231 +1,310 @@
-import { useEffect, useState } from "react";
-import type { TableProps, TabsProps } from "antd";
-import { Avatar, Button, Col, Descriptions, Drawer, Row, Select, Space, Spin, Table, Tabs, Tag, Typography, message } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import type { TableProps } from "antd";
+import {
+  Button,
+  Card,
+  Col,
+  Divider,
+  Input,
+  Progress,
+  Row,
+  Space,
+  Spin,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from "antd";
+import { ArrowLeftOutlined, SearchOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import type { AdminDeviceDetail, AdminDeviceListItem, DeviceType } from "shared";
 import { api } from "../api/client";
 
-type DeviceTabKey = "collar" | "desktop";
-type OnlineStatusFilter = "all" | "online" | "offline";
-type BoundStatusFilter = "all" | "bound" | "unbound";
-type SpeciesFilter = "all" | "cat" | "dog";
-type SortField = "createdAt" | "lastOnlineAt";
-type SortOrder = "asc" | "desc";
+const { Text, Title } = Typography;
 
-interface BaseDevice {
+type DeviceModelFilter = "all" | DeviceType;
+type DeviceStatusFilter = "all" | "online" | "offline" | "pairing";
+type DeviceBoundFilter = "all" | "bound" | "unbound";
+type DeviceImageFilter = "all" | "uploaded" | "not_uploaded";
+type PetSpeciesValue = "cat" | "dog" | "other";
+type SpeciesFilter = "all" | PetSpeciesValue;
+type CreatedSortOrder = "desc" | "asc";
+
+type SelectedDeviceRef = {
   id: string;
-  userId: string | null;
-  name: string | null;
-  macAddress: string | null;
-  status: string;
-  firmwareVersion: string | null;
-  lastOnlineAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  ownerNickname: string | null;
-}
-
-interface CollarDevice extends BaseDevice {
-  petId: string | null;
-  battery: number | null;
-  signal: number | null;
-  petName: string | null;
-  petImageUrl: string | null;
-}
-
-interface DesktopDevice extends BaseDevice {
-  bindingPetNames: string[];
-  bindingPets: Array<{
-    id: string;
-    name: string;
-    avatarImageUrl: string | null;
-  }>;
-  activeBindingCount: number;
-}
-
-interface CollarFilters {
-  status: OnlineStatusFilter;
-  bound: BoundStatusFilter;
-  species: SpeciesFilter;
-  sort: SortField;
-  order: SortOrder;
-}
-
-interface DesktopFilters {
-  status: OnlineStatusFilter;
-  bound: BoundStatusFilter;
-  sort: SortField;
-  order: SortOrder;
-}
-
-type SelectedDevice =
-  | { type: "collar"; record: CollarDevice }
-  | { type: "desktop"; record: DesktopDevice };
-
-const statusColors: Record<string, string> = {
-  online: "green",
-  offline: "default",
-  pairing: "blue",
+  type: DeviceType;
 };
 
-const statusLabels: Record<string, string> = {
+const DEVICE_MODEL_LABELS: Record<DeviceType, string> = {
+  desktop: "桌面宠物1.0",
+  collar: "宠物项圈1.0",
+};
+
+const STATUS_LABELS: Record<DeviceStatusFilter extends infer T ? Extract<T, string> : never, string> = {
+  all: "全部设备状态",
   online: "在线",
   offline: "离线",
-  pairing: "配对中",
+  pairing: "连接中断",
 };
 
-const statusOptions = [
-  { value: "all", label: "全部" },
-  { value: "online", label: "在线" },
-  { value: "offline", label: "离线" },
-] satisfies { value: OnlineStatusFilter; label: string }[];
+const STATUS_COLORS: Record<Exclude<DeviceStatusFilter, "all">, string> = {
+  online: "green",
+  offline: "default",
+  pairing: "orange",
+};
+
+const SPECIES_LABELS: Record<PetSpeciesValue, string> = {
+  cat: "猫",
+  dog: "狗",
+  other: "其他",
+};
+
+const modelOptions = [
+  { value: "desktop", label: "桌面宠物1.0" },
+  { value: "collar", label: "宠物项圈1.0" },
+] satisfies { value: DeviceModelFilter; label: string }[];
+
+const imageOptions = [
+  { value: "uploaded", label: "已上传" },
+  { value: "not_uploaded", label: "未上传" },
+] satisfies { value: DeviceImageFilter; label: string }[];
 
 const boundOptions = [
-  { value: "all", label: "全部" },
   { value: "bound", label: "已绑定" },
   { value: "unbound", label: "未绑定" },
-] satisfies { value: BoundStatusFilter; label: string }[];
+] satisfies { value: DeviceBoundFilter; label: string }[];
 
 const speciesOptions = [
-  { value: "all", label: "全部" },
   { value: "cat", label: "猫" },
   { value: "dog", label: "狗" },
+  { value: "other", label: "其他" },
 ] satisfies { value: SpeciesFilter; label: string }[];
 
+const statusOptions = [
+  { value: "pairing", label: "连接中断" },
+  { value: "online", label: "在线" },
+  { value: "offline", label: "离线" },
+] satisfies { value: DeviceStatusFilter; label: string }[];
+
 const sortOptions = [
-  { value: "createdAt", label: "注册时间" },
-  { value: "lastOnlineAt", label: "最后在线时间" },
-] satisfies { value: SortField; label: string }[];
-
-const defaultCollarFilters: CollarFilters = {
-  status: "all",
-  bound: "all",
-  species: "all",
-  sort: "createdAt",
-  order: "desc",
-};
-
-const defaultDesktopFilters: DesktopFilters = {
-  status: "all",
-  bound: "all",
-  sort: "createdAt",
-  order: "desc",
-};
+  { value: "desc", label: "倒序" },
+  { value: "asc", label: "顺序" },
+] satisfies { value: CreatedSortOrder; label: string }[];
 
 function formatTime(value: string | null | undefined) {
   return value ? dayjs(value).format("YYYY-MM-DD HH:mm") : "-";
 }
 
-function renderStatus(value: string) {
-  return <Tag color={statusColors[value] ?? "default"}>{statusLabels[value] ?? value}</Tag>;
+function formatShortDate(value: string | null | undefined) {
+  return value ? dayjs(value).format("YYYY-MM-DD") : "-";
 }
 
-function renderBoundUser(value: string | null) {
-  return value ?? <Tag color="orange">未绑定</Tag>;
-}
-
-function renderBindingPets(names?: string[]) {
-  if (!names || names.length === 0) {
+function formatRelativeTime(value: string | null | undefined) {
+  if (!value) {
     return "-";
   }
 
-  return names.join(" / ");
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) {
+    return "-";
+  }
+
+  const diffMinutes = dayjs().diff(parsed, "minute");
+  if (diffMinutes < 1) {
+    return "刚刚";
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}分钟前`;
+  }
+
+  const diffHours = dayjs().diff(parsed, "hour");
+  if (diffHours < 24) {
+    return `${diffHours}小时前`;
+  }
+
+  return parsed.format("YYYY-MM-DD HH:mm");
+}
+
+function getSignalLabel(signal: number | null | undefined, status: string) {
+  if (status !== "online") {
+    return "-";
+  }
+
+  if (signal == null) {
+    return "强";
+  }
+
+  if (signal >= -55) {
+    return "强";
+  }
+
+  if (signal >= -70) {
+    return "中";
+  }
+
+  return "弱";
+}
+
+function getSignalColor(signalLabel: string) {
+  if (signalLabel === "强") {
+    return "#16a34a";
+  }
+
+  if (signalLabel === "中") {
+    return "#d97706";
+  }
+
+  return "#9ca3af";
+}
+
+function normalizeSpecies(value?: string | null): PetSpeciesValue {
+  if (value === "cat" || value === "dog") {
+    return value;
+  }
+
+  return "other";
+}
+
+function renderStatus(status: AdminDeviceListItem["status"]) {
+  return <Tag color={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Tag>;
+}
+
+function renderImageStatus(hasUploadedAvatar: boolean) {
+  return hasUploadedAvatar ? <Tag color="green">已上传</Tag> : <Tag color="default">未上传</Tag>;
+}
+
+function renderBindingStatus(isBound: boolean) {
+  return isBound ? <Tag color="green">已绑定</Tag> : <Tag color="default">未绑定</Tag>;
 }
 
 function renderPetAvatar(imageUrl: string | null | undefined, label: string) {
   if (imageUrl) {
-    return <Avatar shape="square" size={56} src={imageUrl} alt={label} />;
+    return (
+      <img
+        src={imageUrl}
+        alt={label}
+        style={{
+          width: 84,
+          height: 84,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+        }}
+      />
+    );
   }
 
   return (
-    <Avatar shape="square" size={56}>
-      {(label.trim()[0] ?? "宠").toUpperCase()}
-    </Avatar>
+    <div
+      style={{
+        width: 84,
+        height: 84,
+        borderRadius: "50%",
+        background: "#dbe4f0",
+        flexShrink: 0,
+      }}
+    />
   );
 }
 
-function buildCollarParams(filters: CollarFilters) {
-  const params: Record<string, string> = {
-    sort: filters.sort,
-    order: filters.order,
-  };
-
-  if (filters.status !== "all") {
-    params.status = filters.status;
+function pickSingleFilter<T extends string>(value: unknown, fallback: T): T {
+  if (Array.isArray(value) && typeof value[0] === "string") {
+    return value[0] as T;
   }
 
-  if (filters.bound !== "all") {
-    params.bound = filters.bound === "bound" ? "true" : "false";
+  if (typeof value === "string") {
+    return value as T;
   }
 
-  if (filters.species !== "all") {
-    params.species = filters.species;
-  }
-
-  return params;
+  return fallback;
 }
 
-function buildDesktopParams(filters: DesktopFilters) {
-  const params: Record<string, string> = {
-    sort: filters.sort,
-    order: filters.order,
+function buildDeviceQuery(params: {
+  keyword: string;
+  modelFilter: DeviceModelFilter;
+  imageFilter: DeviceImageFilter;
+  boundFilter: DeviceBoundFilter;
+  speciesFilter: SpeciesFilter;
+  statusFilter: DeviceStatusFilter;
+  sortOrder: CreatedSortOrder;
+}) {
+  const query: Record<string, string> = {
+    page: "1",
+    pageSize: "100",
+    sort: "createdAt",
+    order: params.sortOrder,
   };
 
-  if (filters.status !== "all") {
-    params.status = filters.status;
+  if (params.keyword.trim()) {
+    query.keyword = params.keyword.trim();
   }
 
-  if (filters.bound !== "all") {
-    params.bound = filters.bound === "bound" ? "true" : "false";
+  if (params.modelFilter !== "all") {
+    query.type = params.modelFilter;
   }
 
-  return params;
+  if (params.imageFilter === "uploaded") {
+    query.imageStatus = "uploaded";
+  } else if (params.imageFilter === "not_uploaded") {
+    query.imageStatus = "pending";
+  }
+
+  if (params.boundFilter !== "all") {
+    query.bindingStatus = params.boundFilter;
+  }
+
+  if (params.speciesFilter === "cat" || params.speciesFilter === "dog") {
+    query.species = params.speciesFilter;
+  }
+
+  if (params.statusFilter !== "all") {
+    query.status = params.statusFilter;
+  }
+
+  return query;
 }
 
 export default function DevicesPage() {
-  const { Text } = Typography;
-  const [activeTab, setActiveTab] = useState<DeviceTabKey>("collar");
   const [loading, setLoading] = useState(true);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [collars, setCollars] = useState<CollarDevice[]>([]);
-  const [desktops, setDesktops] = useState<DesktopDevice[]>([]);
-  const [collarFilters, setCollarFilters] = useState<CollarFilters>(defaultCollarFilters);
-  const [desktopFilters, setDesktopFilters] = useState<DesktopFilters>(defaultDesktopFilters);
-  const [selectedDevice, setSelectedDevice] = useState<SelectedDevice | null>(null);
-
-  const collarQueryKey = [
-    collarFilters.status,
-    collarFilters.bound,
-    collarFilters.species,
-    collarFilters.sort,
-    collarFilters.order,
-  ].join("|");
-
-  const desktopQueryKey = [
-    desktopFilters.status,
-    desktopFilters.bound,
-    desktopFilters.sort,
-    desktopFilters.order,
-  ].join("|");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [devices, setDevices] = useState<AdminDeviceListItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [keyword, setKeyword] = useState("");
+  const [modelFilter, setModelFilter] = useState<DeviceModelFilter>("all");
+  const [imageFilter, setImageFilter] = useState<DeviceImageFilter>("all");
+  const [boundFilter, setBoundFilter] = useState<DeviceBoundFilter>("all");
+  const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("all");
+  const [statusFilter, setStatusFilter] = useState<DeviceStatusFilter>("all");
+  const [sortOrder, setSortOrder] = useState<CreatedSortOrder>("desc");
+  const [selectedDeviceRef, setSelectedDeviceRef] = useState<SelectedDeviceRef | null>(null);
+  const [selectedDeviceDetail, setSelectedDeviceDetail] = useState<AdminDeviceDetail | null>(null);
+  const deferredKeyword = useDeferredValue(keyword);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function load() {
+    async function loadDevices() {
       setLoading(true);
 
       try {
-        if (activeTab === "collar") {
-          const result = await api.getFilteredCollars(buildCollarParams(collarFilters));
-          if (!cancelled) {
-            setCollars(result.collars as CollarDevice[]);
-          }
-        } else {
-          const result = await api.getFilteredDesktops(buildDesktopParams(desktopFilters));
-          if (!cancelled) {
-            setDesktops(result.desktops as DesktopDevice[]);
-          }
+        const response = await api.getDevices(
+          buildDeviceQuery({
+            keyword: deferredKeyword,
+            modelFilter,
+            imageFilter,
+            boundFilter,
+            speciesFilter,
+            statusFilter,
+            sortOrder,
+          }),
+        );
+
+        if (cancelled) {
+          return;
         }
+
+        setDevices(response.items ?? []);
+        setTotal(response.total ?? 0);
       } catch (error) {
         if (!cancelled) {
           message.error(error instanceof Error ? error.message : "设备数据加载失败");
@@ -237,378 +316,566 @@ export default function DevicesPage() {
       }
     }
 
-    void load();
+    const timer = window.setTimeout(() => {
+      void loadDevices();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [boundFilter, deferredKeyword, imageFilter, modelFilter, sortOrder, speciesFilter, statusFilter]);
+
+  useEffect(() => {
+    if (!selectedDeviceRef) {
+      setSelectedDeviceDetail(null);
+      return;
+    }
+
+    const currentRef = selectedDeviceRef;
+    let cancelled = false;
+
+    async function loadDetail() {
+      setDetailLoading(true);
+
+      try {
+        const detail = await api.getDeviceDetail(currentRef.type, currentRef.id);
+        if (!cancelled) {
+          setSelectedDeviceDetail(detail);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setSelectedDeviceDetail(null);
+          message.error(error instanceof Error ? error.message : "设备详情加载失败");
+        }
+      } finally {
+        if (!cancelled) {
+          setDetailLoading(false);
+        }
+      }
+    }
+
+    void loadDetail();
 
     return () => {
       cancelled = true;
     };
-  }, [activeTab, reloadToken, activeTab === "collar" ? collarQueryKey : desktopQueryKey]);
+  }, [selectedDeviceRef]);
 
-  const collarColumns: TableProps<CollarDevice>["columns"] = [
+  const filteredDevices = useMemo(() => {
+    if (speciesFilter !== "other") {
+      return devices;
+    }
+
+    return devices.filter((device) => normalizeSpecies(device.petSpecies) === "other");
+  }, [devices, speciesFilter]);
+
+  const boundDeviceCount = useMemo(
+    () => filteredDevices.filter((device) => device.bindingCount > 0).length,
+    [filteredDevices],
+  );
+
+  const columns: TableProps<AdminDeviceListItem>["columns"] = [
     {
-      title: "设备名称",
-      dataIndex: "name",
-      key: "name",
-      width: 180,
-      render: (value: string | null) => value ?? "-",
+      title: "设备ID",
+      dataIndex: "id",
+      key: "id",
+      width: 220,
+      render: (value: string, record) => (
+        <Space direction="vertical" size={2}>
+          <Text strong>{value}</Text>
+          <Text type="secondary">{record.name || "-"}</Text>
+        </Space>
+      ),
     },
     {
-      title: "MAC 地址",
+      title: "Mac地址",
       dataIndex: "macAddress",
       key: "macAddress",
-      width: 180,
-      render: (value: string | null) => value ?? "-",
+      width: 190,
+      render: (value: string | null) => value || "-",
     },
     {
-      title: "状态",
-      dataIndex: "status",
-      key: "status",
-      width: 100,
-      render: (value: string) => renderStatus(value),
+      title: "设备型号",
+      dataIndex: "type",
+      key: "type",
+      width: 150,
+      filters: modelOptions.map((option) => ({ text: option.label, value: option.value })),
+      filteredValue: modelFilter === "all" ? null : [modelFilter],
+      filterMultiple: false,
+      render: (value: DeviceType) => DEVICE_MODEL_LABELS[value],
     },
     {
-      title: "电量",
-      dataIndex: "battery",
-      key: "battery",
-      width: 90,
-      render: (value: number | null) => (value == null ? "-" : `${value}%`),
+      title: "宠物头像",
+      dataIndex: "hasUploadedAvatar",
+      key: "hasUploadedAvatar",
+      width: 120,
+      filters: imageOptions.map((option) => ({ text: option.label, value: option.value })),
+      filteredValue: imageFilter === "all" ? null : [imageFilter],
+      filterMultiple: false,
+      render: (value: boolean) => renderImageStatus(value),
     },
     {
-      title: "信号",
-      dataIndex: "signal",
-      key: "signal",
-      width: 100,
-      render: (value: number | null) => (value == null ? "-" : `${value} dBm`),
+      title: "设备绑定",
+      dataIndex: "bindingCount",
+      key: "bindingCount",
+      width: 120,
+      filters: boundOptions.map((option) => ({ text: option.label, value: option.value })),
+      filteredValue: boundFilter === "all" ? null : [boundFilter],
+      filterMultiple: false,
+      render: (value: number) => renderBindingStatus(value > 0),
     },
     {
-      title: "绑定用户",
-      dataIndex: "ownerNickname",
-      key: "ownerNickname",
-      width: 140,
-      render: (value: string | null) => renderBoundUser(value),
-    },
-    {
-      title: "绑定宠物",
+      title: "宠物类型",
       dataIndex: "petName",
       key: "petName",
-      width: 140,
-      render: (value: string | null) => value ?? "-",
-    },
-    {
-      title: "最后在线时间",
-      dataIndex: "lastOnlineAt",
-      key: "lastOnlineAt",
       width: 180,
-      render: (value: string | null) => formatTime(value),
+      filters: speciesOptions.map((option) => ({ text: option.label, value: option.value })),
+      filteredValue: speciesFilter === "all" ? null : [speciesFilter],
+      filterMultiple: false,
+      render: (_value, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{record.petName || "-"}</Text>
+          <Text type="secondary">{record.petName ? SPECIES_LABELS[normalizeSpecies(record.petSpecies)] : "-"}</Text>
+        </Space>
+      ),
     },
     {
-      title: "注册时间",
-      dataIndex: "createdAt",
-      key: "createdAt",
-      width: 180,
-      render: (value: string) => formatTime(value),
-    },
-  ];
-
-  const desktopColumns: TableProps<DesktopDevice>["columns"] = [
-    {
-      title: "设备名称",
-      dataIndex: "name",
-      key: "name",
-      width: 180,
-      render: (value: string | null) => value ?? "-",
-    },
-    {
-      title: "MAC 地址",
-      dataIndex: "macAddress",
-      key: "macAddress",
-      width: 180,
-      render: (value: string | null) => value ?? "-",
-    },
-    {
-      title: "状态",
+      title: "设备状态",
       dataIndex: "status",
       key: "status",
-      width: 100,
-      render: (value: string) => renderStatus(value),
+      width: 130,
+      filters: statusOptions.map((option) => ({ text: option.label, value: option.value })),
+      filteredValue: statusFilter === "all" ? null : [statusFilter],
+      filterMultiple: false,
+      render: (value: AdminDeviceListItem["status"]) => renderStatus(value),
     },
     {
-      title: "固件版本",
-      dataIndex: "firmwareVersion",
-      key: "firmwareVersion",
-      width: 120,
-      render: (value: string | null) => value ?? "-",
-    },
-    {
-      title: "绑定用户",
-      dataIndex: "ownerNickname",
-      key: "ownerNickname",
+      title: "用户信息",
+      dataIndex: "userNickname",
+      key: "userNickname",
       width: 140,
-      render: (value: string | null) => renderBoundUser(value),
-    },
-    {
-      title: "绑定宠物",
-      dataIndex: "bindingPetNames",
-      key: "bindingPetNames",
-      width: 180,
-      render: (value: string[] | undefined) => renderBindingPets(value),
-    },
-    {
-      title: "最后在线时间",
-      dataIndex: "lastOnlineAt",
-      key: "lastOnlineAt",
-      width: 180,
-      render: (value: string | null) => formatTime(value),
+      render: (value: string | null) => value || "-",
     },
     {
       title: "注册时间",
       dataIndex: "createdAt",
       key: "createdAt",
       width: 180,
+      filters: sortOptions.map((option) => ({ text: option.label, value: option.value })),
+      filteredValue: [sortOrder],
+      filterMultiple: false,
       render: (value: string) => formatTime(value),
     },
-  ];
-
-  const activeFilters = activeTab === "collar" ? collarFilters : desktopFilters;
-
-  const tabItems: TabsProps["items"] = [
     {
-      key: "collar",
-      label: "项圈",
-      children: (
-        <Table<CollarDevice>
-          dataSource={collars}
-          columns={collarColumns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1400 }}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          onRow={(record) => ({
-            onClick: () => setSelectedDevice({ type: "collar", record }),
-            style: { cursor: "pointer" },
-          })}
-        />
-      ),
-    },
-    {
-      key: "desktop",
-      label: "桌面端",
-      children: (
-        <Table<DesktopDevice>
-          dataSource={desktops}
-          columns={desktopColumns}
-          rowKey="id"
-          size="middle"
-          scroll={{ x: 1200 }}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          onRow={(record) => ({
-            onClick: () => setSelectedDevice({ type: "desktop", record }),
-            style: { cursor: "pointer" },
-          })}
-        />
+      title: "管理设备",
+      key: "actions",
+      width: 110,
+      fixed: "right",
+      render: (_value, record) => (
+        <Button
+          type="link"
+          onClick={() =>
+            setSelectedDeviceRef({
+              id: record.id,
+              type: record.type,
+            })
+          }
+        >
+          管理
+        </Button>
       ),
     },
   ];
 
-  return (
-    <>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0 }}>设备管理</h2>
-      </div>
+  if (selectedDeviceRef) {
+    const detail = selectedDeviceDetail;
+    const device = detail?.device ?? null;
+    const pet = detail?.pet ?? null;
+    const owner = detail?.owner ?? null;
+    const bindingPets = detail?.bindingPets ?? [];
+    const counterpart =
+      detail?.relatedDevices.find((item) => item.type !== detail.device.type) ??
+      detail?.relatedDevices[0] ??
+      null;
+    const batteryPercent = device?.battery ?? null;
+    const signalLabel = getSignalLabel(device?.signal, device?.status ?? "offline");
+    const signalColor = getSignalColor(signalLabel);
+    const completedActions = detail?.avatarProgress.approved ?? 0;
+    const totalActions = detail?.avatarProgress.total ?? 18;
+    const avatarUploaded = (detail?.avatarProgress.uploaded ?? 0) > 0;
+    const avatarApproved = (detail?.avatarProgress.approved ?? 0) > 0;
+    const avatarProgressPercent = totalActions > 0 ? Math.round((completedActions / totalActions) * 100) : 0;
+    const detailTitle = device?.name ? `${device.name}的设备详情` : "设备详情";
+    const currentDeviceLabel = device ? DEVICE_MODEL_LABELS[device.type] : "-";
+    const counterpartLabel = counterpart ? DEVICE_MODEL_LABELS[counterpart.type] : "-";
 
-      <Row gutter={[12, 12]} align="middle" style={{ marginBottom: 16 }}>
-        <Col flex="160px">
-          <Select<OnlineStatusFilter>
-            value={activeFilters.status}
-            style={{ width: "100%" }}
-            options={statusOptions}
-            onChange={(value) => {
-              if (activeTab === "collar") {
-                setCollarFilters((prev) => ({ ...prev, status: value }));
-              } else {
-                setDesktopFilters((prev) => ({ ...prev, status: value }));
-              }
-            }}
-          />
-        </Col>
-        <Col flex="160px">
-          <Select<BoundStatusFilter>
-            value={activeFilters.bound}
-            style={{ width: "100%" }}
-            options={boundOptions}
-            onChange={(value) => {
-              if (activeTab === "collar") {
-                setCollarFilters((prev) => ({ ...prev, bound: value }));
-              } else {
-                setDesktopFilters((prev) => ({ ...prev, bound: value }));
-              }
-            }}
-          />
-        </Col>
-        {activeTab === "collar" ? (
-          <Col flex="160px">
-            <Select<SpeciesFilter>
-              value={collarFilters.species}
-              style={{ width: "100%" }}
-              options={speciesOptions}
-              onChange={(value) => setCollarFilters((prev) => ({ ...prev, species: value }))}
-            />
-          </Col>
-        ) : null}
-        <Col flex="180px">
-          <Select<SortField>
-            value={activeFilters.sort}
-            style={{ width: "100%" }}
-            options={sortOptions}
-            onChange={(value) => {
-              if (activeTab === "collar") {
-                setCollarFilters((prev) => ({ ...prev, sort: value }));
-              } else {
-                setDesktopFilters((prev) => ({ ...prev, sort: value }));
-              }
-            }}
-          />
-        </Col>
-        <Col flex="120px">
-          <Button
-            block
-            onClick={() => {
-              if (activeTab === "collar") {
-                setCollarFilters((prev) => ({ ...prev, order: prev.order === "asc" ? "desc" : "asc" }));
-              } else {
-                setDesktopFilters((prev) => ({ ...prev, order: prev.order === "asc" ? "desc" : "asc" }));
-              }
+    return (
+      <Space direction="vertical" size={20} style={{ display: "flex" }}>
+        <Button
+          type="link"
+          icon={<ArrowLeftOutlined />}
+          style={{ padding: 0, width: "fit-content" }}
+          onClick={() => setSelectedDeviceRef(null)}
+        >
+          返回列表
+        </Button>
+
+        <Card styles={{ body: { padding: 24 } }}>
+          <Divider style={{ margin: "0 0 24px" }} />
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 16,
+              flexWrap: "wrap",
+              marginBottom: 28,
             }}
           >
-            {activeFilters.order === "asc" ? "升序" : "降序"}
-          </Button>
-        </Col>
-        <Col flex="120px">
-          <Button block icon={<ReloadOutlined />} onClick={() => setReloadToken((value) => value + 1)}>
-            刷新
-          </Button>
-        </Col>
-      </Row>
+            <Title level={3} style={{ margin: 0 }}>
+              {detailTitle}
+            </Title>
 
-      <Spin spinning={loading}>
-        <Tabs
-          activeKey={activeTab}
-          items={tabItems}
-          onChange={(key) => {
-            setActiveTab(key as DeviceTabKey);
-            setSelectedDevice(null);
-          }}
-        />
-      </Spin>
+            <Space size={16}>
+              <Button
+                type="primary"
+                disabled
+                style={{
+                  background: "#69a7ff",
+                  borderColor: "#69a7ff",
+                  minWidth: 120,
+                  height: 40,
+                  borderRadius: 12,
+                }}
+              >
+                管理员编辑
+              </Button>
+              <Button danger disabled style={{ minWidth: 120, height: 40, borderRadius: 12 }}>
+                永久删除
+              </Button>
+            </Space>
+          </div>
 
-      <Drawer
-        title={selectedDevice?.type === "collar" ? "项圈详情" : "桌面端详情"}
-        width={480}
-        open={!!selectedDevice}
-        onClose={() => setSelectedDevice(null)}
-        extra={
-          <Button onClick={() => setSelectedDevice(null)}>
-            关闭
-          </Button>
-        }
-      >
-        {selectedDevice ? (
-          <Space direction="vertical" size={16} style={{ width: "100%" }}>
-            <Descriptions
-              bordered
-              column={1}
-              size="small"
-              items={
-                selectedDevice.type === "collar"
-                  ? [
-                      { key: "name", label: "设备名称", children: selectedDevice.record.name ?? "-" },
-                      { key: "id", label: "设备 ID", children: selectedDevice.record.id },
-                      { key: "mac", label: "MAC 地址", children: selectedDevice.record.macAddress ?? "-" },
-                      { key: "status", label: "在线状态", children: renderStatus(selectedDevice.record.status) },
-                      {
-                        key: "bound",
-                        label: "绑定状态",
-                        children: selectedDevice.record.userId ? "已绑定" : "未绑定",
-                      },
-                      { key: "owner", label: "绑定用户", children: selectedDevice.record.ownerNickname ?? "-" },
-                      { key: "pet", label: "绑定宠物", children: selectedDevice.record.petName ?? "-" },
-                      {
-                        key: "petImage",
-                        label: "宠物上传图",
-                        children: selectedDevice.record.petName ? (
-                          <Space>
-                            {renderPetAvatar(
-                              selectedDevice.record.petImageUrl,
-                              selectedDevice.record.petName,
-                            )}
-                            <Text type="secondary">
-                              {selectedDevice.record.petImageUrl ? "已同步上传图" : "暂无上传图"}
-                            </Text>
-                          </Space>
-                        ) : "-",
-                      },
-                      {
-                        key: "battery",
-                        label: "电量",
-                        children: selectedDevice.record.battery == null ? "-" : `${selectedDevice.record.battery}%`,
-                      },
-                      {
-                        key: "signal",
-                        label: "信号",
-                        children: selectedDevice.record.signal == null ? "-" : `${selectedDevice.record.signal} dBm`,
-                      },
-                      { key: "firmware", label: "固件版本", children: selectedDevice.record.firmwareVersion ?? "-" },
-                      { key: "lastOnlineAt", label: "最后在线时间", children: formatTime(selectedDevice.record.lastOnlineAt) },
-                      { key: "createdAt", label: "注册时间", children: formatTime(selectedDevice.record.createdAt) },
-                      { key: "updatedAt", label: "更新时间", children: formatTime(selectedDevice.record.updatedAt) },
-                    ]
-                  : [
-                      { key: "name", label: "设备名称", children: selectedDevice.record.name ?? "-" },
-                      { key: "id", label: "设备 ID", children: selectedDevice.record.id },
-                      { key: "mac", label: "MAC 地址", children: selectedDevice.record.macAddress ?? "-" },
-                      { key: "status", label: "在线状态", children: renderStatus(selectedDevice.record.status) },
-                      {
-                        key: "bound",
-                        label: "绑定状态",
-                        children: selectedDevice.record.activeBindingCount > 0 ? "已绑定" : "未绑定",
-                      },
-                      { key: "owner", label: "绑定用户", children: selectedDevice.record.ownerNickname ?? "-" },
-                      {
-                        key: "pets",
-                        label: "绑定宠物",
-                        children:
-                          selectedDevice.record.bindingPets.length > 0 ? (
-                            <Space direction="vertical" size={8}>
-                              {selectedDevice.record.bindingPets.map((pet) => (
-                                <Space key={pet.id} align="center">
-                                  {renderPetAvatar(pet.avatarImageUrl, pet.name)}
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                    <span>{pet.name}</span>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                      {pet.avatarImageUrl ? "已同步上传图" : "暂无上传图"}
+          <Spin spinning={detailLoading}>
+            {detail && device ? (
+              <>
+                <Row gutter={[32, 20]} style={{ marginBottom: 28 }}>
+                  <Col xs={24} md={12} xl={6}>
+                    <Space direction="vertical" size={10}>
+                      <div>
+                        <Text type="secondary">设备名称</Text> <Text strong>{device.name || "-"}</Text>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <Text type="secondary">电池状态</Text>
+                        <Text strong>{batteryPercent == null ? "-" : `${batteryPercent}%`}</Text>
+                        <Progress
+                          percent={batteryPercent ?? 0}
+                          showInfo={false}
+                          strokeColor={batteryPercent == null ? "#cbd5e1" : "#22c55e"}
+                          trailColor="#e5e7eb"
+                          style={{ width: 90, marginInlineStart: 4 }}
+                        />
+                      </div>
+                    </Space>
+                  </Col>
+                  <Col xs={24} md={12} xl={6}>
+                    <Space direction="vertical" size={10}>
+                      <div>
+                        <Text type="secondary">设备型号</Text> <Text strong>{currentDeviceLabel}</Text>
+                      </div>
+                      <div>
+                        <Text type="secondary">信号强度</Text>{" "}
+                        <Text strong style={{ color: signalColor }}>
+                          {signalLabel}
+                        </Text>
+                      </div>
+                    </Space>
+                  </Col>
+                  <Col xs={24} md={12} xl={6}>
+                    <Space direction="vertical" size={10}>
+                      <div>
+                        <Text type="secondary">MAC地址</Text> <Text strong>{device.macAddress || "-"}</Text>
+                      </div>
+                      <div>
+                        <Text type="secondary">最后同步</Text> <Text strong>{formatRelativeTime(detail.lastSyncedAt)}</Text>
+                      </div>
+                    </Space>
+                  </Col>
+                  <Col xs={24} md={12} xl={6}>
+                    <Space direction="vertical" size={10}>
+                      <div>
+                        <Text type="secondary">固件版本</Text> <Text strong>-</Text>
+                      </div>
+                      <div>
+                        <Text type="secondary">激活时间</Text> <Text strong>{formatTime(detail.activatedAt)}</Text>
+                      </div>
+                    </Space>
+                  </Col>
+                </Row>
+
+                <Card title={<Text strong style={{ fontSize: 16 }}>设备宠物</Text>} styles={{ body: { padding: 16 } }}>
+                  <Row gutter={[16, 16]}>
+                    <Col xs={24} xl={12}>
+                      <Card bordered={false} style={{ background: "#f8fafc", borderRadius: 16, minHeight: 250 }} styles={{ body: { padding: 18 } }}>
+                        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                          <div>
+                            <Text strong>设备宠物信息</Text>
+                            <div style={{ marginTop: 4 }}>
+                              {renderBindingStatus(!!pet || bindingPets.length > 0)}
+                            </div>
+                          </div>
+
+                          {device.type === "desktop" && bindingPets.length > 0 ? (
+                            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                              {bindingPets.map((bindingPet) => (
+                                <div
+                                  key={bindingPet.id}
+                                  style={{ display: "flex", gap: 16, alignItems: "center" }}
+                                >
+                                  {renderPetAvatar(bindingPet.avatarUrl, bindingPet.name)}
+                                  <div style={{ minWidth: 0 }}>
+                                    <Title level={4} style={{ margin: 0 }}>
+                                      {bindingPet.name}
+                                    </Title>
+                                    <Text type="secondary">
+                                      {bindingPet.speciesLabel ?? "暂未绑定"}
                                     </Text>
                                   </div>
-                                </Space>
+                                </div>
                               ))}
                             </Space>
                           ) : (
-                            renderBindingPets(selectedDevice.record.bindingPetNames)
-                          ),
-                      },
-                      { key: "firmware", label: "固件版本", children: selectedDevice.record.firmwareVersion ?? "-" },
-                      { key: "lastOnlineAt", label: "最后在线时间", children: formatTime(selectedDevice.record.lastOnlineAt) },
-                      { key: "createdAt", label: "注册时间", children: formatTime(selectedDevice.record.createdAt) },
-                      { key: "updatedAt", label: "更新时间", children: formatTime(selectedDevice.record.updatedAt) },
-                    ]
-              }
-            />
+                            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                              {renderPetAvatar(pet?.avatarUrl, pet?.name ?? "未绑定宠物")}
 
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button onClick={() => setSelectedDevice(null)}>关闭</Button>
-            </div>
+                              <div style={{ minWidth: 0 }}>
+                                <Title level={4} style={{ margin: 0 }}>
+                                  {pet?.name ?? "未绑定宠物"}
+                                </Title>
+                                <Text type="secondary">
+                                  {pet ? `${pet.speciesLabel}` : "暂未绑定"}
+                                </Text>
+                              </div>
+                            </div>
+                          )}
+
+                          <Row gutter={[12, 12]}>
+                            <Col span={8}>
+                              <Text type="secondary">主人</Text>
+                              <div>
+                                <Text strong>{owner?.nickname ?? "-"}</Text>
+                              </div>
+                            </Col>
+                            <Col span={8}>
+                              <Text type="secondary">
+                                {device.type === "desktop" && bindingPets.length > 0 ? "绑定宠物数" : "陪伴时长"}
+                              </Text>
+                              <div>
+                                <Text strong style={{ color: "#3b82f6" }}>
+                                  {device.type === "desktop" && bindingPets.length > 0
+                                    ? `${bindingPets.length}只`
+                                    : pet
+                                      ? `${pet.companionDays}天`
+                                      : "-"}
+                                </Text>
+                              </div>
+                            </Col>
+                            <Col span={8}>
+                              <Text type="secondary">
+                                {device.type === "desktop" && bindingPets.length > 0 ? "首个宠物编号" : "宠物编号"}
+                              </Text>
+                              <div>
+                                <Text strong>{bindingPets[0]?.id ?? pet?.id ?? "-"}</Text>
+                              </div>
+                            </Col>
+                          </Row>
+                        </Space>
+                      </Card>
+                    </Col>
+
+                    <Col xs={24} xl={12}>
+                      <Card bordered={false} style={{ background: "#effcf5", borderRadius: 16, minHeight: 250 }} styles={{ body: { padding: 18 } }}>
+                        <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                            <div>
+                              <Text strong style={{ color: "#166534" }}>宠物图像定制</Text>
+                              <div style={{ marginTop: 4 }}>
+                                <Text type="secondary">
+                                  {completedActions >= totalActions && totalActions > 0 ? "已完成" : avatarUploaded ? "定制中" : "待开始"}
+                                </Text>
+                              </div>
+                            </div>
+                            <Text strong style={{ color: "#166534", fontSize: 28 }}>
+                              {`${completedActions}/${totalActions} 完成`}
+                            </Text>
+                          </div>
+
+                          <Space direction="vertical" size={8}>
+                            <Text style={{ color: avatarUploaded ? "#166534" : "#8c8c8c" }}>
+                              {avatarUploaded ? "✓ 图像已上传" : "× 图像未上传"}
+                            </Text>
+                            <Text style={{ color: avatarApproved ? "#166534" : "#8c8c8c" }}>
+                              {avatarApproved ? "✓ 图像已审核" : detail.avatarProgress.pending > 0 ? `审核中 ${detail.avatarProgress.pending}` : "× 等待图像审核"}
+                            </Text>
+                            <Text type="secondary">{`动态生成中 ${completedActions}/${totalActions}`}</Text>
+                          </Space>
+
+                          <Progress percent={avatarProgressPercent} showInfo={false} strokeColor="#22c55e" trailColor="#dbe4f0" />
+
+                          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                            <Text type="secondary">{`最后更新 ${formatTime(detail.lastSyncedAt ?? device.lastOnlineAt)}`}</Text>
+                          </div>
+                        </Space>
+                      </Card>
+                    </Col>
+
+                    <Col xs={24} xl={12}>
+                      <Card bordered={false} style={{ background: "#eef5ff", borderRadius: 16, minHeight: 220 }} styles={{ body: { padding: 18 } }}>
+                        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                          <div>
+                            <Text strong style={{ color: "#1d4ed8" }}>
+                              {device.type === "desktop" ? "桌面端与项圈绑定" : "项圈与桌面端绑定"}
+                            </Text>
+                            <div style={{ marginTop: 4 }}>{renderBindingStatus(!!counterpart)}</div>
+                          </div>
+
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                            <Card bordered={false} style={{ background: "#dbeafe", width: "100%" }} styles={{ body: { padding: 16, textAlign: "center" } }}>
+                              <Text type="secondary">{device.type === "desktop" ? "桌面端" : "项圈"}</Text>
+                              <Title level={4} style={{ margin: "8px 0 0" }}>
+                                {device.name || currentDeviceLabel}
+                              </Title>
+                            </Card>
+                            <Text style={{ fontSize: 28, color: "#0f172a" }}>⟷</Text>
+                            <Card bordered={false} style={{ background: "#dbeafe", width: "100%" }} styles={{ body: { padding: 16, textAlign: "center" } }}>
+                              <Text type="secondary">{counterpart ? (counterpart.type === "desktop" ? "桌面端" : "项圈") : counterpartLabel}</Text>
+                              <Title level={4} style={{ margin: "8px 0 0" }}>
+                                {counterpart?.name ?? "暂无绑定设备"}
+                              </Title>
+                            </Card>
+                          </div>
+
+                          <div style={{ textAlign: "center" }}>
+                            <Text type="secondary">{counterpart ? "已建立关联设备" : "待建立绑定关系"}</Text>
+                          </div>
+                        </Space>
+                      </Card>
+                    </Col>
+
+                    <Col xs={24} xl={12}>
+                      <Card bordered={false} style={{ background: "#fff7ed", borderRadius: 16, minHeight: 220 }} styles={{ body: { padding: 18 } }}>
+                        <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                          <div>
+                            <Text strong style={{ color: "#c2410c" }}>设备状态信息</Text>
+                            <div style={{ marginTop: 4 }}>{renderStatus(device.status)}</div>
+                          </div>
+
+                          <Row gutter={[16, 16]}>
+                            <Col span={12}>
+                              <Text type="secondary">连接状态</Text>
+                              <div>
+                                <Text strong style={{ color: device.status === "online" ? "#16a34a" : "#c2410c" }}>
+                                  {device.status === "online" ? "已连接" : STATUS_LABELS[device.status]}
+                                </Text>
+                              </div>
+                            </Col>
+                            <Col span={12}>
+                              <Text type="secondary">设备型号</Text>
+                              <div>
+                                <Text strong>{currentDeviceLabel}</Text>
+                              </div>
+                            </Col>
+                            <Col span={12}>
+                              <Text type="secondary">最近活跃</Text>
+                              <div>
+                                <Text strong>{formatRelativeTime(device.lastOnlineAt)}</Text>
+                              </div>
+                            </Col>
+                            <Col span={12}>
+                              <Text type="secondary">激活时间</Text>
+                              <div>
+                                <Text strong>{formatShortDate(detail.activatedAt)}</Text>
+                              </div>
+                            </Col>
+                            <Col span={12}>
+                              <Text type="secondary">电池</Text>
+                              <div>
+                                <Text strong>{batteryPercent == null ? "-" : `${batteryPercent}%`}</Text>
+                              </div>
+                            </Col>
+                            <Col span={12}>
+                              <Text type="secondary">信号</Text>
+                              <div>
+                                <Text strong style={{ color: signalColor }}>
+                                  {signalLabel}
+                                </Text>
+                              </div>
+                            </Col>
+                          </Row>
+                        </Space>
+                      </Card>
+                    </Col>
+                  </Row>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <Text type="secondary">设备详情加载失败或数据为空。</Text>
+              </Card>
+            )}
+          </Spin>
+        </Card>
+      </Space>
+    );
+  }
+
+  return (
+    <Space direction="vertical" size={16} style={{ display: "flex" }}>
+      <div>
+        <Title level={2} style={{ margin: 0 }}>
+          设备管理
+        </Title>
+      </div>
+
+      <Card>
+        <Input
+          allowClear
+          value={keyword}
+          prefix={<SearchOutlined />}
+          placeholder="搜索ID设备、型号、用户..."
+          onChange={(event) => setKeyword(event.target.value)}
+        />
+      </Card>
+
+      <Card
+        title={
+          <Space split={<Text type="secondary">|</Text>}>
+            <Text strong>设备列表</Text>
+            <Text type="secondary">共 {speciesFilter === "other" ? filteredDevices.length : total} 台设备</Text>
+            <Text type="secondary">{boundDeviceCount} 台设备已绑定</Text>
           </Space>
-        ) : null}
-      </Drawer>
-    </>
+        }
+      >
+        <Spin spinning={loading}>
+          <Table<AdminDeviceListItem>
+            dataSource={filteredDevices}
+            columns={columns}
+            rowKey={(record) => `${record.type}-${record.id}`}
+            scroll={{ x: 1440 }}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            onChange={(_pagination, filters) => {
+              setModelFilter(pickSingleFilter<DeviceModelFilter>(filters.type, "all"));
+              setImageFilter(pickSingleFilter<DeviceImageFilter>(filters.hasUploadedAvatar, "all"));
+              setBoundFilter(pickSingleFilter<DeviceBoundFilter>(filters.bindingCount, "all"));
+              setSpeciesFilter(pickSingleFilter<SpeciesFilter>(filters.petName, "all"));
+              setStatusFilter(pickSingleFilter<DeviceStatusFilter>(filters.status, "all"));
+              setSortOrder(pickSingleFilter<CreatedSortOrder>(filters.createdAt, "desc"));
+            }}
+          />
+        </Spin>
+      </Card>
+    </Space>
   );
 }

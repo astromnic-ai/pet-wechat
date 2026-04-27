@@ -2,6 +2,11 @@
 
 YEHEY 宠物"在场" - 微信小程序 MVP
 
+## 协作语言约定
+
+- 提 GitHub Issue 时请使用中文
+- 编写项目文档时请使用中文
+
 ## 技术栈
 
 - 前端：Taro 4 + React + TypeScript + Sass（微信小程序）

@@ -10,6 +10,7 @@ import {
   boolean,
   pgEnum,
   index,
+  jsonb,
   unique,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -36,6 +37,7 @@ export const avatarStatusEnum = pgEnum("avatar_status", [
 export const scheduleEffectiveTypeEnum = pgEnum("schedule_effective_type", [
   "everyday",
   "weekday",
+  "friday",
 ]);
 export const messageTypeEnum = pgEnum("message_type", [
   "authorization",
@@ -73,6 +75,17 @@ export const userSettingLanguageEnum = pgEnum("user_setting_language", [
   "zh-TW",
   "en-US",
 ]);
+export const membershipLevelEnum = pgEnum("membership_level", [
+  "free",
+  "basic",
+  "pro",
+  "premium",
+]);
+export const membershipStatusEnum = pgEnum("membership_status", [
+  "active",
+  "expired",
+  "suspended",
+]);
 
 // ===== 用户 =====
 
@@ -94,6 +107,30 @@ export const users = pgTable(
       .defaultNow(),
   },
   (table) => [uniqueIndex("users_email_unique").on(table.email)],
+);
+
+export const memberships = pgTable(
+  "memberships",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    level: membershipLevelEnum("level").notNull().default("free"),
+    status: membershipStatusEnum("status").notNull().default("active"),
+    startAt: timestamp("start_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expireAt: timestamp("expire_at", { withTimezone: true }),
+    benefits: jsonb("benefits").notNull().default(sql`'[]'::jsonb`),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [uniqueIndex("uq_memberships_user_id").on(table.userId)],
 );
 
 // ===== 宠物 =====
@@ -118,33 +155,37 @@ export const pets = pgTable("pets", {
 
 // ===== 项圈设备 =====
 
-export const collarDevices = pgTable("collar_devices", {
-  id: text("id").primaryKey().$defaultFn(createId),
-  userId: text("user_id"),
-  petId: text("pet_id"),
-  name: text("name").notNull(),
-  macAddress: text("mac_address").notNull().unique(),
-  status: deviceStatusEnum("status").notNull().default("offline"),
-  battery: integer("battery"),
-  signal: integer("signal"),
-  firmwareVersion: text("firmware_version"),
-  claimStatus: deviceClaimStatusEnum("claim_status")
-    .notNull()
-    .default("occupied"),
-  usageDurationMinutes: integer("usage_duration_minutes")
-    .notNull()
-    .default(0),
-  upgradeStatus: deviceUpgradeStatusEnum("upgrade_status")
-    .notNull()
-    .default("idle"),
-  lastOnlineAt: timestamp("last_online_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const collarDevices = pgTable(
+  "collar_devices",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    userId: text("user_id"),
+    petId: text("pet_id"),
+    name: text("name").notNull(),
+    macAddress: text("mac_address").notNull().unique(),
+    status: deviceStatusEnum("status").notNull().default("offline"),
+    battery: integer("battery"),
+    signal: integer("signal"),
+    firmwareVersion: text("firmware_version"),
+    claimStatus: deviceClaimStatusEnum("claim_status")
+      .notNull()
+      .default("occupied"),
+    usageDurationMinutes: integer("usage_duration_minutes")
+      .notNull()
+      .default(0),
+    upgradeStatus: deviceUpgradeStatusEnum("upgrade_status")
+      .notNull()
+      .default("idle"),
+    lastOnlineAt: timestamp("last_online_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("idx_collar_devices_pet_id").on(table.petId)],
+);
 
 // ===== 桌面端设备 =====
 
@@ -175,16 +216,27 @@ export const desktopDevices = pgTable("desktop_devices", {
 
 // ===== 桌面端-宠物绑定 =====
 
-export const desktopPetBindings = pgTable("desktop_pet_bindings", {
-  id: text("id").primaryKey().$defaultFn(createId),
-  desktopDeviceId: text("desktop_device_id").notNull(),
-  petId: text("pet_id").notNull(),
-  bindingType: bindingTypeEnum("binding_type").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  unboundAt: timestamp("unbound_at", { withTimezone: true }),
-});
+export const desktopPetBindings = pgTable(
+  "desktop_pet_bindings",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    desktopDeviceId: text("desktop_device_id").notNull(),
+    petId: text("pet_id").notNull(),
+    bindingType: bindingTypeEnum("binding_type").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    unboundAt: timestamp("unbound_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("idx_desktop_pet_bindings_device_created_at")
+      .on(table.desktopDeviceId, sql`${table.createdAt} desc`)
+      .where(sql`${table.unboundAt} is null`),
+    index("idx_desktop_pet_bindings_pet_id")
+      .on(table.petId)
+      .where(sql`${table.unboundAt} is null`),
+  ],
+);
 
 // ===== 设备授权 =====
 
@@ -217,28 +269,47 @@ export const inviteCodes = pgTable("invite_codes", {
 
 // ===== 宠物形象 =====
 
-export const petAvatars = pgTable("pet_avatars", {
-  id: text("id").primaryKey().$defaultFn(createId),
-  petId: text("pet_id").notNull(),
-  sourceImageUrl: text("source_image_url").notNull(),
-  additionalImageUrls: text("additional_image_urls"),
-  petDescription: text("pet_description"),
-  funFact: text("fun_fact"),
-  status: avatarStatusEnum("status").notNull().default("pending"),
-  rejectReason: text("reject_reason"),
-  reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-});
+export const petAvatars = pgTable(
+  "pet_avatars",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    petId: text("pet_id").notNull(),
+    sourceImageUrl: text("source_image_url").notNull(),
+    additionalImageUrls: text("additional_image_urls"),
+    petDescription: text("pet_description"),
+    funFact: text("fun_fact"),
+    status: avatarStatusEnum("status").notNull().default("pending"),
+    rejectReason: text("reject_reason"),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_pet_avatars_pet_created_at").on(
+      table.petId,
+      sql`${table.createdAt} desc`,
+    ),
+  ],
+);
 
-export const petAvatarActions = pgTable("pet_avatar_actions", {
-  id: text("id").primaryKey().$defaultFn(createId),
-  petAvatarId: text("pet_avatar_id").notNull(),
-  actionType: text("action_type").notNull(),
-  imageUrl: text("image_url").notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-});
+export const petAvatarActions = pgTable(
+  "pet_avatar_actions",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    petAvatarId: text("pet_avatar_id").notNull(),
+    actionType: text("action_type").notNull(),
+    imageUrl: text("image_url").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    index("idx_pet_avatar_actions_avatar_sort_order").on(
+      table.petAvatarId,
+      table.sortOrder,
+      table.id,
+    ),
+  ],
+);
 
 // ===== 宠物行为 =====
 
