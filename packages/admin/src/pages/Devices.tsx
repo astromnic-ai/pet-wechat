@@ -177,6 +177,36 @@ function renderBindingStatus(isBound: boolean) {
   return isBound ? <Tag color="green">已绑定</Tag> : <Tag color="default">未绑定</Tag>;
 }
 
+function renderPetAvatar(imageUrl: string | null | undefined, label: string) {
+  if (imageUrl) {
+    return (
+      <img
+        src={imageUrl}
+        alt={label}
+        style={{
+          width: 84,
+          height: 84,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      style={{
+        width: 84,
+        height: 84,
+        borderRadius: "50%",
+        background: "#dbe4f0",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
+
 function pickSingleFilter<T extends string>(value: unknown, fallback: T): T {
   if (Array.isArray(value) && typeof value[0] === "string") {
     return value[0] as T;
@@ -463,6 +493,7 @@ export default function DevicesPage() {
     const device = detail?.device ?? null;
     const pet = detail?.pet ?? null;
     const owner = detail?.owner ?? null;
+    const bindingPets = detail?.bindingPets ?? [];
     const counterpart =
       detail?.relatedDevices.find((item) => item.type !== detail.device.type) ??
       detail?.relatedDevices[0] ??
@@ -591,43 +622,44 @@ export default function DevicesPage() {
                         <Space direction="vertical" size={12} style={{ width: "100%" }}>
                           <div>
                             <Text strong>设备宠物信息</Text>
-                            <div style={{ marginTop: 4 }}>{renderBindingStatus(!!pet)}</div>
-                          </div>
-
-                          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                            {pet?.avatarUrl ? (
-                              <img
-                                src={pet.avatarUrl}
-                                alt={pet.name}
-                                style={{
-                                  width: 84,
-                                  height: 84,
-                                  borderRadius: "50%",
-                                  objectFit: "cover",
-                                  flexShrink: 0,
-                                }}
-                              />
-                            ) : (
-                              <div
-                                style={{
-                                  width: 84,
-                                  height: 84,
-                                  borderRadius: "50%",
-                                  background: "#dbe4f0",
-                                  flexShrink: 0,
-                                }}
-                              />
-                            )}
-
-                            <div style={{ minWidth: 0 }}>
-                              <Title level={4} style={{ margin: 0 }}>
-                                {pet?.name ?? "未绑定宠物"}
-                              </Title>
-                              <Text type="secondary">
-                                {pet ? `${pet.speciesLabel}` : "暂未绑定"}
-                              </Text>
+                            <div style={{ marginTop: 4 }}>
+                              {renderBindingStatus(!!pet || bindingPets.length > 0)}
                             </div>
                           </div>
+
+                          {device.type === "desktop" && bindingPets.length > 0 ? (
+                            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                              {bindingPets.map((bindingPet) => (
+                                <div
+                                  key={bindingPet.id}
+                                  style={{ display: "flex", gap: 16, alignItems: "center" }}
+                                >
+                                  {renderPetAvatar(bindingPet.avatarUrl, bindingPet.name)}
+                                  <div style={{ minWidth: 0 }}>
+                                    <Title level={4} style={{ margin: 0 }}>
+                                      {bindingPet.name}
+                                    </Title>
+                                    <Text type="secondary">
+                                      {bindingPet.speciesLabel ?? "暂未绑定"}
+                                    </Text>
+                                  </div>
+                                </div>
+                              ))}
+                            </Space>
+                          ) : (
+                            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                              {renderPetAvatar(pet?.avatarUrl, pet?.name ?? "未绑定宠物")}
+
+                              <div style={{ minWidth: 0 }}>
+                                <Title level={4} style={{ margin: 0 }}>
+                                  {pet?.name ?? "未绑定宠物"}
+                                </Title>
+                                <Text type="secondary">
+                                  {pet ? `${pet.speciesLabel}` : "暂未绑定"}
+                                </Text>
+                              </div>
+                            </div>
+                          )}
 
                           <Row gutter={[12, 12]}>
                             <Col span={8}>
@@ -637,17 +669,25 @@ export default function DevicesPage() {
                               </div>
                             </Col>
                             <Col span={8}>
-                              <Text type="secondary">陪伴时长</Text>
+                              <Text type="secondary">
+                                {device.type === "desktop" && bindingPets.length > 0 ? "绑定宠物数" : "陪伴时长"}
+                              </Text>
                               <div>
                                 <Text strong style={{ color: "#3b82f6" }}>
-                                  {pet ? `${pet.companionDays}天` : "-"}
+                                  {device.type === "desktop" && bindingPets.length > 0
+                                    ? `${bindingPets.length}只`
+                                    : pet
+                                      ? `${pet.companionDays}天`
+                                      : "-"}
                                 </Text>
                               </div>
                             </Col>
                             <Col span={8}>
-                              <Text type="secondary">宠物编号</Text>
+                              <Text type="secondary">
+                                {device.type === "desktop" && bindingPets.length > 0 ? "首个宠物编号" : "宠物编号"}
+                              </Text>
                               <div>
-                                <Text strong>{pet?.id ?? "-"}</Text>
+                                <Text strong>{bindingPets[0]?.id ?? pet?.id ?? "-"}</Text>
                               </div>
                             </Col>
                           </Row>

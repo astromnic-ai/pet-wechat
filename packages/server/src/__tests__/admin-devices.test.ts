@@ -50,6 +50,52 @@ describe("Admin Device Routes", () => {
     expect(json.desktops[0].ownerNickname).toBe("Alice");
     expect(json.desktops[0].bindingPetNames).toEqual(["Mimi", "Coco"]);
     expect(json.desktops[0].activeBindingCount).toBe(2);
+    expect(json.desktops[0].bindingPets).toEqual([
+      { id: "pet-1", name: "Mimi", avatarImageUrl: null },
+      { id: "pet-2", name: "Coco", avatarImageUrl: null },
+    ]);
+  });
+
+  it("attaches latest uploaded pet image for bound collars", async () => {
+    const collar = {
+      id: "collar-1",
+      userId: "user-1",
+      petId: "pet-1",
+      name: "Hallway Collar",
+      macAddress: "AA:BB:CC:DD:EE:FF",
+      status: "online",
+      battery: 90,
+      signal: -55,
+      firmwareVersion: "1.0.0",
+      claimStatus: "occupied",
+      usageDurationMinutes: 12,
+      upgradeStatus: "idle",
+      lastOnlineAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    mockDb._results.select = [
+      [
+        {
+          collar,
+          ownerNickname: "Alice",
+          petName: "Mimi",
+        },
+      ],
+      [
+        {
+          petId: "pet-1",
+          sourceImageUrl: "https://example.com/upload.jpg",
+        },
+      ],
+    ];
+
+    const res = await app.request(jsonReq("GET", "/api/admin/collars"));
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.collars[0].petImageUrl).toBe("https://example.com/upload.jpg");
   });
 
   it("accepts species=other on the unified devices list", async () => {

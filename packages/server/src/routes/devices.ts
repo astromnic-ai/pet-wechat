@@ -22,6 +22,15 @@ function getInviteCodeHash(code: string): string {
   return createHash("sha256").update(code).digest("hex");
 }
 
+function buildOnlineDeviceState() {
+  const now = new Date();
+  return {
+    status: "online" as const,
+    lastOnlineAt: now,
+    updatedAt: now,
+  };
+}
+
 async function findCollarByMac(macAddress: string) {
   const [collar] = await db
     .select()
@@ -222,7 +231,7 @@ devicesRoute.post("/collars/register", async (c) => {
         userId,
         name: body.name ?? "我的项圈",
         macAddress,
-        status: "online" as const,
+        ...buildOnlineDeviceState(),
       })
       .onConflictDoNothing()
       .returning();
@@ -243,9 +252,8 @@ devicesRoute.post("/collars/register", async (c) => {
       .set({
         userId,
         name: body.name ?? existing.name,
-        status: "online" as const,
         claimStatus: "occupied" as const,
-        updatedAt: new Date(),
+        ...buildOnlineDeviceState(),
       })
       .where(and(eq(collarDevices.id, existing.id), isNull(collarDevices.userId)))
       .returning();
@@ -263,7 +271,13 @@ devicesRoute.post("/collars/register", async (c) => {
   }
 
   if (existing.userId === userId) {
-    return c.json({ collar: existing });
+    const [collar] = await db
+      .update(collarDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(collarDevices.id, existing.id))
+      .returning();
+
+    return c.json({ collar: collar ?? existing });
   }
 
   return c.json({ error: "Collar is already registered to another user" }, 409);
@@ -291,7 +305,7 @@ devicesRoute.post("/desktops/register", async (c) => {
         userId,
         name: body.name ?? "我的桌面端",
         macAddress,
-        status: "online" as const,
+        ...buildOnlineDeviceState(),
       })
       .onConflictDoNothing()
       .returning();
@@ -312,9 +326,8 @@ devicesRoute.post("/desktops/register", async (c) => {
       .set({
         userId,
         name: body.name ?? existing.name,
-        status: "online" as const,
         claimStatus: "occupied" as const,
-        updatedAt: new Date(),
+        ...buildOnlineDeviceState(),
       })
       .where(and(eq(desktopDevices.id, existing.id), isNull(desktopDevices.userId)))
       .returning();
@@ -332,7 +345,13 @@ devicesRoute.post("/desktops/register", async (c) => {
   }
 
   if (existing.userId === userId) {
-    return c.json({ desktop: existing });
+    const [desktop] = await db
+      .update(desktopDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(desktopDevices.id, existing.id))
+      .returning();
+
+    return c.json({ desktop: desktop ?? existing });
   }
 
   return c.json({ error: "Desktop is already registered to another user" }, 409);
@@ -351,9 +370,8 @@ devicesRoute.post("/collars/:id/claim", async (c) => {
     .set({
       userId,
       name: body.name ?? "我的项圈",
-      status: "online" as const,
       claimStatus: "occupied" as const,
-      updatedAt: new Date(),
+      ...buildOnlineDeviceState(),
     })
     .where(and(eq(collarDevices.id, id), isNull(collarDevices.userId)))
     .returning();
@@ -372,9 +390,8 @@ devicesRoute.post("/desktops/:id/claim", async (c) => {
     .set({
       userId,
       name: body.name ?? "我的桌面端",
-      status: "online" as const,
       claimStatus: "occupied" as const,
-      updatedAt: new Date(),
+      ...buildOnlineDeviceState(),
     })
     .where(and(eq(desktopDevices.id, id), isNull(desktopDevices.userId)))
     .returning();
@@ -414,6 +431,7 @@ devicesRoute.post("/collars", async (c) => {
       name: body.name ?? "我的项圈",
       macAddress: body.macAddress,
       petId: body.petId ?? null,
+      ...buildOnlineDeviceState(),
     })
     .returning();
   return c.json({ collar }, 201);
@@ -444,7 +462,7 @@ devicesRoute.put("/collars/:id", async (c) => {
     .set({
       name: body.name ?? existing.name,
       petId: body.petId !== undefined ? body.petId : existing.petId,
-      updatedAt: new Date(),
+      ...buildOnlineDeviceState(),
     })
     .where(eq(collarDevices.id, id))
     .returning();
@@ -476,6 +494,7 @@ devicesRoute.post("/desktops", async (c) => {
       userId,
       name: body.name ?? "我的桌面端",
       macAddress: body.macAddress,
+      ...buildOnlineDeviceState(),
     })
     .returning();
   return c.json({ desktop }, 201);
@@ -664,27 +683,40 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
     .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
   if (!pet) return c.json({ error: "Pet not found" }, 404);
 
-  const [existingBinding] = await db
-    .select()
-    .from(desktopPetBindings)
-    .where(
-      and(
-        eq(desktopPetBindings.desktopDeviceId, desktopId),
-        eq(desktopPetBindings.petId, body.petId),
-        isNull(desktopPetBindings.unboundAt),
-      )
-    );
-  if (existingBinding) return c.json({ binding: existingBinding });
+  const result = await db.transaction(async (tx) => {
+    await tx
+      .update(desktopDevices)
+      .set(buildOnlineDeviceState())
+      .where(eq(desktopDevices.id, desktopId));
 
-  const [binding] = await db
-    .insert(desktopPetBindings)
-    .values({
-      desktopDeviceId: desktopId,
-      petId: body.petId,
-      bindingType: body.bindingType,
-    })
-    .returning();
-  return c.json({ binding }, 201);
+    const [activeBinding] = await tx
+      .select()
+      .from(desktopPetBindings)
+      .where(
+        and(
+          eq(desktopPetBindings.desktopDeviceId, desktopId),
+          eq(desktopPetBindings.petId, body.petId),
+          isNull(desktopPetBindings.unboundAt),
+        ),
+      );
+
+    if (activeBinding) {
+      return { binding: activeBinding, created: false };
+    }
+
+    const [binding] = await tx
+      .insert(desktopPetBindings)
+      .values({
+        desktopDeviceId: desktopId,
+        petId: body.petId,
+        bindingType: body.bindingType,
+      })
+      .returning();
+
+    return { binding, created: true };
+  });
+
+  return c.json({ binding: result.binding }, result.created ? 201 : 200);
 });
 
 devicesRoute.delete("/desktops/:id/bind/:bindingId", async (c) => {

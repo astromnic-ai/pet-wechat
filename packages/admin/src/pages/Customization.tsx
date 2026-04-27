@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckOutlined, DeleteOutlined, SyncOutlined, UploadOutlined } from "@ant-design/icons";
+import {
+  CheckOutlined,
+  DeleteOutlined,
+  DownloadOutlined,
+  SyncOutlined,
+  UploadOutlined,
+} from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -163,6 +169,21 @@ function formatDate(value?: string | null) {
   return parsed.isValid() ? parsed.format("YYYY-MM-DD") : "-";
 }
 
+function parseAdditionalImages(rawValue?: string | null) {
+  if (!rawValue) {
+    return [] as string[];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed)
+      ? parsed.filter((item): item is string => typeof item === "string" && item.length > 0)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
 function buildActionMap(actions: PetAvatarAction[]) {
   return actions.reduce<Record<string, CustomizationAction>>((map, action) => {
     map[action.actionType] = action as CustomizationAction;
@@ -218,6 +239,17 @@ function getDefaultPreviewActionType(actions: PetAvatarAction[]) {
   }
 
   return actions[0].actionType as ActionType;
+}
+
+function openImageDownload(imageUrl: string, fallbackName: string) {
+  const link = document.createElement("a");
+  link.href = imageUrl;
+  link.download = fallbackName;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): CustomizationTask {
@@ -697,6 +729,12 @@ export default function Customization() {
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
   const previewImageUrl = previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
+  const selectedAvatarImage =
+    selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
+  const referenceImages = parseAdditionalImages(
+    selectedAvatarDetail?.additionalImageUrls ?? selectedAvatarSummary?.additionalImageUrls,
+  );
+  const selectedAvatarFilePrefix = selectedAvatarSummary?.id ?? selectedAvatarId ?? "avatar";
 
   const refreshCurrentAvatar = async (avatarId: string, nextDemoDetails?: CustomizationAvatarDetail[]) => {
     if (isDemoMode) {
@@ -1189,15 +1227,31 @@ export default function Customization() {
                           flexShrink: 0,
                         }}
                       >
-                        {previewImageUrl ? (
-                          <Image
-                            src={previewImageUrl}
+                          {previewImageUrl ? (
+                            <Image
+                              src={previewImageUrl}
                             alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "预览图"}
                             width={128}
                             height={128}
                             preview={false}
                             style={{ objectFit: "cover" }}
-                          />
+                            />
+                          ) : null}
+                      </div>
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {selectedAvatarImage ? (
+                          <Button
+                            icon={<DownloadOutlined />}
+                            onClick={() =>
+                              openImageDownload(
+                                selectedAvatarImage,
+                                `${selectedAvatarFilePrefix}-source.jpg`,
+                              )
+                            }
+                          >
+                            下载原图
+                          </Button>
                         ) : null}
                       </div>
 
@@ -1242,6 +1296,52 @@ export default function Customization() {
                       <Progress percent={Math.round((uploadedProgress.completed / totalActionCount) * 100)} showInfo={false} strokeColor="#52c41a" />
                     </div>
                   </div>
+
+                  {referenceImages.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 20 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                        <Text strong>个性化参考图</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          每张图都可单独下载，便于离线手动定制
+                        </Text>
+                      </div>
+
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {referenceImages.map((url, index) => (
+                          <div
+                            key={url}
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                              alignItems: "stretch",
+                            }}
+                          >
+                            <Image
+                              src={url}
+                              alt="个性化参考图"
+                              width={88}
+                              height={88}
+                              preview={false}
+                              style={{ objectFit: "cover", borderRadius: 12 }}
+                            />
+                            <Button
+                              size="small"
+                              icon={<DownloadOutlined />}
+                              onClick={() =>
+                                openImageDownload(
+                                  url,
+                                  `${selectedAvatarFilePrefix}-reference-${index + 1}.jpg`,
+                                )
+                              }
+                            >
+                              下载
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </Card>
 
                 {renderActionSection("基础动作", BASIC_ACTIONS)}

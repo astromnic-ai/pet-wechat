@@ -3,6 +3,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
+import { normalizePublicFileUrl } from "../../utils/storage";
 import { broadcast } from "../../ws";
 
 const avatarsRoute = new Hono();
@@ -28,6 +29,7 @@ type AvatarRow = {
   petBreed: string | null;
   petGender: string | null;
   petBirthday: string | null;
+  petWeight: number | null;
   userId: string | null;
   userNickname: string | null;
   userAvatarUrl: string | null;
@@ -45,16 +47,39 @@ function isSafeImageUrl(url: string): boolean {
 }
 
 function toAvatarResponse(row: AvatarRow) {
+  const normalizedAdditionalImages = row.avatar.additionalImageUrls
+    ? (() => {
+        try {
+          const parsed = JSON.parse(row.avatar.additionalImageUrls);
+          if (!Array.isArray(parsed)) {
+            return row.avatar.additionalImageUrls;
+          }
+
+          return JSON.stringify(
+            parsed.map((item) =>
+              typeof item === "string" ? normalizePublicFileUrl(item) ?? item : item,
+            ),
+          );
+        } catch {
+          return row.avatar.additionalImageUrls;
+        }
+      })()
+    : null;
+
   return {
     ...row.avatar,
+    sourceImageUrl:
+      normalizePublicFileUrl(row.avatar.sourceImageUrl) ?? row.avatar.sourceImageUrl,
+    additionalImageUrls: normalizedAdditionalImages,
     pet: row.petId
-        ? {
+      ? {
           id: row.petId,
           name: row.petName,
           species: row.petSpecies,
           breed: row.petBreed,
           gender: row.petGender,
           birthday: row.petBirthday,
+          weight: row.petWeight,
         }
       : null,
     user: row.userId
@@ -79,6 +104,7 @@ async function getAvatarRow(avatarId: string) {
       petBreed: pets.breed,
       petGender: pets.gender,
       petBirthday: pets.birthday,
+      petWeight: pets.weight,
       userId: users.id,
       userNickname: users.nickname,
       userAvatarUrl: users.avatarUrl,
@@ -94,11 +120,16 @@ async function getAvatarRow(avatarId: string) {
 }
 
 async function getAvatarActions(avatarId: string) {
-  return db
+  const actions = await db
     .select()
     .from(petAvatarActions)
     .where(eq(petAvatarActions.petAvatarId, avatarId))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
+
+  return actions.map((action) => ({
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+  }));
 }
 
 function getAvatarOwnerContext(row: AvatarRow) {
@@ -129,6 +160,7 @@ avatarsRoute.get("/avatars", async (c) => {
       petBreed: pets.breed,
       petGender: pets.gender,
       petBirthday: pets.birthday,
+      petWeight: pets.weight,
       userId: users.id,
       userNickname: users.nickname,
       userAvatarUrl: users.avatarUrl,
@@ -313,6 +345,39 @@ avatarsRoute.get("/avatars/:id/actions", async (c) => {
   return c.json({ actions });
 });
 
+avatarsRoute.put("/avatars/:id/meta", async (c) => {
+  const avatarId = c.req.param("id");
+  const body = await c.req.json<{ petDescription?: string | null; funFact?: string | null }>();
+  const row = await getAvatarRow(avatarId);
+
+  if (!row) {
+    return c.json({ error: "Avatar not found" }, 404);
+  }
+
+  const petDescription = typeof body.petDescription === "string" ? body.petDescription.trim() : "";
+  const funFact = typeof body.funFact === "string" ? body.funFact.trim() : "";
+
+  const [avatar] = await db
+    .update(petAvatars)
+    .set({
+      petDescription: petDescription || null,
+      funFact: funFact || null,
+    })
+    .where(eq(petAvatars.id, avatarId))
+    .returning();
+
+  return c.json({
+    avatar: toAvatarResponse({
+      ...row,
+      avatar: avatar ?? {
+        ...row.avatar,
+        petDescription: petDescription || null,
+        funFact: funFact || null,
+      },
+    }),
+  });
+});
+
 avatarsRoute.post("/avatars/:id/actions", async (c) => {
   const avatarId = c.req.param("id");
   const body = await c.req.json<{ actionType?: string; imageUrl?: string }>();
@@ -455,8 +520,10 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
   }
 
   const actions = await getAvatarActions(avatarId);
-  if (actions.length === 0) {
-    return c.json({ error: "Avatar must have at least one action" }, 400);
+  const completedActionTypes = new Set(actions.map((action) => action.actionType));
+
+  if (completedActionTypes.size < ALL_ACTIONS.length) {
+    return c.json({ error: `请先完成全部 ${ALL_ACTIONS.length} 个定制动作后再同步` }, 400);
   }
 
   if (row.avatar.status !== "processing" && row.avatar.status !== "approved") {
@@ -474,7 +541,9 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
       userId: ownerContext.userId,
       type: "system",
       title: "形象已就绪",
-      content: `${ownerContext.petName} 的新形象已生成，快去主页看看吧。`,
+      content: row.avatar.petDescription || row.avatar.funFact
+        ? `${ownerContext.petName} 的新形象和定制描述已同步完成，快去主页看看吧。`
+        : `${ownerContext.petName} 的新形象已生成，快去主页看看吧。`,
     });
 
     return [updatedAvatar];

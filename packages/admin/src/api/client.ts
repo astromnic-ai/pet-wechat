@@ -66,6 +66,32 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+async function uploadAdminFile(path: string, file: File): Promise<{ url: string; fileId: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`/api/admin${path}`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": getAdminKey(),
+    },
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("adminKey");
+    window.location.reload();
+    throw new Error("Admin Key 无效");
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+
+  return res.json();
+}
+
 export const api = {
   // Stats
   getStats: () => request<Record<string, number>>("/stats"),
@@ -115,7 +141,10 @@ export const api = {
   createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
     request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
   deleteAvatarAction: (id: string, actionId: string) => request(`/avatars/${id}/actions/${actionId}`, { method: "DELETE" }),
+  updateAvatarMeta: (id: string, data: { petDescription?: string; funFact?: string }) =>
+    request<{ avatar: any }>(`/avatars/${id}/meta`, { method: "PUT", body: JSON.stringify(data) }),
   syncAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/sync`, { method: "POST" }),
+  uploadAdminImage: (file: File) => uploadAdminFile("/upload", file),
 
   // Enhanced Stats
   getEnhancedStats: () => request<any>("/stats/enhanced"),

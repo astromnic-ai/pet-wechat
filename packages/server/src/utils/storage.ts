@@ -87,6 +87,50 @@ export async function saveLocalDevUpload(
   return await writeLocalStorageFile(key, body);
 }
 
+function joinPublicUrl(baseUrl: string, relativePath: string) {
+  return `${baseUrl.replace(/\/+$/, "")}/${relativePath.replace(/^\/+/, "")}`;
+}
+
+function getStorageRelativePath(pathname: string) {
+  if (pathname.startsWith("/storage/")) {
+    return pathname.slice("/storage/".length);
+  }
+
+  const bucketPrefix = `/${BUCKET}/`;
+  if (pathname.startsWith(bucketPrefix)) {
+    return pathname.slice(bucketPrefix.length);
+  }
+
+  return null;
+}
+
+export function normalizePublicFileUrl(rawUrl: string | null | undefined) {
+  if (!rawUrl) {
+    return rawUrl ?? null;
+  }
+
+  const publicBaseUrl =
+    process.env.S3_PUBLIC_URL?.trim() || process.env.APP_PUBLIC_URL?.trim() || "";
+
+  if (!publicBaseUrl) {
+    return rawUrl;
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    const relativePath = getStorageRelativePath(parsed.pathname);
+
+    if (!relativePath) {
+      return rawUrl;
+    }
+
+    return joinPublicUrl(publicBaseUrl, `${relativePath}${parsed.search}`);
+  } catch {
+    const relativePath = getStorageRelativePath(rawUrl);
+    return relativePath ? joinPublicUrl(publicBaseUrl, relativePath) : rawUrl;
+  }
+}
+
 export async function ensureBucket(): Promise<void> {
   if (!ensureBucketPromise) {
     ensureBucketPromise = (async () => {

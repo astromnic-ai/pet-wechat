@@ -205,6 +205,14 @@ export interface AdminDeviceDetailPet {
   companionDays: number;
 }
 
+export interface AdminDeviceDetailBindingPet {
+  id: string;
+  name: string;
+  species: Species | null;
+  speciesLabel: string | null;
+  avatarUrl: string | null;
+}
+
 export interface AdminDeviceRelationItem {
   type: DeviceType;
   id: string;
@@ -224,6 +232,7 @@ export interface AdminDeviceDetail {
   device: AdminDeviceListItem;
   owner: AdminDeviceDetailOwner | null;
   pet: AdminDeviceDetailPet | null;
+  bindingPets?: AdminDeviceDetailBindingPet[];
   relatedDevices: AdminDeviceRelationItem[];
   avatarProgress: AdminDeviceDetailAvatarProgress;
   lastSyncedAt: string | null;
@@ -247,6 +256,9 @@ export interface PetAvatar {
   id: string;
   petId: string;
   sourceImageUrl: string;
+  additionalImageUrls?: string | null;
+  petDescription?: string | null;
+  funFact?: string | null;
   status: AvatarStatus;
   rejectReason?: string | null;
   reviewedAt?: string | null;

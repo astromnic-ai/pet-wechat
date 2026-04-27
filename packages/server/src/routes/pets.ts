@@ -10,7 +10,7 @@ import {
   desktopPetBindings,
   deviceAuthorizations,
 } from "../db/schema";
-import { eq, and, isNull, inArray, gte, desc } from "drizzle-orm";
+import { eq, and, isNull, inArray, gte, lte, desc, sql } from "drizzle-orm";
 import type { PetLatestBehavior } from "shared";
 import { interactionRangeSchema } from "../validators/user-end";
 
@@ -161,9 +161,8 @@ function parseOccurredAt(occurredAt: Date | string) {
 function buildInteractionBuckets(
   range: "day" | "week" | "month",
   occurredAtList: Date[],
+  now: Date,
 ) {
-  const now = new Date();
-
   if (range === "day") {
     const todayStart = getStartOfLocalDay(now);
     const counts = new Array(24).fill(0);
@@ -299,20 +298,32 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
   if (!pet) return c.json({ error: "Pet not found" }, 404);
   if (!hasAccess) return c.json({ error: "Unauthorized" }, 403);
 
-  const events = await db
-    .select({
-      occurredAt: interactionEvents.occurredAt,
-    })
-    .from(interactionEvents)
-    .where(eq(interactionEvents.petId, petId));
-
   const now = new Date();
   const todayStart = getStartOfLocalDay(now);
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - 6);
   const monthStart = new Date(todayStart);
   monthStart.setDate(monthStart.getDate() - 29);
-  const occurredAtList = events
+  const [countRows, recentEvents] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(interactionEvents)
+      .where(eq(interactionEvents.petId, petId)),
+    db
+      .select({
+        occurredAt: interactionEvents.occurredAt,
+      })
+      .from(interactionEvents)
+      .where(
+        and(
+          eq(interactionEvents.petId, petId),
+          gte(interactionEvents.occurredAt, monthStart),
+          lte(interactionEvents.occurredAt, now),
+        ),
+      ),
+  ]);
+
+  const occurredAtList = recentEvents
     .map((event) => parseOccurredAt(event.occurredAt))
     .filter((occurredAt): occurredAt is Date => occurredAt !== null);
 
@@ -327,13 +338,13 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
   ).length;
 
   return c.json({
-    totalCount: events.length,
+    totalCount: Number(countRows[0]?.count ?? 0),
     todayCount,
     weekCount,
     monthCount,
     ...(range
       ? {
-          buckets: buildInteractionBuckets(range, occurredAtList),
+          buckets: buildInteractionBuckets(range, occurredAtList, now),
         }
       : {}),
   });

@@ -45,8 +45,27 @@ const createPresignedPutUrl = async (opts: {
 };
 
 const saveLocalDevUpload = async (key: string) => `http://localhost:9527/storage/${key}`;
-mock.module("../utils/storage", () => ({ uploadFile, createPresignedPutUrl, saveLocalDevUpload, ALLOWED_IMAGE_CONTENT_TYPES }));
-mock.module("../utils/storage.ts", () => ({ uploadFile, createPresignedPutUrl, saveLocalDevUpload, ALLOWED_IMAGE_CONTENT_TYPES }));
+const normalizePublicFileUrl = (url: string | null | undefined) => url ?? null;
+mock.module("../utils/storage", () => ({
+  uploadFile,
+  createPresignedPutUrl,
+  saveLocalDevUpload,
+  normalizePublicFileUrl,
+  ALLOWED_IMAGE_CONTENT_TYPES,
+}));
+mock.module("../utils/storage.ts", () => ({
+  uploadFile,
+  createPresignedPutUrl,
+  saveLocalDevUpload,
+  normalizePublicFileUrl,
+  ALLOWED_IMAGE_CONTENT_TYPES,
+}));
 
 const storagePath = new URL("../utils/storage.ts", import.meta.url).pathname;
-mock.module(storagePath, () => ({ uploadFile, createPresignedPutUrl, saveLocalDevUpload, ALLOWED_IMAGE_CONTENT_TYPES }));
+mock.module(storagePath, () => ({
+  uploadFile,
+  createPresignedPutUrl,
+  saveLocalDevUpload,
+  normalizePublicFileUrl,
+  ALLOWED_IMAGE_CONTENT_TYPES,
+}));
