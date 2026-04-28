@@ -6,6 +6,7 @@ export default defineAppConfig({
     "pages/devices/index",
     "pages/messages/index",
     "pages/profile/index",
+    "pages/member-center/index",
   ],
   subPackages: [
     { root: "pages/collar-bind", pages: ["index"] },

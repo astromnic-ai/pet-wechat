@@ -30,8 +30,8 @@ describe("Avatar Routes", () => {
       const pet = fakePet();
       const user = fakeUser({ avatarQuota: 1 });
       const avatar = fakeAvatar();
-      // select 1: pet ownership
-      mockDb._results.select = [[pet]];
+      // select 1: pet ownership, 2: user, 3: desktop quota count, 4: used quota count
+      mockDb._results.select = [[pet], [user], [{ count: 0 }], [{ count: 0 }]];
       // insert 1: create avatar
       mockDb._results.insert = [[avatar]];
 
@@ -60,10 +60,28 @@ describe("Avatar Routes", () => {
       expect(res.status).toBe(404);
     });
 
-    it("still creates avatar when quota is 0 because quota is display-only", async () => {
+    it("returns 400 when no available quota remains", async () => {
       const pet = fakePet();
+      const user = fakeUser({ avatarQuota: 0 });
+      mockDb._results.select = [[pet], [user], [{ count: 0 }], [{ count: 0 }]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/avatars", {
+          headers,
+          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+        })
+      );
+      expect(res.status).toBe(400);
+      const json = await res.json();
+      expect(json.error).toContain("暂无可用定制次数");
+    });
+
+    it("creates avatar when user has a desktop-provided quota", async () => {
+      const pet = fakePet();
+      const user = fakeUser({ avatarQuota: 0 });
       const avatar = fakeAvatar();
-      mockDb._results.select = [[pet]];
+      mockDb._results.select = [[pet], [user], [{ count: 1 }], [{ count: 0 }]];
       mockDb._results.insert = [[avatar]];
 
       const headers = await authHeader("user-1");
@@ -74,8 +92,6 @@ describe("Avatar Routes", () => {
         })
       );
       expect(res.status).toBe(201);
-      const json = await res.json();
-      expect(json.avatar.id).toBe("avatar-1");
     });
   });
 

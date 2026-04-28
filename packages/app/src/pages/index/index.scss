@@ -71,6 +71,7 @@
 .avatar-placeholder {
   width: 100%;
   height: 100%;
+  display: block;
 }
 
 .title-block {
@@ -204,39 +205,45 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 120rpx 18rpx 40rpx;
+  padding: 110rpx 6rpx 32rpx;
   box-sizing: border-box;
   position: relative;
 }
 
 .pet-showcase {
   display: block;
-  width: 88%;
-  max-width: 560rpx;
+  width: 96%;
+  max-width: 628rpx;
   animation: pet-float 2.4s ease-in-out infinite;
 }
 
-.pet-showcase--masked {
-  opacity: 0.28;
+.pet-showcase-video {
+  width: 96%;
+  max-width: 628rpx;
+  height: 760rpx;
 }
 
 .pet-showcase-overlay {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 64%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding-top: 180rpx;
   pointer-events: none;
 }
 
 .pet-showcase-overlay-text {
-  max-width: 320rpx;
+  max-width: 420rpx;
+  padding: 0;
+  background: transparent;
   font-size: 30rpx;
-  line-height: 1.4;
-  color: #8f8779;
+  line-height: 1.35;
+  color: #ffffff;
   text-align: center;
-  font-weight: 500;
+  font-weight: 700;
+  text-shadow: 0 4rpx 12rpx rgba(46, 37, 19, 0.18);
 }
 
 .switch-hint {
@@ -272,25 +279,30 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .empty-pet-image {
-  width: 100%;
-  max-width: 640rpx;
-  height: 920rpx;
-  opacity: 0.46;
+  width: 96%;
+  max-width: 628rpx;
+  opacity: 1;
+  animation: pet-float 2.4s ease-in-out infinite;
 }
 
 .empty-pet-text {
-  margin-top: -330rpx;
+  position: absolute;
+  top: 54%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
   font-size: 28rpx;
   color: #8f8779;
-  position: relative;
   z-index: 2;
+  text-align: center;
 }
 
 .empty-switch-hint {
-  margin-top: 226rpx;
+  margin-top: 110rpx;
 }
 
 .mode-card {

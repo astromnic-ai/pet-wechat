@@ -85,7 +85,7 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }),
     nickname: text("nickname").notNull(),
     avatarUrl: text("avatar_url"),
-    avatarQuota: integer("avatar_quota").notNull().default(2),
+    avatarQuota: integer("avatar_quota").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

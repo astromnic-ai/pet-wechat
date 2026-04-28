@@ -1,4 +1,4 @@
-import { View, Text, Image, Swiper, SwiperItem } from "@tarojs/components";
+import { View, Text, Image, Swiper, SwiperItem, Video } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
@@ -9,6 +9,11 @@ import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../
 import { getPetDisplayImage, getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
 import "./index.scss";
+
+const HOME_LOGO_IMAGE = require("@/assets/home/pet-logo.png");
+const HOME_PET_SIT_IMAGE = require("@/assets/home/pet-sit.png");
+const HOME_PET_LIE_IMAGE = require("@/assets/home/pet-lie.png");
+const HOME_WAITING_VIDEO = require("@/assets/home/pet-waiting-loop.mp4");
 
 type DesktopDeviceWithBindings = DesktopDevice & {
   bindings?: Array<{
@@ -147,6 +152,7 @@ export default function Index() {
   const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
   const [frameIndex, setFrameIndex] = useState(0);
   const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
+  const [isWaitingVideoPlaying, setIsWaitingVideoPlaying] = useState(false);
   const skipNextDidShowRef = useRef(true);
   const petTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -366,11 +372,19 @@ export default function Index() {
       ? "在家开水龙头喝水？"
       : "";
   const heroOverlayText = homeHeroState === "processing"
-    ? "正在生成您的宠物定制形象"
+    ? isWaitingVideoPlaying
+      ? ""
+      : "点击猫咪播放等待动画"
     : homeHeroState === "upload"
       ? "上传您的宠物照片"
       : "";
-  const petHeroImage = homeHeroState === "done" ? currentPet?.avatarImageUrl || defaultPetHeroImage : defaultPetHeroImage;
+  const topCardAvatarImage = currentPet?.avatarImageUrl || HOME_LOGO_IMAGE;
+  const petHeroImage =
+    homeHeroState === "done"
+      ? currentPet?.avatarImageUrl || defaultPetHeroImage
+      : homeHeroState === "processing"
+        ? HOME_PET_LIE_IMAGE
+        : HOME_PET_SIT_IMAGE;
   const petSubtitle = getPetSubtitle(currentPet);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
 
@@ -398,6 +412,10 @@ export default function Index() {
   }, [currentPet?.id, petMode]);
 
   useEffect(() => {
+    setIsWaitingVideoPlaying(false);
+  }, [currentPet?.id, homeHeroState]);
+
+  useEffect(() => {
     if (currentModeFrames.length <= 1) return;
 
     const timer = setInterval(() => {
@@ -408,8 +426,9 @@ export default function Index() {
   }, [currentModeFrames]);
 
   const currentFrameImage =
-    currentModeFrames[frameIndex]?.imageUrl ||
-    petHeroImage;
+    homeHeroState === "done"
+      ? currentModeFrames[frameIndex]?.imageUrl || petHeroImage
+      : petHeroImage;
 
   const handleOpenPetInfo = () => {
     if (hasPet && hasCompletePetProfile) {
@@ -472,6 +491,11 @@ export default function Index() {
     const deltaY = Math.abs(touch.clientY - start.y);
     if (deltaX > 18 || deltaY > 18) return;
 
+    if (homeHeroState === "processing") {
+      setIsWaitingVideoPlaying(true);
+      return;
+    }
+
     handleOpenPetAvatar();
   };
 
@@ -490,25 +514,19 @@ export default function Index() {
           <View className="top-card">
             <View className="top-card-entry">
               <View className="avatar-shell">
-                {hasPet ? (
-                    <Image
-                      className="avatar-image"
-                      src={getPetDisplayImage(currentPet)}
-                      mode="aspectFill"
-                      onClick={(e) => {
-                        e.stopPropagation?.();
-                        handleOpenPetInfo();
-                      }}
-                    />
-                ) : (
-                  <View
-                    className="avatar-placeholder"
-                    onClick={(e) => {
-                      e.stopPropagation?.();
-                      handleAddPet();
-                    }}
-                  />
-                )}
+                <Image
+                  className="avatar-image"
+                  src={topCardAvatarImage}
+                  mode="aspectFill"
+                  onClick={(e) => {
+                    e.stopPropagation?.();
+                    if (hasPet) {
+                      handleOpenPetInfo();
+                      return;
+                    }
+                    handleAddPet();
+                  }}
+                />
               </View>
               <View className="title-block">
                 <Text className="pet-name">{hasPet ? currentPet?.name?.trim() || "未命名宠物" : "宠物的昵称"}</Text>
@@ -559,15 +577,31 @@ export default function Index() {
                         onTouchStart={handlePetTouchStart}
                         onTouchEnd={handlePetTouchEnd}
                       >
-                        <Image
-                          className={`pet-showcase ${pet?.id === currentPet?.id && heroOverlayText ? "pet-showcase--masked" : ""}`}
-                          src={
-                            pet?.id === currentPet?.id
-                              ? currentFrameImage
-                              : getPetDisplayImage(pet)
-                          }
-                          mode="widthFix"
-                        />
+                        {pet?.id === currentPet?.id && homeHeroState === "processing" && isWaitingVideoPlaying ? (
+                          <Video
+                            className="pet-showcase-video"
+                            src={HOME_WAITING_VIDEO}
+                            autoplay
+                            loop={false}
+                            muted
+                            controls={false}
+                            showCenterPlayBtn={false}
+                            enableProgressGesture={false}
+                            objectFit="contain"
+                            onEnded={() => setIsWaitingVideoPlaying(false)}
+                            onError={() => setIsWaitingVideoPlaying(false)}
+                          />
+                        ) : (
+                          <Image
+                            className="pet-showcase"
+                            src={
+                              pet?.id === currentPet?.id
+                                ? currentFrameImage
+                                : getPetDisplayImage(pet)
+                            }
+                            mode="widthFix"
+                          />
+                        )}
                         {pet?.id === currentPet?.id && heroOverlayText ? (
                           <View className="pet-showcase-overlay">
                             <Text className="pet-showcase-overlay-text">{heroOverlayText}</Text>
@@ -590,7 +624,7 @@ export default function Index() {
             <View className="empty-pet" onClick={handleAddPet}>
               <Image
                 className="empty-pet-image"
-                src={require("@/assets/images/pet-collar.png")}
+                src={HOME_PET_SIT_IMAGE}
                 mode="widthFix"
               />
               <Text className="empty-pet-text">点击创建新宠物</Text>

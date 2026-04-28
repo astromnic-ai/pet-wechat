@@ -10,6 +10,7 @@ import "./index.scss";
 const MODE_CONTENT: Record<
   PetActivityMode,
   {
+    name: string;
     title: string;
     subtitle: string;
     description: string;
@@ -18,24 +19,27 @@ const MODE_CONTENT: Record<
   }
 > = {
   free: {
+    name: "系统自由",
     title: "系统自由模式",
-    subtitle: "正常自然宠物作息",
-    description: "随时与宠物互动，无需预约。点击喂食、玩耍或抚摸，宠物会即时响应你的每一个动作。",
-    tags: ["⚡ 即时响应", "💬 无限制"],
+    subtitle: "自然规律\n宠物作息",
+    description: "系统智能编排全天日程，自动呈现宠物进食、玩耍与休息的规律作息。",
+    tags: ["智能编排", "全天日程", "规律作息"],
     actionText: "确认应用模式 →",
   },
   custom: {
-    title: "个性自定义",
-    subtitle: "设定宠物行为时段",
-    description: "按你的节奏安排宠物展示时段，让行为表现更符合你的陪伴习惯。",
-    tags: ["⚡ 即时响应", "💬 无限制"],
+    name: "个性自定义",
+    title: "个性自定义模式",
+    subtitle: "自定义\n行为时段",
+    description: "支持上传宠物视频，AI 定制专属动作图像，随心定义它的每刻表现。",
+    tags: ["视频上传", "AI定制", "随心定义"],
     actionText: "进入自定义 →",
   },
   real: {
+    name: "真实行为",
     title: "真实行为模式",
-    subtitle: "宠物项圈实时反馈",
-    description: "通过真实设备回传宠物行为，让桌面端展示与现实中的状态保持同步。",
-    tags: ["🔒 需要连接项圈"],
+    subtitle: "项圈实时\n反馈数据",
+    description: "配合智能项圈，实时捕获并同步爱宠在现实中的一举一动，跨屏相伴。",
+    tags: ["需要连接项圈"],
     actionText: "此处配置项圈 →",
   },
 };
@@ -45,6 +49,42 @@ const ORDER_MAP: Record<PetActivityMode, PetActivityMode[]> = {
   custom: ["free", "custom", "real"],
   real: ["custom", "real", "free"],
 };
+
+function renderModeIcon(mode: PetActivityMode) {
+  if (mode === "custom") {
+    return (
+      <View className="mode-calendar-icon">
+        <View className="mode-calendar-icon-rings">
+          <View className="mode-calendar-icon-ring" />
+          <View className="mode-calendar-icon-ring" />
+        </View>
+        <View className="mode-calendar-icon-line" />
+        <View className="mode-calendar-icon-grid">
+          <View className="mode-calendar-icon-dot" />
+          <View className="mode-calendar-icon-dot" />
+          <View className="mode-calendar-icon-dot" />
+          <View className="mode-calendar-icon-dot" />
+        </View>
+      </View>
+    );
+  }
+
+  if (mode === "real") {
+    return (
+      <View className="mode-paw-icon">
+        <View className="mode-paw-icon-toes">
+          <View className="mode-paw-icon-toe" />
+          <View className="mode-paw-icon-toe" />
+          <View className="mode-paw-icon-toe" />
+          <View className="mode-paw-icon-toe" />
+        </View>
+        <View className="mode-paw-icon-pad" />
+      </View>
+    );
+  }
+
+  return <Text className="mode-option-icon-text">☆</Text>;
+}
 
 export default function PetModePage() {
   const router = useRouter();
@@ -96,11 +136,13 @@ export default function PetModePage() {
             return (
               <View
                 key={mode}
-                className={`mode-option-card ${active ? "mode-option-card--active" : ""}`}
+                className={`mode-option-card mode-option-card--${mode} ${active ? "mode-option-card--active" : ""}`}
                 onClick={() => setSelectedMode(mode)}
               >
-                <View className={`mode-option-icon ${active ? "mode-option-icon--active" : ""}`} />
-                <Text className="mode-option-name">{item.title.replace("模式", "")}</Text>
+                <View className={`mode-option-icon mode-option-icon--${mode} ${active ? "mode-option-icon--active" : ""}`}>
+                  {renderModeIcon(mode)}
+                </View>
+                <Text className="mode-option-name">{item.name}</Text>
                 <Text className="mode-option-desc">{item.subtitle}</Text>
               </View>
             );
@@ -109,12 +151,12 @@ export default function PetModePage() {
 
         <Text className="mode-switch-tip">滑动选择模式</Text>
 
-        <View className="mode-detail-card">
+        <View className={`mode-detail-card mode-detail-card--${selectedMode}`}>
           <Text className="mode-detail-title">{current.title}</Text>
           <Text className="mode-detail-desc">{current.description}</Text>
           <View className="mode-tag-row">
             {current.tags.map((tag) => (
-              <View key={tag} className="mode-tag">
+              <View key={tag} className={`mode-tag mode-tag--${selectedMode}`}>
                 <Text className="mode-tag-text">{tag}</Text>
               </View>
             ))}

@@ -41,6 +41,19 @@ import { api } from "../api/client";
 
 const { Text, Paragraph } = Typography;
 const { TextArea } = Input;
+const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg";
+
+function getFileExtension(filename?: string | null) {
+  const normalized = filename?.trim().toLowerCase() ?? "";
+  const segments = normalized.split(".");
+  return segments.length > 1 ? segments[segments.length - 1] ?? "" : "";
+}
+
+function isMjpegVideoFile(file: File) {
+  const ext = getFileExtension(file.name);
+  const allowedTypes = new Set(["video/mjpeg", "video/x-motion-jpeg", "application/octet-stream", ""]);
+  return (ext === "mjpeg" || ext === "mjpg") && allowedTypes.has(file.type);
+}
 
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskFilter = "all" | CustomizationStatus;
@@ -355,6 +368,12 @@ export default function Customization() {
       return;
     }
 
+    if (!isMjpegVideoFile(file)) {
+      messageApi.error("仅支持上传 MJPEG 视频文件（.mjpeg / .mjpg）");
+      setPendingUploadActionType(null);
+      return;
+    }
+
     setUploadingActionType(actionType);
 
     try {
@@ -437,7 +456,7 @@ export default function Customization() {
           {title}
         </Text>
         <Text type="secondary" style={{ fontSize: 12 }}>
-          系统预置动作位，未上传显示 +，上传成功显示 ✓
+          仅支持上传 MJPEG 动作视频，上传后可直接预览
         </Text>
       </div>
       <Row gutter={[14, 14]}>
@@ -472,11 +491,19 @@ export default function Customization() {
                   </div>
 
                   {action ? (
-                    <Image
+                    <video
+                      key={action.imageUrl}
                       src={action.imageUrl}
-                      alt={ACTION_LABELS[actionType] ?? actionType}
-                      height={120}
-                      style={{ width: "100%", objectFit: "cover", borderRadius: 12 }}
+                      controls
+                      preload="metadata"
+                      playsInline
+                      style={{
+                        width: "100%",
+                        height: 120,
+                        objectFit: "cover",
+                        borderRadius: 12,
+                        background: "#0f172a",
+                      }}
                     />
                   ) : (
                     <div
@@ -495,7 +522,7 @@ export default function Customization() {
                     >
                       <PlusOutlined style={{ fontSize: 22 }} />
                       <Text type="secondary" style={{ fontSize: 12 }}>
-                        点击从本地上传
+                        点击上传 MJPEG 视频
                       </Text>
                     </div>
                   )}
@@ -537,7 +564,7 @@ export default function Customization() {
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept={CUSTOMIZATION_VIDEO_ACCEPT}
         style={{ display: "none" }}
         onChange={(event) => void handleUploadFileChange(event)}
       />

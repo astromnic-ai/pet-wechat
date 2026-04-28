@@ -1,14 +1,19 @@
-import { View, Text, Image, Input } from "@tarojs/components";
+import { View, Text, Image, Input, Picker, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { User } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request, uploadFile } from "../../utils/request";
-import { setUserInfo } from "../../utils/storage";
+import { getUserProfileExtras, setUserInfo, setUserProfileExtras, type ProfileGender } from "../../utils/storage";
 import "./index.scss";
 
 const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+const GENDER_OPTIONS: Array<{ value: ProfileGender; label: string }> = [
+  { value: "female", label: "女" },
+  { value: "male", label: "男" },
+  { value: "unknown", label: "保密" },
+];
 
 function isPlaceholderNickname(value?: string | null) {
   const trimmed = value?.trim() || "";
@@ -19,6 +24,13 @@ function isPlaceholderNickname(value?: string | null) {
     trimmed === "测试用户" ||
     /^用户\d{4}$/.test(trimmed)
   );
+}
+
+function maskPhone(phone?: string | null) {
+  const digits = String(phone || "").replace(/\s+/g, "");
+  if (!digits) return "未绑定";
+  if (digits.length < 7) return digits;
+  return `${digits.slice(0, 3)} **** ${digits.slice(-4)}`;
 }
 
 function getChooseImageErrorMessage(error?: unknown) {
@@ -35,19 +47,29 @@ function needsImagePermissionGuide(error?: unknown) {
   return message.includes("auth deny") || message.includes("permission") || message.includes("authorize");
 }
 
+function getGenderLabel(gender: ProfileGender) {
+  return GENDER_OPTIONS.find((item) => item.value === gender)?.label || "保密";
+}
+
 export default function ProfileEdit() {
   const [user, setUser] = useState<User | null>(null);
   const [nickname, setNickname] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
   const [localAvatarPath, setLocalAvatarPath] = useState("");
+  const [gender, setGender] = useState<ProfileGender>("female");
+  const [birthday, setBirthday] = useState("2002-08-15");
   const [saving, setSaving] = useState(false);
 
   const loadUser = async () => {
     const res = await request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null }));
+    const extras = getUserProfileExtras(res.user?.id || null);
+
     setUser(res.user);
     setNickname(isPlaceholderNickname(res.user?.nickname) ? "" : res.user?.nickname?.trim() || "");
     setAvatarPreview(res.user?.avatarUrl || "");
     setLocalAvatarPath("");
+    setGender(extras.gender);
+    setBirthday(extras.birthday || "2002-08-15");
   };
 
   useDidShow(() => {
@@ -104,6 +126,7 @@ export default function ProfileEdit() {
 
     if (saving) return;
     setSaving(true);
+
     try {
       let nextAvatarUrl = user?.avatarUrl || null;
 
@@ -126,6 +149,11 @@ export default function ProfileEdit() {
       });
 
       setUserInfo(res.user);
+      setUserProfileExtras(res.user.id, {
+        gender,
+        birthday,
+        verified: true,
+      });
       Taro.showToast({ title: "保存成功", icon: "success" });
       setTimeout(() => {
         Taro.navigateBack();
@@ -137,55 +165,150 @@ export default function ProfileEdit() {
     }
   };
 
+  const handleModifyPhone = () => {
+    Taro.navigateTo({ url: "/pages/settings/bind-phone" });
+  };
+
+  const handleModifyEmail = () => {
+    Taro.navigateTo({ url: "/pages/settings/bind-email" });
+  };
+
+  const handleChangePassword = () => {
+    Taro.showToast({ title: "修改密码功能即将上线", icon: "none" });
+  };
+
+  const handleVerified = () => {
+    Taro.showToast({ title: "当前账号已认证", icon: "none" });
+  };
+
+  const handleDeleteAccount = () => {
+    Taro.showModal({
+      title: "确认注销账号？",
+      content: "当前仅保留页面流程，真实注销能力后续接入。",
+      confirmText: "知道了",
+      success: () => {
+        Taro.showToast({ title: "注销流程预留中", icon: "none" });
+      },
+    });
+  };
+
+  const displayId = user?.phone?.trim() || user?.id || "--";
+
   return (
     <View className="profile-edit-page">
       <View className="profile-edit-top-strip" />
       <View className="profile-edit-header">
         <PageBack inline fallbackUrl="/pages/profile/index" />
-        <Text className="profile-edit-title">编辑用户信息</Text>
+        <Text className="profile-edit-title">编辑资料</Text>
+        <View className={`profile-edit-save-chip ${saving ? "profile-edit-save-chip--disabled" : ""}`} onClick={handleSave}>
+          <Text className="profile-edit-save-chip-text">{saving ? "保存中" : "保存"}</Text>
+        </View>
       </View>
 
-      <View className="profile-edit-shell">
-        <View className="profile-edit-card">
+      <ScrollView className="profile-edit-scroll" scrollY>
+        <View className="profile-edit-shell">
           <View className="avatar-section">
-            <Image
-              className="avatar-preview"
-              src={avatarPreview || user?.avatarUrl || DEFAULT_AVATAR}
-              mode="aspectFill"
-              onClick={handleChooseAvatar}
-            />
-            <View className="avatar-change-btn" onClick={handleChooseAvatar}>
-              <Text className="avatar-change-btn-text">更换头像</Text>
+            <View className="avatar-ring" onClick={handleChooseAvatar}>
+              <Image
+                className="avatar-preview"
+                src={avatarPreview || user?.avatarUrl || DEFAULT_AVATAR}
+                mode="aspectFill"
+              />
             </View>
-            <Text className="avatar-tip">支持拍照或从相册选择</Text>
+            <Text className="avatar-change-link" onClick={handleChooseAvatar}>更换头像</Text>
           </View>
 
-          <View className="field-block">
-            <Text className="field-label">用户昵称</Text>
-            <View className="field-input-wrap">
+          <View className="info-card">
+            <View className="info-row">
+              <Text className="info-label">昵称</Text>
               <Input
-                className="field-input"
+                className="info-input"
                 value={nickname}
                 maxlength={20}
                 placeholder="请输入昵称"
-                placeholderClass="field-placeholder"
+                placeholderClass="info-placeholder"
                 onInput={(e) => setNickname(e.detail.value)}
               />
             </View>
+
+            <View className="info-row">
+              <Text className="info-label">用户ID</Text>
+              <Text className="info-value info-value--muted">{displayId}</Text>
+            </View>
+
+            <Picker
+              mode="selector"
+              range={GENDER_OPTIONS.map((item) => item.label)}
+              value={Math.max(0, GENDER_OPTIONS.findIndex((item) => item.value === gender))}
+              onChange={(e) => setGender(GENDER_OPTIONS[Number(e.detail.value)]?.value || "unknown")}
+            >
+              <View className="info-row">
+                <Text className="info-label">性别</Text>
+                <View className="info-value-wrap">
+                  <Text className="info-value">{getGenderLabel(gender)}</Text>
+                  <Text className="info-arrow">›</Text>
+                </View>
+              </View>
+            </Picker>
+
+            <Picker mode="date" value={birthday} start="1970-01-01" end="2099-12-31" onChange={(e) => setBirthday(e.detail.value)}>
+              <View className="info-row info-row--last">
+                <Text className="info-label">生日</Text>
+                <View className="info-value-wrap">
+                  <Text className="info-value">{birthday}</Text>
+                  <Text className="info-arrow">›</Text>
+                </View>
+              </View>
+            </Picker>
           </View>
 
-          <View className="field-block">
-            <Text className="field-label">当前账号ID</Text>
-            <View className="field-readonly">
-              <Text className="field-readonly-text">{user?.phone?.trim() || user?.id || "--"}</Text>
+          <View className="account-card">
+            <Text className="account-card-title">账号信息</Text>
+
+            <View className="account-row">
+              <View className="account-row-main">
+                <Text className="account-label">手机号</Text>
+                <Text className="account-value">{maskPhone(user?.phone)}</Text>
+              </View>
+              <View className="account-action-btn" onClick={handleModifyPhone}>
+                <Text className="account-action-btn-text">修改</Text>
+              </View>
+            </View>
+
+            <View className="account-row">
+              <View className="account-row-main">
+                <Text className="account-label">邮箱</Text>
+                <Text className="account-value">{user?.email?.trim() || "未设置"}</Text>
+              </View>
+              <View className="account-action-btn" onClick={handleModifyEmail}>
+                <Text className="account-action-btn-text">修改</Text>
+              </View>
+            </View>
+
+            <View className="account-row account-row--plain" onClick={handleChangePassword}>
+              <Text className="account-link-label">修改密码</Text>
+              <Text className="info-arrow">›</Text>
+            </View>
+
+            <View className="account-row account-row--plain" onClick={handleVerified}>
+              <Text className="account-link-label">实名认证</Text>
+              <View className="verified-wrap">
+                <Text className="verified-chip">已认证</Text>
+                <Text className="info-arrow">›</Text>
+              </View>
+            </View>
+
+            <View className="account-row account-row--plain account-row--danger" onClick={handleDeleteAccount}>
+              <Text className="account-link-label account-link-label--danger">注销账号</Text>
+              <Text className="info-arrow info-arrow--danger">›</Text>
             </View>
           </View>
 
           <View className={`save-btn ${saving ? "save-btn--disabled" : ""}`} onClick={handleSave}>
-            <Text className="save-btn-text">{saving ? "保存中..." : "保存信息"}</Text>
+            <Text className="save-btn-text">{saving ? "保存中..." : "保存修改"}</Text>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }

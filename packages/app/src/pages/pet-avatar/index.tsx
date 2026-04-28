@@ -1,13 +1,36 @@
 import { View, Text, Image } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { useEffect, useState } from "react";
-import type { Pet, PetAvatar } from "@pet-wechat/shared";
+import type { Pet, PetAvatar, User } from "@pet-wechat/shared";
 import { request, uploadFile } from "../../utils/request";
 import "./index.scss";
 
 const PHOTO_PLACEHOLDER_IMAGE = require("./images/upload-icon.png");
+const EXAMPLE_GOOD_IMAGE = require("./images/example-good.png");
+const EXAMPLE_BAD_COVERED_IMAGE = require("./images/example-bad-covered.png");
+const EXAMPLE_BAD_BACK_IMAGE = require("./images/example-bad-back.png");
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
-const FREE_AVATAR_TOTAL = 2;
+
+const PHOTO_EXAMPLES = [
+  {
+    image: EXAMPLE_GOOD_IMAGE,
+    statusLabel: "正确示例",
+    description: "面部清晰 光线好",
+    status: "good" as const,
+  },
+  {
+    image: EXAMPLE_BAD_COVERED_IMAGE,
+    statusLabel: "错误示例",
+    description: "宠物特征遮挡",
+    status: "bad" as const,
+  },
+  {
+    image: EXAMPLE_BAD_BACK_IMAGE,
+    statusLabel: "错误示例",
+    description: "避免背面照片",
+    status: "bad" as const,
+  },
+];
 
 function resolveLatestAvatar(avatars: PetAvatar[] = []) {
   return [...avatars].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null;
@@ -35,6 +58,7 @@ export default function PetAvatar() {
   const [existingImageUrl, setExistingImageUrl] = useState("");
   const [selectedImageSize, setSelectedImageSize] = useState<number | null>(null);
   const [pet, setPet] = useState<Pet | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -44,6 +68,7 @@ export default function PetAvatar() {
       setLocalImagePath("");
       setExistingImageUrl("");
       setSelectedImageSize(null);
+      setUser(null);
       return;
     }
 
@@ -53,21 +78,27 @@ export default function PetAvatar() {
     setLocalImagePath("");
     setExistingImageUrl("");
     setSelectedImageSize(null);
+    setUser(null);
 
-    void request<{ pet: Pet; avatars: PetAvatar[] }>({ url: `/api/pets/${petId}` })
-      .then((res) => {
+    void Promise.all([
+      request<{ pet: Pet; avatars: PetAvatar[] }>({ url: `/api/pets/${petId}` }),
+      request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null })),
+    ])
+      .then(([res, userRes]) => {
         if (cancelled) return;
         const latestAvatar = resolveLatestAvatar(res.avatars);
         const latestImageUrl = latestAvatar?.sourceImageUrl || "";
         setPet(res.pet);
         setExistingImageUrl(latestImageUrl);
         setPreviewImage(latestImageUrl);
+        setUser(userRes.user);
       })
       .catch(() => {
         if (cancelled) return;
         setPet(null);
         setExistingImageUrl("");
         setPreviewImage("");
+        setUser(null);
       });
 
     return () => {
@@ -208,6 +239,19 @@ export default function PetAvatar() {
     });
   };
 
+  const avatarQuotaRemaining = Math.max(
+    0,
+    Number(user?.avatarQuotaRemaining ?? user?.avatarQuota ?? 0),
+  );
+  const avatarQuotaTotal = Math.max(
+    avatarQuotaRemaining,
+    Number(user?.avatarQuotaTotal ?? 0),
+  );
+  const quotaText =
+    avatarQuotaTotal > 0
+      ? `当前可定制${avatarQuotaRemaining}次（${avatarQuotaRemaining}/${avatarQuotaTotal}）`
+      : "当前暂无可用定制次数，请先绑定摆台或购买套餐";
+
   return (
     <View className="pet-avatar-page">
       <View className="upload-page-header">
@@ -234,25 +278,30 @@ export default function PetAvatar() {
           <View className="upload-trigger" onClick={handleChooseImage}>
             <Text className="upload-trigger-text">{previewImage ? "重新选择照片" : "点击上传照片"}</Text>
           </View>
-          <Text className="quota-text">新用户免费定制{FREE_AVATAR_TOTAL}次（{FREE_AVATAR_TOTAL}/{FREE_AVATAR_TOTAL}）</Text>
+          <Text className="quota-text">{quotaText}</Text>
         </View>
 
         <View className="upload-tips-card">
           <View className="upload-tips-heading">
             <Text className="upload-tips-icon">💡</Text>
-            <Text className="upload-tips-title">上传建议</Text>
+            <Text className="upload-tips-title">上传示例</Text>
           </View>
-          <View className="upload-tip-item">
-            <View className="upload-tip-dot" />
-            <Text className="upload-tip-text">选择清晰、光线充足的照片</Text>
-          </View>
-          <View className="upload-tip-item">
-            <View className="upload-tip-dot" />
-            <Text className="upload-tip-text">宠物面部完整可见</Text>
-          </View>
-          <View className="upload-tip-item">
-            <View className="upload-tip-dot" />
-            <Text className="upload-tip-text">避免背景杂乱</Text>
+          <View className="upload-example-list">
+            {PHOTO_EXAMPLES.map((example) => (
+              <View
+                key={example.description}
+                className={`upload-example-card upload-example-card--${example.status}`}
+              >
+                <View className="upload-example-status">
+                  <View className={`upload-example-status-dot upload-example-status-dot--${example.status}`} />
+                  <Text className={`upload-example-status-text upload-example-status-text--${example.status}`}>
+                    {example.statusLabel}
+                  </Text>
+                </View>
+                <Image className="upload-example-image" src={example.image} mode="aspectFit" />
+                <Text className="upload-example-description">{example.description}</Text>
+              </View>
+            ))}
           </View>
         </View>
 

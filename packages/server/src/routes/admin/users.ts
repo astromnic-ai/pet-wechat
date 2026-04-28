@@ -86,7 +86,7 @@ usersRoute.post("/users", async (c) => {
       wechatOpenid: body.wechatOpenid ?? null,
       phone: body.phone ?? null,
       avatarUrl: body.avatarUrl ?? null,
-      avatarQuota: body.avatarQuota ?? 2,
+      avatarQuota: body.avatarQuota ?? 0,
     })
     .returning();
   return c.json({ user }, 201);

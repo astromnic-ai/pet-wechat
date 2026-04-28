@@ -1,3 +1,12 @@
+import type { AdminDeviceDetail, AdminDeviceListItem, DeviceType } from "shared";
+
+type PageResponse<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 export function getAdminKey() {
   return localStorage.getItem("adminKey") || "";
 }
@@ -93,12 +102,14 @@ export const api = {
 
   // Collars
   getCollars: () => request<{ collars: any[] }>("/collars"),
+  getCollar: (id: string) => request<{ collar: any }>(`/collars/${id}`),
   createCollar: (data: any) => request<{ collar: any }>("/collars", { method: "POST", body: JSON.stringify(data) }),
   updateCollar: (id: string, data: any) => request<{ collar: any }>(`/collars/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteCollar: (id: string) => request(`/collars/${id}`, { method: "DELETE" }),
 
   // Desktops
   getDesktops: () => request<{ desktops: any[] }>("/desktops"),
+  getDesktop: (id: string) => request<{ desktop: any }>(`/desktops/${id}`),
   createDesktop: (data: any) => request<{ desktop: any }>("/desktops", { method: "POST", body: JSON.stringify(data) }),
   updateDesktop: (id: string, data: any) => request<{ desktop: any }>(`/desktops/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteDesktop: (id: string) => request(`/desktops/${id}`, { method: "DELETE" }),
@@ -148,4 +159,10 @@ export const api = {
     const qs = params ? "?" + new URLSearchParams(params).toString() : "";
     return request<{ desktops: any[] }>(`/desktops${qs}`);
   },
+  getDevices: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request<PageResponse<AdminDeviceListItem>>(`/devices${qs}`);
+  },
+  getDeviceDetail: (type: DeviceType, id: string) =>
+    request<AdminDeviceDetail>(`/devices/${type}/${id}/detail`),
 };

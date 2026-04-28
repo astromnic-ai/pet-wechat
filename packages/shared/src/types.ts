@@ -33,6 +33,11 @@ export interface User {
   nickname: string;
   avatarUrl: string | null;
   avatarQuota: number;
+  avatarQuotaPurchased?: number;
+  avatarQuotaFromDesktops?: number;
+  avatarQuotaUsed?: number;
+  avatarQuotaTotal?: number;
+  avatarQuotaRemaining?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -134,6 +139,74 @@ export interface DesktopPetBinding {
   bindingType: BindingType;
   createdAt: string;
   unboundAt: string | null;
+}
+
+export interface AdminDeviceAvatarProgress {
+  uploaded: number;
+  total: number;
+}
+
+export interface AdminDeviceListItem {
+  type: DeviceType;
+  id: string;
+  name: string;
+  macAddress: string;
+  status: DeviceStatus;
+  claimStatus: DeviceClaimStatus;
+  upgradeStatus: DeviceUpgradeStatus;
+  userId: string | null;
+  userNickname: string | null;
+  petId: string | null;
+  petName: string | null;
+  petSpecies: Species | null;
+  petAvatarUrl: string | null;
+  battery: number | null;
+  signal: number | null;
+  lastOnlineAt: string | null;
+  createdAt: string;
+  hasUploadedAvatar: boolean;
+  avatarProgress: AdminDeviceAvatarProgress;
+  bindingCount: number;
+}
+
+export interface AdminDeviceDetailOwner {
+  id: string;
+  nickname: string;
+  avatarUrl: string | null;
+}
+
+export interface AdminDeviceDetailPet {
+  id: string;
+  name: string;
+  species: Species;
+  speciesLabel: string;
+  avatarUrl: string | null;
+  companionDays: number;
+}
+
+export interface AdminDeviceRelationItem {
+  type: DeviceType;
+  id: string;
+  name: string;
+  status: DeviceStatus;
+  claimStatus: DeviceClaimStatus;
+  lastOnlineAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminDeviceDetailAvatarProgress extends AdminDeviceAvatarProgress {
+  approved: number;
+  pending: number;
+}
+
+export interface AdminDeviceDetail {
+  device: AdminDeviceListItem;
+  owner: AdminDeviceDetailOwner | null;
+  pet: AdminDeviceDetailPet | null;
+  relatedDevices: AdminDeviceRelationItem[];
+  avatarProgress: AdminDeviceDetailAvatarProgress;
+  lastSyncedAt: string | null;
+  activatedAt: string;
 }
 
 // ===== 设备授权 =====

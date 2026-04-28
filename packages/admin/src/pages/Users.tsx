@@ -251,7 +251,7 @@ export default function UsersPage() {
     { title: "微信 OpenID", dataIndex: "wechatOpenid", key: "wechatOpenid", ellipsis: true },
     { title: "宠物数", dataIndex: "petCount", key: "petCount", width: 90 },
     { title: "绑定设备数", dataIndex: "deviceCount", key: "deviceCount", width: 110 },
-    { title: "形象配额", dataIndex: "avatarQuota", key: "avatarQuota", width: 100 },
+    { title: "额外定制次数", dataIndex: "avatarQuota", key: "avatarQuota", width: 120 },
     {
       title: "创建时间",
       dataIndex: "createdAt",
@@ -326,7 +326,7 @@ export default function UsersPage() {
           <Form.Item name="wechatOpenid" label="微信 OpenID">
             <Input />
           </Form.Item>
-          <Form.Item name="avatarQuota" label="形象配额">
+          <Form.Item name="avatarQuota" label="额外定制次数">
             <InputNumber min={0} style={{ width: "100%" }} />
           </Form.Item>
         </Form>
@@ -347,7 +347,7 @@ export default function UsersPage() {
                     {detail.user.id}
                   </Descriptions.Item>
                   <Descriptions.Item label="昵称">{detail.user.nickname}</Descriptions.Item>
-                  <Descriptions.Item label="头像配额">{detail.user.avatarQuota}</Descriptions.Item>
+                  <Descriptions.Item label="额外定制次数">{detail.user.avatarQuota}</Descriptions.Item>
                   <Descriptions.Item label="手机号">{detail.user.phone || "-"}</Descriptions.Item>
                   <Descriptions.Item label="微信 OpenID">{detail.user.wechatOpenid || "-"}</Descriptions.Item>
                   <Descriptions.Item label="宠物数">{detail.pets.length}</Descriptions.Item>
