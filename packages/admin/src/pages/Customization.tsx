@@ -315,7 +315,7 @@ function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): Customiz
     petBreed: avatar.pet?.breed ?? null,
     petGender: avatar.pet?.gender ?? "unknown",
     petBirthday: avatar.pet?.birthday ?? null,
-    userId: avatar.user?.id ?? "demo-user",
+    userId: avatar.user?.id ?? "",
     userNickname: avatar.user?.nickname ?? "未知微信用户",
     userAvatarUrl: avatar.user?.avatarUrl ?? null,
     userPhone: avatar.user?.phone ?? null,
@@ -346,10 +346,6 @@ function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): Customiz
   };
 }
 
-function createTaskPreview(task: CustomizationTask) {
-  return buildMockImageUrl(task.petName, "#91caff", `${task.userNickname} · 定制任务`);
-}
-
 function mergeTasksWithAvatarSummaries(
   tasks: CustomizationTask[],
   avatarSummaries: CustomizationAvatar[],
@@ -361,7 +357,7 @@ function mergeTasksWithAvatarSummaries(
     return {
       id: task.avatarId,
       petId: task.petId,
-      sourceImageUrl: avatar?.sourceImageUrl ?? task.defaultPreviewUrl ?? createTaskPreview(task),
+      sourceImageUrl: avatar?.sourceImageUrl ?? task.defaultPreviewUrl ?? "",
       status: task.status,
       rejectReason: avatar?.rejectReason ?? null,
       reviewedAt: task.reviewedAt ?? avatar?.reviewedAt ?? null,
@@ -439,28 +435,6 @@ function avatarSupportsCategory(avatar: CustomizationAvatar, category: Exclude<C
   return !!hasReferences;
 }
 
-function buildMockImageUrl(title: string, accent: string, subtitle: string) {
-  const svg = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
-      <defs>
-        <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${accent}" stop-opacity="0.95" />
-          <stop offset="100%" stop-color="#fff7e6" stop-opacity="1" />
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="1200" fill="url(#bg)" />
-      <circle cx="930" cy="220" r="150" fill="#ffffff" fill-opacity="0.25" />
-      <circle cx="250" cy="910" r="200" fill="#ffffff" fill-opacity="0.18" />
-      <rect x="120" y="160" width="960" height="880" rx="52" fill="#ffffff" fill-opacity="0.72" />
-      <text x="180" y="430" font-size="88" font-family="Arial, sans-serif" font-weight="700" fill="#1f1f1f">${title}</text>
-      <text x="180" y="540" font-size="40" font-family="Arial, sans-serif" fill="#434343">${subtitle}</text>
-      <text x="180" y="640" font-size="30" font-family="Arial, sans-serif" fill="#595959">Customization Demo</text>
-    </svg>
-  `;
-
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
 function toCustomizationAvatarSummary(avatar: CustomizationAvatarDetail): CustomizationAvatar {
   const { actions: _actions, ...summary } = avatar;
   return {
@@ -469,167 +443,11 @@ function toCustomizationAvatarSummary(avatar: CustomizationAvatarDetail): Custom
   };
 }
 
-function createMockCustomizationDetails(): CustomizationAvatarDetail[] {
-  return [
-    {
-      id: "mock-custom-avatar-1",
-      petId: "mock-custom-pet-1",
-      sourceImageUrl: buildMockImageUrl("布丁", "#ffd666", "待定制 · 今日新增"),
-      status: "approved",
-      rejectReason: null,
-      reviewedAt: dayjs().subtract(30, "minute").toISOString(),
-      createdAt: dayjs().subtract(2, "hour").toISOString(),
-      pet: {
-        id: "mock-custom-pet-1",
-        name: "布丁",
-        species: "cat",
-        breed: "英短",
-        gender: "female",
-        birthday: dayjs().subtract(8, "month").format("YYYY-MM-DD"),
-      },
-      user: {
-        id: "mock-custom-user-1",
-        nickname: "Momo",
-        avatarUrl: null,
-        wechatOpenid: "mock-custom-openid-1",
-        phone: "13800000011",
-      },
-      actions: [],
-    },
-    {
-      id: "mock-custom-avatar-2",
-      petId: "mock-custom-pet-2",
-      sourceImageUrl: buildMockImageUrl("栗子", "#95de64", "进行中 · 基础动作"),
-      status: "processing",
-      rejectReason: null,
-      reviewedAt: dayjs().subtract(4, "hour").toISOString(),
-      createdAt: dayjs().subtract(6, "hour").toISOString(),
-      additionalImageUrls: JSON.stringify([
-        buildMockImageUrl("栗子", "#bae637", "趣味参考图"),
-      ]),
-      pet: {
-        id: "mock-custom-pet-2",
-        name: "栗子",
-        species: "dog",
-        breed: "柯基",
-        gender: "male",
-        birthday: dayjs().subtract(2, "year").format("YYYY-MM-DD"),
-      },
-      user: {
-        id: "mock-custom-user-2",
-        nickname: "Cookie",
-        avatarUrl: null,
-        wechatOpenid: "mock-custom-openid-2",
-        phone: "13800000012",
-      },
-      actions: [
-        {
-          id: "mock-custom-action-1",
-          petAvatarId: "mock-custom-avatar-2",
-          actionType: "sit",
-          imageUrl: buildMockImageUrl("栗子", "#b7eb8f", "基础动作 · sit"),
-          sortOrder: 0,
-        },
-        {
-          id: "mock-custom-action-2",
-          petAvatarId: "mock-custom-avatar-2",
-          actionType: "eat",
-          imageUrl: buildMockImageUrl("栗子", "#d9f7be", "基础动作 · eat"),
-          sortOrder: 1,
-        },
-        {
-          id: "mock-custom-action-3",
-          petAvatarId: "mock-custom-avatar-2",
-          actionType: "play_ball",
-          imageUrl: buildMockImageUrl("栗子", "#73d13d", "趣味动作 · play_ball"),
-          sortOrder: 2,
-        },
-        {
-          id: "mock-custom-action-4",
-          petAvatarId: "mock-custom-avatar-2",
-          actionType: "dizzy",
-          imageUrl: buildMockImageUrl("栗子", "#69c0ff", "交互动作 · dizzy"),
-          sortOrder: 3,
-        },
-      ],
-    },
-    {
-      id: "mock-custom-avatar-3",
-      petId: "mock-custom-pet-3",
-      sourceImageUrl: buildMockImageUrl("可颂", "#69b1ff", "已完成 · 同步到手机端"),
-      status: "done",
-      rejectReason: null,
-      reviewedAt: dayjs().subtract(1, "day").add(3, "hour").toISOString(),
-      createdAt: dayjs().subtract(2, "day").toISOString(),
-      additionalImageUrls: JSON.stringify([
-        buildMockImageUrl("可颂", "#91caff", "趣味参考图 A"),
-        buildMockImageUrl("可颂", "#adc6ff", "趣味参考图 B"),
-      ]),
-      pet: {
-        id: "mock-custom-pet-3",
-        name: "可颂",
-        species: "dog",
-        breed: "比熊",
-        gender: "female",
-        birthday: dayjs().subtract(1, "year").subtract(3, "month").format("YYYY-MM-DD"),
-      },
-      user: {
-        id: "mock-custom-user-3",
-        nickname: "Luna",
-        avatarUrl: null,
-        wechatOpenid: "mock-custom-openid-3",
-        phone: "13800000013",
-      },
-      actions: [
-        ...BASIC_ACTIONS.map((actionType, index) => ({
-          id: `mock-custom-action-basic-${index + 1}`,
-          petAvatarId: "mock-custom-avatar-3",
-          actionType,
-          imageUrl: buildMockImageUrl("可颂", "#91caff", `基础动作 · ${ACTION_LABELS[actionType] ?? actionType}`),
-          sortOrder: index,
-        })),
-        ...FUN_ACTIONS.slice(0, 2).map((actionType, index) => ({
-          id: `mock-custom-action-fun-${index + 1}`,
-          petAvatarId: "mock-custom-avatar-3",
-          actionType,
-          imageUrl: buildMockImageUrl("可颂", "#adc6ff", `趣味动作 · ${ACTION_LABELS[actionType] ?? actionType}`),
-          sortOrder: BASIC_ACTIONS.length + index,
-        })),
-        ...INTERACTIVE_ACTIONS.slice(0, 2).map((actionType, index) => ({
-          id: `mock-custom-action-interactive-${index + 1}`,
-          petAvatarId: "mock-custom-avatar-3",
-          actionType,
-          imageUrl: buildMockImageUrl("可颂", "#85a5ff", `交互动作 · ${ACTION_LABELS[actionType] ?? actionType}`),
-          sortOrder: BASIC_ACTIONS.length + FUN_ACTIONS.length + index,
-        })),
-      ],
-    },
-  ];
-}
-
-function applyDemoDataState(
-  setDemoAvatarDetails: (details: CustomizationAvatarDetail[]) => void,
-  setAvatars: (avatars: CustomizationAvatar[]) => void,
-  setIsDemoMode: (value: boolean) => void,
-) {
-  const nextDemoDetails = createMockCustomizationDetails();
-  setDemoAvatarDetails(nextDemoDetails);
-  setAvatars(nextDemoDetails.map(toCustomizationAvatarSummary));
-  setIsDemoMode(true);
-  return nextDemoDetails;
-}
-
-const initialDemoDetails = createMockCustomizationDetails();
-
 export default function Customization() {
   const [messageApi, contextHolder] = message.useMessage();
-  const [avatars, setAvatars] = useState<CustomizationAvatar[]>(() => initialDemoDetails.map(toCustomizationAvatarSummary));
-  const [demoAvatarDetails, setDemoAvatarDetails] = useState<CustomizationAvatarDetail[]>(() => initialDemoDetails);
-  const [isDemoMode, setIsDemoMode] = useState(true);
+  const [avatars, setAvatars] = useState<CustomizationAvatar[]>([]);
   const [loading, setLoading] = useState(false);
-  const [todayNewPendingCount, setTodayNewPendingCount] = useState(
-    initialDemoDetails.filter((avatar) => enteredCustomizationToday(avatar)).length,
-  );
+  const [todayNewPendingCount, setTodayNewPendingCount] = useState(0);
   const [taskTab, setTaskTab] = useState<TaskTab>("pending");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
@@ -671,22 +489,12 @@ export default function Customization() {
       );
       const nextAvatars = mergeTasksWithAvatarSummaries(tasksResponse.items ?? [], nextAvatarSummaries);
       const pendingTasks = pendingBadgeResponse.items ?? [];
-
-      if (nextAvatars.length === 0) {
-        const demoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
-        setTodayNewPendingCount(demoDetails.filter((avatar) => enteredCustomizationToday(avatar)).length);
-        messageApi.warning("未获取到真实定制任务，当前展示演示数据");
-        return;
-      }
-
-      setIsDemoMode(false);
-      setDemoAvatarDetails([]);
       setAvatars(nextAvatars);
       setTodayNewPendingCount(pendingTasks.filter((task) => task.isNewToday).length);
     } catch (error) {
-      const demoDetails = applyDemoDataState(setDemoAvatarDetails, setAvatars, setIsDemoMode);
-      setTodayNewPendingCount(demoDetails.filter((avatar) => enteredCustomizationToday(avatar)).length);
-      messageApi.warning("定制任务加载失败，当前展示演示数据");
+      setAvatars([]);
+      setTodayNewPendingCount(0);
+      messageApi.error(error instanceof Error ? error.message : "定制任务加载失败");
     } finally {
       setLoading(false);
     }
@@ -694,19 +502,6 @@ export default function Customization() {
 
   const loadAvatarDetail = async (avatarId: string, options?: { keepLoading?: boolean }) => {
     const requestId = ++detailRequestRef.current;
-
-    if (isDemoMode) {
-      const detail = demoAvatarDetails.find((avatar) => avatar.id === avatarId) ?? null;
-      setSelectedAvatarDetail(detail);
-      setPreviewActionType((current) => {
-        if (current && detail?.actions.some((action) => action.actionType === current)) {
-          return current;
-        }
-
-        return detail ? getDefaultPreviewActionType(detail.actions) : null;
-      });
-      return detail;
-    }
 
     if (!options?.keepLoading) {
       setDetailLoading(true);
@@ -807,7 +602,7 @@ export default function Customization() {
     }
 
     void loadAvatarDetail(selectedAvatarId);
-  }, [demoAvatarDetails, isDemoMode, selectedAvatarId]);
+  }, [selectedAvatarId]);
 
   const selectedAvatarSummary = useMemo(
     () => avatars.find((avatar) => avatar.id === selectedAvatarId) ?? null,
@@ -838,15 +633,7 @@ export default function Customization() {
   );
   const selectedAvatarFilePrefix = selectedAvatarSummary?.id ?? selectedAvatarId ?? "avatar";
 
-  const refreshCurrentAvatar = async (avatarId: string, nextDemoDetails?: CustomizationAvatarDetail[]) => {
-    if (isDemoMode) {
-      const currentDemoDetails = nextDemoDetails ?? demoAvatarDetails;
-      const nextDetail = currentDemoDetails.find((avatar) => avatar.id === avatarId) ?? null;
-      setAvatars(currentDemoDetails.map(toCustomizationAvatarSummary));
-      setSelectedAvatarDetail(nextDetail);
-      return;
-    }
-
+  const refreshCurrentAvatar = async (avatarId: string) => {
     await Promise.all([loadAvatars(), loadAvatarDetail(avatarId, { keepLoading: true })]);
   };
 
@@ -875,11 +662,7 @@ export default function Customization() {
     try {
       let imageUrl = uploadImageUrl.trim();
 
-      if (!imageUrl && uploadFile && isDemoMode) {
-        imageUrl = uploadPreviewUrl;
-      }
-
-      if (!imageUrl && uploadFile && !isDemoMode) {
+      if (!imageUrl && uploadFile) {
         if (!isMjpegFile(uploadFile)) {
           messageApi.warning("仅支持 MJPEG 视频文件（.mjpeg / .mjpg）");
           return;
@@ -907,43 +690,6 @@ export default function Customization() {
         return;
       }
 
-      if (isDemoMode) {
-        const nextDemoDetails: CustomizationAvatarDetail[] = demoAvatarDetails.map((avatar) => {
-          if (avatar.id !== selectedAvatarDetail.id) {
-            return avatar;
-          }
-
-          const existingAction = avatar.actions.find((action) => action.actionType === uploadActionType);
-          const nextAction = existingAction
-            ? {
-                ...existingAction,
-                imageUrl,
-              }
-            : {
-                id: `mock-custom-action-${Date.now()}`,
-                petAvatarId: avatar.id,
-                actionType: uploadActionType,
-                imageUrl,
-                sortOrder: avatar.actions.length,
-              };
-
-          return {
-            ...avatar,
-            status: avatar.status === "approved" ? ("processing" as const) : avatar.status,
-            actions: existingAction
-              ? avatar.actions.map((action) => (action.actionType === uploadActionType ? nextAction : action))
-              : [...avatar.actions, nextAction],
-          };
-        });
-
-        setDemoAvatarDetails(nextDemoDetails);
-        messageApi.success("演示动作素材已上传");
-        handleCloseUploadModal();
-        await refreshCurrentAvatar(selectedAvatarDetail.id, nextDemoDetails);
-        setPreviewActionType(uploadActionType);
-        return;
-      }
-
       await api.createAvatarAction(selectedAvatarDetail.id, {
         actionType: uploadActionType,
         imageUrl,
@@ -967,34 +713,6 @@ export default function Customization() {
     setDeletingActionId(action.id);
 
     try {
-      if (isDemoMode) {
-        const nextDemoDetails: CustomizationAvatarDetail[] = demoAvatarDetails.map((avatar) => {
-          if (avatar.id !== selectedAvatarDetail.id) {
-            return avatar;
-          }
-
-          const nextActions = avatar.actions.filter((item) => item.id !== action.id);
-          return {
-            ...avatar,
-            status: nextActions.length === 0 && avatar.status === "processing" ? ("approved" as const) : avatar.status,
-            actions: nextActions,
-          };
-        });
-
-        setDemoAvatarDetails(nextDemoDetails);
-        messageApi.success("演示动作素材已删除");
-        await refreshCurrentAvatar(selectedAvatarDetail.id, nextDemoDetails);
-        setPreviewActionType((current) => {
-          if (current !== action.actionType) {
-            return current;
-          }
-
-          const nextAvatar = nextDemoDetails.find((avatar) => avatar.id === selectedAvatarDetail.id);
-          return getDefaultPreviewActionType(nextAvatar?.actions ?? []);
-        });
-        return;
-      }
-
       await api.deleteAvatarAction(selectedAvatarDetail.id, action.id);
       messageApi.success("动作素材已删除");
       await refreshCurrentAvatar(selectedAvatarDetail.id);
@@ -1013,22 +731,6 @@ export default function Customization() {
     setSyncing(true);
 
     try {
-      if (isDemoMode) {
-        const nextDemoDetails: CustomizationAvatarDetail[] = demoAvatarDetails.map((avatar) =>
-          avatar.id === selectedAvatarDetail.id
-            ? {
-                ...avatar,
-                status: "done" as const,
-              }
-            : avatar,
-        );
-
-        setDemoAvatarDetails(nextDemoDetails);
-        messageApi.success("演示任务已同步到手机端");
-        await refreshCurrentAvatar(selectedAvatarDetail.id, nextDemoDetails);
-        return;
-      }
-
       await api.syncAvatar(selectedAvatarDetail.id);
       messageApi.success("已同步到手机端");
       await refreshCurrentAvatar(selectedAvatarDetail.id);
@@ -1224,12 +926,6 @@ export default function Customization() {
         <div style={{ display: "grid", gridTemplateColumns: "360px minmax(0, 1fr)", gap: 16, alignItems: "start" }}>
           <Card styles={{ body: { padding: 16 } }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {isDemoMode ? (
-                <Tag color="gold" style={{ width: "fit-content", marginInlineEnd: 0 }}>
-                  演示数据
-                </Tag>
-              ) : null}
-
               <div style={{ display: "flex", gap: 8 }}>
                 <Button
                   type={taskTab === "pending" ? "primary" : "default"}
