@@ -16,6 +16,7 @@ import {
   ALL_ACTIONS,
   BASIC_ACTIONS,
   FUN_ACTIONS,
+  INTERACTIVE_ACTIONS,
   SCHEDULE_SPECIES,
   type ActionType,
   type BehaviorSchedule,
@@ -65,18 +66,31 @@ const actionEnglishLabels: Record<ActionType, string> = {
   lie: "Resting",
   run: "Running",
   walk: "Walking",
+  stand: "Standing",
+  jump: "Jumping",
   play_ball: "Playing",
   poop: "Pooping",
-  watch_tv: "Watching",
+  drink_water: "Drinking",
   chase_tail: "Chasing",
-  scratch_air: "Scratching",
+  butterfly: "Catching",
   dream: "Dreaming",
   lick_paw: "Licking",
   spin: "Spinning",
+  dizzy: "Dizzy",
+  get_closer: "Approaching",
+  run_fast: "Sprinting",
+  woken_up: "Responding",
+  eat_shrimp: "Eating Treat",
+  well_behaved: "Behaving",
+  confused: "Confused",
+  walk_left: "Walking Side",
 };
 
-const timelineHours = Array.from({ length: 25 }, (_, index) => index);
+const MINUTES_PER_DAY = 24 * 60;
+const TIMELINE_SEGMENT_MINUTES = 3 * 60;
+const TIMELINE_SEGMENT_HEIGHT = 110;
 const verticalTimelineHours = Array.from({ length: 8 }, (_, index) => index * 3);
+const TIMELINE_CANVAS_HEIGHT = verticalTimelineHours.length * TIMELINE_SEGMENT_HEIGHT;
 
 const timelineStyles: Record<string, CSSProperties> = {
   page: {
@@ -183,7 +197,7 @@ const timelineStyles: Record<string, CSSProperties> = {
     position: "relative",
   },
   timeRailItem: {
-    height: 110,
+    height: TIMELINE_SEGMENT_HEIGHT,
     position: "relative",
     color: "#98a2b3",
     fontSize: 12,
@@ -195,6 +209,30 @@ const timelineStyles: Record<string, CSSProperties> = {
     display: "flex",
     flexDirection: "column",
     gap: 12,
+  },
+  scheduleCanvas: {
+    position: "relative",
+    height: TIMELINE_CANVAS_HEIGHT,
+    borderRadius: 16,
+    background: "#fff",
+    overflow: "hidden",
+  },
+  scheduleGridLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    background: "#eef2f7",
+    pointerEvents: "none",
+  },
+  scheduleGridBand: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    borderRadius: 14,
+    background: "#fafcff",
+    border: "1px dashed #e7edf6",
+    pointerEvents: "none",
   },
   addBehaviorButton: {
     width: "100%",
@@ -211,7 +249,7 @@ const actionGroupMeta = [
   {
     key: "basic",
     title: "基础动作",
-    description: "六种基础动作，用于日常主行为配置。",
+    description: "八种基础动作，用于日常主行为配置。",
     color: "#1677ff",
     actions: BASIC_ACTIONS,
   },
@@ -221,6 +259,13 @@ const actionGroupMeta = [
     description: "八种趣味动作，用于穿插在主行为之间。",
     color: "#722ed1",
     actions: FUN_ACTIONS,
+  },
+  {
+    key: "interactive",
+    title: "交互动作",
+    description: "八种交互动作，用于响应用户主动互动。",
+    color: "#13c2c2",
+    actions: INTERACTIVE_ACTIONS,
   },
 ] as const;
 
@@ -314,6 +359,26 @@ function buildBlockForm(startMinutes: number, endMinutes: number, actionType: Ac
 function getDefaultBlockRange(clickedMinutes: number) {
   const rounded = Math.floor(Math.max(0, Math.min(1439, clickedMinutes)) / 15) * 15;
   const startMinutes = Math.min(1380, rounded);
+  const endMinutes = Math.min(1440, startMinutes + 60);
+  return { startMinutes, endMinutes };
+}
+
+function minutesToTimelineOffset(minutes: number) {
+  return (Math.max(0, Math.min(MINUTES_PER_DAY, minutes)) / TIMELINE_SEGMENT_MINUTES) * TIMELINE_SEGMENT_HEIGHT;
+}
+
+function getNextSequentialBlockRange(blocks: BehaviorScheduleBlock[]) {
+  const normalizedBlocks = normalizeBlocks(blocks);
+  const latestBlock = normalizedBlocks[normalizedBlocks.length - 1];
+  if (!latestBlock) {
+    return null;
+  }
+
+  const startMinutes = latestBlock.endMinutes;
+  if (startMinutes >= 1440) {
+    return null;
+  }
+
   const endMinutes = Math.min(1440, startMinutes + 60);
   return { startMinutes, endMinutes };
 }
@@ -485,11 +550,19 @@ export default function Schedules() {
   };
 
   const handleAddBehavior = () => {
+    const nextRange = getNextSequentialBlockRange(sortedBlocks);
+    if (nextRange) {
+      openCreateBlockModal(nextRange.startMinutes, nextRange.endMinutes);
+      return;
+    }
     openCreateBlockModal(9 * 60);
   };
 
-  const openCreateBlockModal = (clickedMinutes: number) => {
-    const { startMinutes, endMinutes } = getDefaultBlockRange(clickedMinutes);
+  const openCreateBlockModal = (clickedMinutes: number, defaultEndMinutes?: number) => {
+    const { startMinutes, endMinutes } =
+      typeof defaultEndMinutes === "number"
+        ? { startMinutes: clickedMinutes, endMinutes: defaultEndMinutes }
+        : getDefaultBlockRange(clickedMinutes);
     setBlockModalMode("create");
     setEditingBlockId(null);
     setBlockForm(buildBlockForm(startMinutes, endMinutes));
@@ -511,8 +584,8 @@ export default function Schedules() {
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
-    const relativeX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-    const clickedMinutes = Math.round((relativeX / Math.max(rect.width, 1)) * 1440);
+    const relativeY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const clickedMinutes = Math.round((relativeY / Math.max(rect.height, 1)) * MINUTES_PER_DAY);
     openCreateBlockModal(clickedMinutes);
   };
 
@@ -768,65 +841,115 @@ export default function Schedules() {
                     </div>
 
                     <div style={timelineStyles.scheduleColumn}>
-                      {sortedBlocks.length > 0 ? (
-                        sortedBlocks.map((block) => {
-                          const isSelected = selectedBlockId === block.id;
-                          const visual = getActionVisual(block.actionType);
-                          const durationHours = (block.endMinutes - block.startMinutes) / 60;
-                          const blockHeight = Math.max(74, Math.round(durationHours * 42));
-
+                      <div style={timelineStyles.scheduleCanvas} onClick={handleTimelineClick}>
+                        {verticalTimelineHours.map((hour, index) => {
+                          const top = index * TIMELINE_SEGMENT_HEIGHT;
                           return (
-                            <div
-                              key={block.id}
-                              onClick={() => setSelectedBlockId(block.id)}
-                              style={{
-                                height: blockHeight,
-                                borderRadius: 14,
-                                border: `2px solid ${isSelected ? visual.dot : visual.border}`,
-                                background: visual.background,
-                                padding: "16px 18px",
-                                display: "flex",
-                                alignItems: "flex-start",
-                                gap: 14,
-                                cursor: "pointer",
-                                boxShadow: isSelected ? `0 0 0 2px ${visual.border}` : "none",
-                              }}
-                            >
+                            <div key={hour}>
+                              <div style={{ ...timelineStyles.scheduleGridLine, top }} />
                               <div
                                 style={{
-                                  width: 20,
-                                  height: 20,
-                                  borderRadius: "50%",
-                                  background: visual.dot,
-                                  flexShrink: 0,
-                                  marginTop: 2,
+                                  ...timelineStyles.scheduleGridBand,
+                                  top: top + 10,
+                                  height: TIMELINE_SEGMENT_HEIGHT - 20,
                                 }}
                               />
-                              <div style={{ minWidth: 0 }}>
-                                <div style={{ fontSize: 15, fontWeight: 700, color: visual.text, marginBottom: 8 }}>
-                                  {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]}
-                                </div>
-                                <div style={{ fontSize: 14, color: visual.text, opacity: 0.8, fontWeight: 600 }}>
-                                  {formatTime(block.startMinutes)} - {formatTime(block.endMinutes)}
-                                </div>
-                              </div>
                             </div>
                           );
-                        })
-                      ) : (
-                        <div
-                          style={{
-                            borderRadius: 14,
-                            border: "1px dashed #d7e3f5",
-                            background: "#fafcff",
-                            padding: 32,
-                            textAlign: "center",
-                            color: "#98a2b3",
-                          }}
-                        >
-                          当前还没有行为，请点击下方按钮添加。
-                        </div>
-                      )}
+                        })}
+
+                        {sortedBlocks.length > 0 ? (
+                          sortedBlocks.map((block) => {
+                            const isSelected = selectedBlockId === block.id;
+                            const visual = getActionVisual(block.actionType);
+                            const top = minutesToTimelineOffset(block.startMinutes);
+                            const blockHeight = Math.max(
+                              40,
+                              minutesToTimelineOffset(block.endMinutes) - minutesToTimelineOffset(block.startMinutes),
+                            );
+                            const compact = blockHeight < 72;
+
+                            return (
+                              <div
+                                key={block.id}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setSelectedBlockId(block.id);
+                                }}
+                                style={{
+                                  position: "absolute",
+                                  top,
+                                  left: 12,
+                                  right: 12,
+                                  height: blockHeight,
+                                  borderRadius: 14,
+                                  border: `2px solid ${isSelected ? visual.dot : visual.border}`,
+                                  background: visual.background,
+                                  padding: compact ? "10px 14px" : "16px 18px",
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 14,
+                                  cursor: "pointer",
+                                  boxShadow: isSelected ? `0 0 0 2px ${visual.border}` : "none",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: compact ? 16 : 20,
+                                    height: compact ? 16 : 20,
+                                    borderRadius: "50%",
+                                    background: visual.dot,
+                                    flexShrink: 0,
+                                    marginTop: 2,
+                                  }}
+                                />
+                                <div style={{ minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      fontSize: compact ? 14 : 15,
+                                      fontWeight: 700,
+                                      color: visual.text,
+                                      marginBottom: compact ? 4 : 8,
+                                      lineHeight: 1.25,
+                                    }}
+                                  >
+                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: compact ? 13 : 14,
+                                      color: visual.text,
+                                      opacity: 0.8,
+                                      fontWeight: 600,
+                                      lineHeight: 1.2,
+                                    }}
+                                  >
+                                    {formatTime(block.startMinutes)} - {formatTime(block.endMinutes)}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 12,
+                              left: 12,
+                              right: 12,
+                              borderRadius: 14,
+                              border: "1px dashed #d7e3f5",
+                              background: "#fafcff",
+                              padding: 32,
+                              textAlign: "center",
+                              color: "#98a2b3",
+                            }}
+                          >
+                            当前还没有行为，请点击空白区域或下方按钮添加。
+                          </div>
+                        )}
+                      </div>
 
                       <Button style={timelineStyles.addBehaviorButton} onClick={handleAddBehavior}>
                         + 点击添加宠物行为
@@ -906,19 +1029,20 @@ export default function Schedules() {
 
           <div style={timelineStyles.actionLibraryCard}>
             <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>动作参考</div>
-            <Space direction="vertical" size={12} style={{ width: "100%" }}>
-              {actionGroupMeta.map((group) => (
-                <div key={group.key}>
-                  <div style={{ color: group.color, fontWeight: 700, marginBottom: 6 }}>{group.title}</div>
-                  <Space size={[6, 6]} wrap>
-                    {group.actions.map((action) => (
-                      <Tag
-                        key={action}
-                        color={group.key === "basic" ? "blue" : "purple"}
-                        style={{ marginInlineEnd: 0, borderRadius: 999 }}
-                      >
-                        {ACTION_LABELS[action]}
-                      </Tag>
+                    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                      {actionGroupMeta.map((group) => (
+                        <div key={group.key}>
+                          <div style={{ color: group.color, fontWeight: 700, marginBottom: 6 }}>{group.title}</div>
+                          <div style={{ color: "#8c8c8c", fontSize: 12, marginBottom: 6 }}>{group.description}</div>
+                          <Space size={[6, 6]} wrap>
+                            {group.actions.map((action) => (
+                              <Tag
+                                key={action}
+                                color={group.key === "basic" ? "blue" : group.key === "fun" ? "purple" : "cyan"}
+                                style={{ marginInlineEnd: 0, borderRadius: 999 }}
+                              >
+                                {ACTION_LABELS[action]}
+                              </Tag>
                     ))}
                   </Space>
                 </div>

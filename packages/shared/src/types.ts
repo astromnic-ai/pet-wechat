@@ -294,10 +294,16 @@ export interface CustomizationTask {
   status: AvatarStatus;
   defaultPreviewUrl: string | null;
   baseActionCount: number;
+  funActionCount: number;
+  interactiveActionCount: number;
   personalizedActionCount: number;
   totalActionCount: number;
   baseActionTotal: number;
+  funActionTotal: number;
+  interactiveActionTotal: number;
   personalizedActionTotal: number;
+  supportsFunActions: boolean;
+  supportsInteractiveActions: boolean;
   categoryStatus: CustomizationTaskCategoryStatus;
   isNewToday: boolean;
   createdAt: string;

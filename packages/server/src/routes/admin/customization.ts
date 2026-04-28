@@ -7,14 +7,16 @@ import type {
   Gender,
   Species,
 } from "shared";
-import { BASIC_ACTIONS, FUN_ACTIONS } from "shared";
+import { BASIC_ACTIONS, FUN_ACTIONS, INTERACTIVE_ACTIONS } from "shared";
 import { db } from "../../db";
 import { buildPageResponse, parsePagination } from "../../utils/pagination";
 
 const customizationRoute = new Hono();
 
 const BASE_ACTION_TOTAL = BASIC_ACTIONS.length;
-const PERSONALIZED_ACTION_TOTAL = FUN_ACTIONS.length;
+const FUN_ACTION_TOTAL = FUN_ACTIONS.length;
+const INTERACTIVE_ACTION_TOTAL = INTERACTIVE_ACTIONS.length;
+const PERSONALIZED_ACTION_TOTAL = FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length;
 const VALID_AVATAR_STATUSES = new Set<AvatarStatus>([
   "pending",
   "processing",
@@ -23,9 +25,9 @@ const VALID_AVATAR_STATUSES = new Set<AvatarStatus>([
   "approved",
   "rejected",
 ]);
-const VALID_CATEGORIES = new Set(["all", "base", "personalized"] as const);
+const VALID_CATEGORIES = new Set(["all", "basic", "fun", "interactive"] as const);
 
-type CustomizationCategory = "all" | "base" | "personalized";
+type CustomizationCategory = "all" | "basic" | "fun" | "interactive";
 
 type CustomizationListFilters = {
   keyword: string;
@@ -48,8 +50,12 @@ type RawCustomizationTaskRow = {
   status: AvatarStatus;
   default_preview_url: string | null;
   base_action_count: number | string | null;
+  fun_action_count: number | string | null;
+  interactive_action_count: number | string | null;
   personalized_action_count: number | string | null;
   total_action_count: number | string | null;
+  supports_fun_actions: boolean | string | number | null;
+  supports_interactive_actions: boolean | string | number | null;
   category_status: CustomizationTaskCategoryStatus;
   is_new_today: boolean | string | number | null;
   created_at: Date | string;
@@ -137,7 +143,10 @@ function getCustomizationTaskCtes() {
         )::int AS base_action_count,
         COUNT(DISTINCT paa.action_type) FILTER (
           WHERE paa.action_type = ANY(${toTextArraySql(FUN_ACTIONS)})
-        )::int AS personalized_action_count
+        )::int AS fun_action_count,
+        COUNT(DISTINCT paa.action_type) FILTER (
+          WHERE paa.action_type = ANY(${toTextArraySql(INTERACTIVE_ACTIONS)})
+        )::int AS interactive_action_count
       FROM pet_avatar_actions paa
       GROUP BY paa.pet_avatar_id
     ),
@@ -168,17 +177,35 @@ function getCustomizationTaskCtes() {
           fap.first_action_image_url
         ) AS default_preview_url,
         COALESCE(asa.base_action_count, 0)::int AS base_action_count,
-        COALESCE(asa.personalized_action_count, 0)::int AS personalized_action_count,
+        COALESCE(asa.fun_action_count, 0)::int AS fun_action_count,
+        COALESCE(asa.interactive_action_count, 0)::int AS interactive_action_count,
+        (
+          COALESCE(asa.fun_action_count, 0) +
+          COALESCE(asa.interactive_action_count, 0)
+        )::int AS personalized_action_count,
         (
           COALESCE(asa.base_action_count, 0) +
-          COALESCE(asa.personalized_action_count, 0)
+          COALESCE(asa.fun_action_count, 0) +
+          COALESCE(asa.interactive_action_count, 0)
         )::int AS total_action_count,
+        (
+          pa.additional_image_urls IS NOT NULL
+          AND NULLIF(pa.additional_image_urls, '') IS NOT NULL
+          AND pa.additional_image_urls <> '[]'
+        ) AS supports_fun_actions,
+        (
+          pa.additional_image_urls IS NOT NULL
+          AND NULLIF(pa.additional_image_urls, '') IS NOT NULL
+          AND pa.additional_image_urls <> '[]'
+        ) AS supports_interactive_actions,
         CASE
           WHEN COALESCE(asa.base_action_count, 0) = 0
-            AND COALESCE(asa.personalized_action_count, 0) = 0
+            AND COALESCE(asa.fun_action_count, 0) = 0
+            AND COALESCE(asa.interactive_action_count, 0) = 0
             THEN 'empty'
           WHEN COALESCE(asa.base_action_count, 0) >= ${BASE_ACTION_TOTAL}
-            AND COALESCE(asa.personalized_action_count, 0) >= ${PERSONALIZED_ACTION_TOTAL}
+            AND COALESCE(asa.fun_action_count, 0) >= ${FUN_ACTION_TOTAL}
+            AND COALESCE(asa.interactive_action_count, 0) >= ${INTERACTIVE_ACTION_TOTAL}
             THEN 'all_done'
           WHEN COALESCE(asa.base_action_count, 0) >= ${BASE_ACTION_TOTAL}
             THEN 'base_done'
@@ -213,10 +240,10 @@ function buildCustomizationWhereClause(filters: CustomizationListFilters) {
     );
   }
 
-  if (filters.category === "base") {
-    conditions.push(sql`task_rows.base_action_count > 0`);
-  } else if (filters.category === "personalized") {
-    conditions.push(sql`task_rows.personalized_action_count > 0`);
+  if (filters.category === "fun") {
+    conditions.push(sql`COALESCE(task_rows.supports_fun_actions, false) = true`);
+  } else if (filters.category === "interactive") {
+    conditions.push(sql`COALESCE(task_rows.supports_interactive_actions, false) = true`);
   }
 
   if (conditions.length === 0) {
@@ -242,10 +269,16 @@ function toCustomizationTask(row: RawCustomizationTaskRow): CustomizationTask {
     status: row.status,
     defaultPreviewUrl: row.default_preview_url,
     baseActionCount: toInt(row.base_action_count),
+    funActionCount: toInt(row.fun_action_count),
+    interactiveActionCount: toInt(row.interactive_action_count),
     personalizedActionCount: toInt(row.personalized_action_count),
     totalActionCount: toInt(row.total_action_count),
     baseActionTotal: BASE_ACTION_TOTAL,
+    funActionTotal: FUN_ACTION_TOTAL,
+    interactiveActionTotal: INTERACTIVE_ACTION_TOTAL,
     personalizedActionTotal: PERSONALIZED_ACTION_TOTAL,
+    supportsFunActions: toBoolean(row.supports_fun_actions),
+    supportsInteractiveActions: toBoolean(row.supports_interactive_actions),
     categoryStatus: row.category_status,
     isNewToday: toBoolean(row.is_new_today),
     createdAt: toRequiredIsoString(row.created_at),

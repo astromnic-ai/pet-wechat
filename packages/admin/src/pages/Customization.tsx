@@ -25,6 +25,7 @@ import {
   ACTION_LABELS,
   BASIC_ACTIONS,
   FUN_ACTIONS,
+  INTERACTIVE_ACTIONS,
   type ActionType,
   type CustomizationTask,
   type Gender,
@@ -42,7 +43,7 @@ const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg
 
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskTab = "pending" | "done";
-type CategoryFilter = "all" | "basic" | "fun";
+type CategoryFilter = "all" | "basic" | "fun" | "interactive";
 
 type CustomizationAvatar = PetAvatar & {
   pet:
@@ -79,7 +80,8 @@ const TASK_STATUSES: CustomizationStatus[] = ["approved", "processing", "done"];
 const categoryOptions = [
   { label: "全部图像类别", value: "all" },
   { label: "基础动作", value: "basic" },
-  { label: "个性化动作", value: "fun" },
+  { label: "趣味动作", value: "fun" },
+  { label: "交互动作", value: "interactive" },
 ] satisfies { label: string; value: CategoryFilter }[];
 
 const statusMeta: Record<CustomizationStatus, { label: string; color: string }> = {
@@ -218,6 +220,10 @@ function parseAdditionalImages(rawValue?: string | null) {
   }
 }
 
+function hasAdditionalReferences(rawValue?: string | null) {
+  return parseAdditionalImages(rawValue).length > 0;
+}
+
 function buildActionMap(actions: PetAvatarAction[]) {
   return actions.reduce<Record<string, CustomizationAction>>((map, action) => {
     map[action.actionType] = action as CustomizationAction;
@@ -245,9 +251,16 @@ function getCategoryProgress(actions: PetAvatarAction[], category: CategoryFilte
     };
   }
 
+  if (category === "interactive") {
+    return {
+      completed: countCompletedActions(actions, INTERACTIVE_ACTIONS),
+      total: INTERACTIVE_ACTIONS.length,
+    };
+  }
+
   return {
     completed: actions.length,
-    total: BASIC_ACTIONS.length + FUN_ACTIONS.length,
+    total: BASIC_ACTIONS.length + FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length,
   };
 }
 
@@ -288,8 +301,11 @@ function openImageDownload(imageUrl: string, fallbackName: string) {
 
 function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): CustomizationTask {
   const baseActionCount = countCompletedActions(avatar.actions, BASIC_ACTIONS);
-  const personalizedActionCount = countCompletedActions(avatar.actions, FUN_ACTIONS);
+  const funActionCount = countCompletedActions(avatar.actions, FUN_ACTIONS);
+  const interactiveActionCount = countCompletedActions(avatar.actions, INTERACTIVE_ACTIONS);
+  const personalizedActionCount = funActionCount + interactiveActionCount;
   const totalActionCount = avatar.actions.length;
+  const supportsPersonalizedActions = hasAdditionalReferences(avatar.additionalImageUrls);
 
   return {
     avatarId: avatar.id,
@@ -306,14 +322,20 @@ function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): Customiz
     status: avatar.status,
     defaultPreviewUrl: avatar.actions[0]?.imageUrl ?? avatar.sourceImageUrl,
     baseActionCount,
+    funActionCount,
+    interactiveActionCount,
     personalizedActionCount,
     totalActionCount,
     baseActionTotal: BASIC_ACTIONS.length,
-    personalizedActionTotal: FUN_ACTIONS.length,
+    funActionTotal: FUN_ACTIONS.length,
+    interactiveActionTotal: INTERACTIVE_ACTIONS.length,
+    personalizedActionTotal: FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length,
+    supportsFunActions: supportsPersonalizedActions,
+    supportsInteractiveActions: supportsPersonalizedActions,
     categoryStatus:
       totalActionCount === 0
         ? "empty"
-        : totalActionCount >= BASIC_ACTIONS.length + FUN_ACTIONS.length
+        : totalActionCount >= BASIC_ACTIONS.length + FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length
           ? "all_done"
           : baseActionCount > 0
             ? "base_done"
@@ -382,15 +404,39 @@ function getTaskProgress(task: CustomizationTask | null | undefined, category: C
 
   if (category === "fun") {
     return {
-      completed: task.personalizedActionCount,
-      total: task.personalizedActionTotal,
+      completed: task.funActionCount,
+      total: task.funActionTotal,
+    };
+  }
+
+  if (category === "interactive") {
+    return {
+      completed: task.interactiveActionCount,
+      total: task.interactiveActionTotal,
     };
   }
 
   return {
     completed: task.totalActionCount,
-    total: task.baseActionTotal + task.personalizedActionTotal,
+    total: task.baseActionTotal + task.funActionTotal + task.interactiveActionTotal,
   };
+}
+
+function avatarSupportsCategory(avatar: CustomizationAvatar, category: Exclude<CategoryFilter, "all">) {
+  const hasReferences =
+    avatar.task?.supportsFunActions ??
+    avatar.task?.supportsInteractiveActions ??
+    hasAdditionalReferences(avatar.additionalImageUrls);
+
+  if (category === "basic") {
+    return true;
+  }
+
+  if (category === "fun") {
+    return !!hasReferences;
+  }
+
+  return !!hasReferences;
 }
 
 function buildMockImageUrl(title: string, accent: string, subtitle: string) {
@@ -458,6 +504,9 @@ function createMockCustomizationDetails(): CustomizationAvatarDetail[] {
       rejectReason: null,
       reviewedAt: dayjs().subtract(4, "hour").toISOString(),
       createdAt: dayjs().subtract(6, "hour").toISOString(),
+      additionalImageUrls: JSON.stringify([
+        buildMockImageUrl("栗子", "#bae637", "趣味参考图"),
+      ]),
       pet: {
         id: "mock-custom-pet-2",
         name: "栗子",
@@ -492,8 +541,15 @@ function createMockCustomizationDetails(): CustomizationAvatarDetail[] {
           id: "mock-custom-action-3",
           petAvatarId: "mock-custom-avatar-2",
           actionType: "play_ball",
-          imageUrl: buildMockImageUrl("栗子", "#73d13d", "个性化动作 · play_ball"),
+          imageUrl: buildMockImageUrl("栗子", "#73d13d", "趣味动作 · play_ball"),
           sortOrder: 2,
+        },
+        {
+          id: "mock-custom-action-4",
+          petAvatarId: "mock-custom-avatar-2",
+          actionType: "dizzy",
+          imageUrl: buildMockImageUrl("栗子", "#69c0ff", "交互动作 · dizzy"),
+          sortOrder: 3,
         },
       ],
     },
@@ -505,6 +561,10 @@ function createMockCustomizationDetails(): CustomizationAvatarDetail[] {
       rejectReason: null,
       reviewedAt: dayjs().subtract(1, "day").add(3, "hour").toISOString(),
       createdAt: dayjs().subtract(2, "day").toISOString(),
+      additionalImageUrls: JSON.stringify([
+        buildMockImageUrl("可颂", "#91caff", "趣味参考图 A"),
+        buildMockImageUrl("可颂", "#adc6ff", "趣味参考图 B"),
+      ]),
       pet: {
         id: "mock-custom-pet-3",
         name: "可颂",
@@ -532,8 +592,15 @@ function createMockCustomizationDetails(): CustomizationAvatarDetail[] {
           id: `mock-custom-action-fun-${index + 1}`,
           petAvatarId: "mock-custom-avatar-3",
           actionType,
-          imageUrl: buildMockImageUrl("可颂", "#adc6ff", `个性化动作 · ${ACTION_LABELS[actionType] ?? actionType}`),
+          imageUrl: buildMockImageUrl("可颂", "#adc6ff", `趣味动作 · ${ACTION_LABELS[actionType] ?? actionType}`),
           sortOrder: BASIC_ACTIONS.length + index,
+        })),
+        ...INTERACTIVE_ACTIONS.slice(0, 2).map((actionType, index) => ({
+          id: `mock-custom-action-interactive-${index + 1}`,
+          petAvatarId: "mock-custom-avatar-3",
+          actionType,
+          imageUrl: buildMockImageUrl("可颂", "#85a5ff", `交互动作 · ${ACTION_LABELS[actionType] ?? actionType}`),
+          sortOrder: BASIC_ACTIONS.length + FUN_ACTIONS.length + index,
         })),
       ],
     },
@@ -714,8 +781,7 @@ export default function Customization() {
           return true;
         }
 
-        const progress = getTaskProgress(avatar.task, categoryFilter);
-        return (progress?.completed ?? 0) > 0;
+        return avatarSupportsCategory(avatar, categoryFilter);
       }),
     [categoryFilter, tabAvatars],
   );
@@ -754,10 +820,12 @@ export default function Customization() {
   );
 
   const selectedActions = selectedAvatarDetail?.actions ?? [];
-  const totalActionCount = BASIC_ACTIONS.length + FUN_ACTIONS.length;
+  const totalActionCount =
+    BASIC_ACTIONS.length + FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length;
   const uploadedProgress = getCategoryProgress(selectedActions, "all");
   const basicProgress = getCategoryProgress(selectedActions, "basic");
   const funProgress = getCategoryProgress(selectedActions, "fun");
+  const interactiveProgress = getCategoryProgress(selectedActions, "interactive");
   const canEditActions = selectedAvatarDetail?.status === "approved" || selectedAvatarDetail?.status === "processing";
   const canSync = !!selectedAvatarDetail && uploadedProgress.completed > 0 && selectedAvatarDetail.status !== "done";
 
@@ -975,6 +1043,9 @@ export default function Customization() {
     const avatarActions = selectedAvatarDetail?.id === avatar.id ? selectedAvatarDetail.actions : [];
     const basicTaskProgress = getTaskProgress(avatar.task, "basic");
     const funTaskProgress = getTaskProgress(avatar.task, "fun");
+    const interactiveTaskProgress = getTaskProgress(avatar.task, "interactive");
+    const supportsFunActions = avatarSupportsCategory(avatar, "fun");
+    const supportsInteractiveActions = avatarSupportsCategory(avatar, "interactive");
 
     if (avatarActions.length === 0 && !avatar.task) {
       const meta = getStatusMetaForAvatarStatus(avatar.status as CustomizationStatus);
@@ -984,13 +1055,18 @@ export default function Customization() {
       }
 
       if (categoryFilter === "fun") {
-        return <Tag color={meta.color}>{`个性化动作 · ${meta.label}`}</Tag>;
+        return supportsFunActions ? <Tag color={meta.color}>{`趣味动作 · ${meta.label}`}</Tag> : null;
+      }
+
+      if (categoryFilter === "interactive") {
+        return supportsInteractiveActions ? <Tag color={meta.color}>{`交互动作 · ${meta.label}`}</Tag> : null;
       }
 
       return (
         <Space size={[6, 6]} wrap>
           <Tag color={meta.color}>{`基础动作 · ${meta.label}`}</Tag>
-          <Tag color={meta.color}>{`个性化动作 · ${meta.label}`}</Tag>
+          {supportsFunActions ? <Tag color={meta.color}>{`趣味动作 · ${meta.label}`}</Tag> : null}
+          {supportsInteractiveActions ? <Tag color={meta.color}>{`交互动作 · ${meta.label}`}</Tag> : null}
         </Space>
       );
     }
@@ -1002,16 +1078,29 @@ export default function Customization() {
 
     if (categoryFilter === "fun") {
       const meta = getCategoryStatusTag(funTaskProgress ?? getCategoryProgress(avatarActions, "fun"));
-      return <Tag color={meta.color}>{`个性化动作 · ${meta.label}`}</Tag>;
+      return supportsFunActions ? <Tag color={meta.color}>{`趣味动作 · ${meta.label}`}</Tag> : null;
+    }
+
+    if (categoryFilter === "interactive") {
+      const meta = getCategoryStatusTag(
+        interactiveTaskProgress ?? getCategoryProgress(avatarActions, "interactive"),
+      );
+      return supportsInteractiveActions ? <Tag color={meta.color}>{`交互动作 · ${meta.label}`}</Tag> : null;
     }
 
     const basicMeta = getCategoryStatusTag(basicTaskProgress ?? getCategoryProgress(avatarActions, "basic"));
     const funMeta = getCategoryStatusTag(funTaskProgress ?? getCategoryProgress(avatarActions, "fun"));
+    const interactiveMeta = getCategoryStatusTag(
+      interactiveTaskProgress ?? getCategoryProgress(avatarActions, "interactive"),
+    );
 
     return (
       <Space size={[6, 6]} wrap>
         <Tag color={basicMeta.color}>{`基础动作 · ${basicMeta.label}`}</Tag>
-        <Tag color={funMeta.color}>{`个性化动作 · ${funMeta.label}`}</Tag>
+        {supportsFunActions ? <Tag color={funMeta.color}>{`趣味动作 · ${funMeta.label}`}</Tag> : null}
+        {supportsInteractiveActions ? (
+          <Tag color={interactiveMeta.color}>{`交互动作 · ${interactiveMeta.label}`}</Tag>
+        ) : null}
       </Space>
     );
   };
@@ -1389,7 +1478,12 @@ export default function Customization() {
                 </Card>
 
                 {renderActionSection("基础动作", BASIC_ACTIONS)}
-                {renderActionSection("个性化动作", FUN_ACTIONS)}
+                {avatarSupportsCategory(selectedAvatarDetail ?? selectedAvatarSummary, "fun")
+                  ? renderActionSection("趣味动作", FUN_ACTIONS)
+                  : null}
+                {avatarSupportsCategory(selectedAvatarDetail ?? selectedAvatarSummary, "interactive")
+                  ? renderActionSection("交互动作", INTERACTIVE_ACTIONS)
+                  : null}
               </div>
             </Spin>
           )}

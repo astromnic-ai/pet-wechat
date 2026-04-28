@@ -22,14 +22,7 @@ import type { AdminDeviceDetail, AdminDeviceListItem, DeviceType } from "shared"
 import { api } from "../api/client";
 
 const { Text, Title } = Typography;
-
-type DeviceModelFilter = "all" | DeviceType;
-type DeviceStatusFilter = "all" | "online" | "offline" | "pairing";
-type DeviceBoundFilter = "all" | "bound" | "unbound";
-type DeviceImageFilter = "all" | "uploaded" | "not_uploaded";
 type PetSpeciesValue = "cat" | "dog" | "other";
-type SpeciesFilter = "all" | PetSpeciesValue;
-type CreatedSortOrder = "desc" | "asc";
 
 type SelectedDeviceRef = {
   id: string;
@@ -41,14 +34,13 @@ const DEVICE_MODEL_LABELS: Record<DeviceType, string> = {
   collar: "宠物项圈1.0",
 };
 
-const STATUS_LABELS: Record<DeviceStatusFilter extends infer T ? Extract<T, string> : never, string> = {
-  all: "全部设备状态",
+const STATUS_LABELS = {
   online: "在线",
   offline: "离线",
   pairing: "连接中断",
-};
+} satisfies Record<AdminDeviceListItem["status"], string>;
 
-const STATUS_COLORS: Record<Exclude<DeviceStatusFilter, "all">, string> = {
+const STATUS_COLORS: Record<AdminDeviceListItem["status"], string> = {
   online: "green",
   offline: "default",
   pairing: "orange",
@@ -59,38 +51,6 @@ const SPECIES_LABELS: Record<PetSpeciesValue, string> = {
   dog: "狗",
   other: "其他",
 };
-
-const modelOptions = [
-  { value: "desktop", label: "桌面宠物1.0" },
-  { value: "collar", label: "宠物项圈1.0" },
-] satisfies { value: DeviceModelFilter; label: string }[];
-
-const imageOptions = [
-  { value: "uploaded", label: "已上传" },
-  { value: "not_uploaded", label: "未上传" },
-] satisfies { value: DeviceImageFilter; label: string }[];
-
-const boundOptions = [
-  { value: "bound", label: "已绑定" },
-  { value: "unbound", label: "未绑定" },
-] satisfies { value: DeviceBoundFilter; label: string }[];
-
-const speciesOptions = [
-  { value: "cat", label: "猫" },
-  { value: "dog", label: "狗" },
-  { value: "other", label: "其他" },
-] satisfies { value: SpeciesFilter; label: string }[];
-
-const statusOptions = [
-  { value: "pairing", label: "连接中断" },
-  { value: "online", label: "在线" },
-  { value: "offline", label: "离线" },
-] satisfies { value: DeviceStatusFilter; label: string }[];
-
-const sortOptions = [
-  { value: "desc", label: "倒序" },
-  { value: "asc", label: "顺序" },
-] satisfies { value: CreatedSortOrder; label: string }[];
 
 function formatTime(value: string | null | undefined) {
   return value ? dayjs(value).format("YYYY-MM-DD HH:mm") : "-";
@@ -208,58 +168,18 @@ function renderPetAvatar(imageUrl: string | null | undefined, label: string) {
   );
 }
 
-function pickSingleFilter<T extends string>(value: unknown, fallback: T): T {
-  if (Array.isArray(value) && typeof value[0] === "string") {
-    return value[0] as T;
-  }
-
-  if (typeof value === "string") {
-    return value as T;
-  }
-
-  return fallback;
-}
-
 function buildDeviceQuery(params: {
   keyword: string;
-  modelFilter: DeviceModelFilter;
-  imageFilter: DeviceImageFilter;
-  boundFilter: DeviceBoundFilter;
-  speciesFilter: SpeciesFilter;
-  statusFilter: DeviceStatusFilter;
-  sortOrder: CreatedSortOrder;
 }) {
   const query: Record<string, string> = {
     page: "1",
     pageSize: "100",
     sort: "createdAt",
-    order: params.sortOrder,
+    order: "desc",
   };
 
   if (params.keyword.trim()) {
     query.keyword = params.keyword.trim();
-  }
-
-  if (params.modelFilter !== "all") {
-    query.type = params.modelFilter;
-  }
-
-  if (params.imageFilter === "uploaded") {
-    query.imageStatus = "uploaded";
-  } else if (params.imageFilter === "not_uploaded") {
-    query.imageStatus = "pending";
-  }
-
-  if (params.boundFilter !== "all") {
-    query.bindingStatus = params.boundFilter;
-  }
-
-  if (params.speciesFilter === "cat" || params.speciesFilter === "dog") {
-    query.species = params.speciesFilter;
-  }
-
-  if (params.statusFilter !== "all") {
-    query.status = params.statusFilter;
   }
 
   return query;
@@ -272,12 +192,6 @@ export default function DevicesPage() {
   const [devices, setDevices] = useState<AdminDeviceListItem[]>([]);
   const [total, setTotal] = useState(0);
   const [keyword, setKeyword] = useState("");
-  const [modelFilter, setModelFilter] = useState<DeviceModelFilter>("all");
-  const [imageFilter, setImageFilter] = useState<DeviceImageFilter>("all");
-  const [boundFilter, setBoundFilter] = useState<DeviceBoundFilter>("all");
-  const [speciesFilter, setSpeciesFilter] = useState<SpeciesFilter>("all");
-  const [statusFilter, setStatusFilter] = useState<DeviceStatusFilter>("all");
-  const [sortOrder, setSortOrder] = useState<CreatedSortOrder>("desc");
   const [selectedDeviceRef, setSelectedDeviceRef] = useState<SelectedDeviceRef | null>(null);
   const [selectedDeviceDetail, setSelectedDeviceDetail] = useState<AdminDeviceDetail | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
@@ -293,12 +207,6 @@ export default function DevicesPage() {
         const response = await api.getDevices(
           buildDeviceQuery({
             keyword: deferredKeyword,
-            modelFilter,
-            imageFilter,
-            boundFilter,
-            speciesFilter,
-            statusFilter,
-            sortOrder,
           }),
         );
 
@@ -327,7 +235,7 @@ export default function DevicesPage() {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [boundFilter, deferredKeyword, imageFilter, modelFilter, reloadToken, sortOrder, speciesFilter, statusFilter]);
+  }, [deferredKeyword, reloadToken]);
 
   useEffect(() => {
     if (!selectedDeviceRef) {
@@ -365,36 +273,14 @@ export default function DevicesPage() {
     };
   }, [reloadToken, selectedDeviceRef]);
 
-  const filteredDevices = useMemo(() => {
-    if (speciesFilter !== "other") {
-      return devices;
-    }
-
-    return devices.filter((device) => normalizeSpecies(device.petSpecies) === "other");
-  }, [devices, speciesFilter]);
-
   const boundDeviceCount = useMemo(
-    () => filteredDevices.filter((device) => device.bindingCount > 0).length,
-    [filteredDevices],
+    () => devices.filter((device) => device.bindingCount > 0).length,
+    [devices],
   );
 
   const handleShowAll = () => {
     setKeyword("");
-    setModelFilter("all");
-    setImageFilter("all");
-    setBoundFilter("all");
-    setSpeciesFilter("all");
-    setStatusFilter("all");
-  };
-
-  const handleReset = () => {
-    setKeyword("");
-    setModelFilter("all");
-    setImageFilter("all");
-    setBoundFilter("all");
-    setSpeciesFilter("all");
-    setStatusFilter("all");
-    setSortOrder("desc");
+    setReloadToken((value) => value + 1);
   };
 
   const handleRefresh = () => {
@@ -453,9 +339,6 @@ export default function DevicesPage() {
       dataIndex: "type",
       key: "type",
       width: 150,
-      filters: modelOptions.map((option) => ({ text: option.label, value: option.value })),
-      filteredValue: modelFilter === "all" ? null : [modelFilter],
-      filterMultiple: false,
       render: (value: DeviceType) => DEVICE_MODEL_LABELS[value],
     },
     {
@@ -463,9 +346,6 @@ export default function DevicesPage() {
       dataIndex: "hasUploadedAvatar",
       key: "hasUploadedAvatar",
       width: 120,
-      filters: imageOptions.map((option) => ({ text: option.label, value: option.value })),
-      filteredValue: imageFilter === "all" ? null : [imageFilter],
-      filterMultiple: false,
       render: (value: boolean) => renderImageStatus(value),
     },
     {
@@ -473,9 +353,6 @@ export default function DevicesPage() {
       dataIndex: "bindingCount",
       key: "bindingCount",
       width: 120,
-      filters: boundOptions.map((option) => ({ text: option.label, value: option.value })),
-      filteredValue: boundFilter === "all" ? null : [boundFilter],
-      filterMultiple: false,
       render: (value: number) => renderBindingStatus(value > 0),
     },
     {
@@ -483,9 +360,6 @@ export default function DevicesPage() {
       dataIndex: "petName",
       key: "petName",
       width: 180,
-      filters: speciesOptions.map((option) => ({ text: option.label, value: option.value })),
-      filteredValue: speciesFilter === "all" ? null : [speciesFilter],
-      filterMultiple: false,
       render: (_value, record) => (
         <Space direction="vertical" size={2}>
           <Text>{record.petName || "-"}</Text>
@@ -498,9 +372,6 @@ export default function DevicesPage() {
       dataIndex: "status",
       key: "status",
       width: 130,
-      filters: statusOptions.map((option) => ({ text: option.label, value: option.value })),
-      filteredValue: statusFilter === "all" ? null : [statusFilter],
-      filterMultiple: false,
       render: (value: AdminDeviceListItem["status"]) => renderStatus(value),
     },
     {
@@ -515,9 +386,6 @@ export default function DevicesPage() {
       dataIndex: "createdAt",
       key: "createdAt",
       width: 180,
-      filters: sortOptions.map((option) => ({ text: option.label, value: option.value })),
-      filteredValue: [sortOrder],
-      filterMultiple: false,
       render: (value: string) => formatTime(value),
     },
     {
@@ -920,9 +788,31 @@ export default function DevicesPage() {
             style={{ width: 360, maxWidth: "100%" }}
           />
           <Space wrap>
-            <Button onClick={handleShowAll}>全部</Button>
-            <Button onClick={handleReset}>重置</Button>
-            <Button icon={<ReloadOutlined />} onClick={handleRefresh}>
+            <Button
+              type="primary"
+              onClick={handleShowAll}
+              style={{
+                background: "#4da3ff",
+                borderColor: "#4da3ff",
+                borderRadius: 10,
+                minWidth: 72,
+                height: 40,
+              }}
+            >
+              全部
+            </Button>
+            <Button
+              type="primary"
+              icon={<ReloadOutlined />}
+              onClick={handleRefresh}
+              style={{
+                background: "#22c55e",
+                borderColor: "#22c55e",
+                borderRadius: 10,
+                minWidth: 88,
+                height: 40,
+              }}
+            >
               刷新
             </Button>
           </Space>
@@ -933,26 +823,18 @@ export default function DevicesPage() {
         title={
           <Space split={<Text type="secondary">|</Text>}>
             <Text strong>设备列表</Text>
-            <Text type="secondary">共 {speciesFilter === "other" ? filteredDevices.length : total} 台设备</Text>
+            <Text type="secondary">共 {total} 台设备</Text>
             <Text type="secondary">{boundDeviceCount} 台设备已绑定</Text>
           </Space>
         }
       >
         <Spin spinning={loading}>
           <Table<AdminDeviceListItem>
-            dataSource={filteredDevices}
+            dataSource={devices}
             columns={columns}
             rowKey={(record) => `${record.type}-${record.id}`}
             scroll={{ x: 1440 }}
             pagination={{ pageSize: 10, showSizeChanger: false }}
-            onChange={(_pagination, filters) => {
-              setModelFilter(pickSingleFilter<DeviceModelFilter>(filters.type, "all"));
-              setImageFilter(pickSingleFilter<DeviceImageFilter>(filters.hasUploadedAvatar, "all"));
-              setBoundFilter(pickSingleFilter<DeviceBoundFilter>(filters.bindingCount, "all"));
-              setSpeciesFilter(pickSingleFilter<SpeciesFilter>(filters.petName, "all"));
-              setStatusFilter(pickSingleFilter<DeviceStatusFilter>(filters.status, "all"));
-              setSortOrder(pickSingleFilter<CreatedSortOrder>(filters.createdAt, "desc"));
-            }}
           />
         </Spin>
       </Card>
