@@ -903,29 +903,21 @@ export default function Schedules() {
                                     flexShrink: 0,
                                     marginTop: 2,
                                   }}
-                                />
+                                  />
                                 <div style={{ minWidth: 0 }}>
                                   <div
                                     style={{
-                                      fontSize: compact ? 14 : 15,
+                                      fontSize: compact ? 12 : 13,
                                       fontWeight: 700,
                                       color: visual.text,
-                                      marginBottom: compact ? 4 : 8,
-                                      lineHeight: 1.25,
+                                      lineHeight: 1.3,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
                                     }}
                                   >
-                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]}
-                                  </div>
-                                  <div
-                                    style={{
-                                      fontSize: compact ? 13 : 14,
-                                      color: visual.text,
-                                      opacity: 0.8,
-                                      fontWeight: 600,
-                                      lineHeight: 1.2,
-                                    }}
-                                  >
-                                    {formatTime(block.startMinutes)} - {formatTime(block.endMinutes)}
+                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]} ·{" "}
+                                    {formatTime(block.startMinutes)}-{formatTime(block.endMinutes)}
                                   </div>
                                 </div>
                               </div>

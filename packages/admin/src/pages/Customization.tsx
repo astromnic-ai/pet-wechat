@@ -43,7 +43,8 @@ const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg
 
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskTab = "pending" | "done";
-type CategoryFilter = "all" | "basic" | "fun" | "interactive";
+type TaskCategoryFilter = "all" | "system" | "personalized";
+type ActionCategoryFilter = "basic" | "fun" | "interactive";
 
 type CustomizationAvatar = PetAvatar & {
   pet:
@@ -78,11 +79,10 @@ type UploadContentType =
 const TASK_STATUSES: CustomizationStatus[] = ["approved", "processing", "done"];
 
 const categoryOptions = [
-  { label: "全部图像类别", value: "all" },
-  { label: "基础动作", value: "basic" },
-  { label: "趣味动作", value: "fun" },
-  { label: "交互动作", value: "interactive" },
-] satisfies { label: string; value: CategoryFilter }[];
+  { label: "全部", value: "all" },
+  { label: "系统动作", value: "system" },
+  { label: "个性化动作", value: "personalized" },
+] satisfies { label: string; value: TaskCategoryFilter }[];
 
 const statusMeta: Record<CustomizationStatus, { label: string; color: string }> = {
   approved: { label: "待定制", color: "blue" },
@@ -236,7 +236,7 @@ function countCompletedActions(actions: PetAvatarAction[], actionTypes: readonly
   return actions.filter((action) => actionTypeSet.has(action.actionType as ActionType)).length;
 }
 
-function getCategoryProgress(actions: PetAvatarAction[], category: CategoryFilter): CategoryProgress {
+function getCategoryProgress(actions: PetAvatarAction[], category: ActionCategoryFilter | "all"): CategoryProgress {
   if (category === "basic") {
     return {
       completed: countCompletedActions(actions, BASIC_ACTIONS),
@@ -386,7 +386,7 @@ function mergeTasksWithAvatarSummaries(
   });
 }
 
-function getTaskProgress(task: CustomizationTask | null | undefined, category: CategoryFilter): CategoryProgress | null {
+function getTaskProgress(task: CustomizationTask | null | undefined, category: ActionCategoryFilter | "all"): CategoryProgress | null {
   if (!task) {
     return null;
   }
@@ -418,7 +418,7 @@ function getTaskProgress(task: CustomizationTask | null | undefined, category: C
   };
 }
 
-function avatarSupportsCategory(avatar: CustomizationAvatar, category: Exclude<CategoryFilter, "all">) {
+function avatarSupportsCategory(avatar: CustomizationAvatar, category: ActionCategoryFilter) {
   const hasReferences =
     avatar.task?.supportsFunActions ??
     avatar.task?.supportsInteractiveActions ??
@@ -435,6 +435,14 @@ function avatarSupportsCategory(avatar: CustomizationAvatar, category: Exclude<C
   return !!hasReferences;
 }
 
+function hasPersonalizedTask(avatar: CustomizationAvatar) {
+  return (
+    avatar.task?.supportsFunActions ??
+    avatar.task?.supportsInteractiveActions ??
+    hasAdditionalReferences(avatar.additionalImageUrls)
+  );
+}
+
 function toCustomizationAvatarSummary(avatar: CustomizationAvatarDetail): CustomizationAvatar {
   const { actions: _actions, ...summary } = avatar;
   return {
@@ -449,7 +457,8 @@ export default function Customization() {
   const [loading, setLoading] = useState(false);
   const [todayNewPendingCount, setTodayNewPendingCount] = useState(0);
   const [taskTab, setTaskTab] = useState<TaskTab>("pending");
-  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<TaskCategoryFilter>("all");
+  const [actionFilter, setActionFilter] = useState<ActionCategoryFilter>("basic");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [selectedAvatarDetail, setSelectedAvatarDetail] = useState<CustomizationAvatarDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -576,7 +585,11 @@ export default function Customization() {
           return true;
         }
 
-        return avatarSupportsCategory(avatar, categoryFilter);
+        if (categoryFilter === "system") {
+          return !hasPersonalizedTask(avatar);
+        }
+
+        return hasPersonalizedTask(avatar);
       }),
     [categoryFilter, tabAvatars],
   );
@@ -608,6 +621,25 @@ export default function Customization() {
     () => avatars.find((avatar) => avatar.id === selectedAvatarId) ?? null,
     [avatars, selectedAvatarId],
   );
+  const currentSelectedAvatar = selectedAvatarDetail ?? selectedAvatarSummary;
+  const supportsFunActions = currentSelectedAvatar ? avatarSupportsCategory(currentSelectedAvatar, "fun") : false;
+  const supportsInteractiveActions = currentSelectedAvatar
+    ? avatarSupportsCategory(currentSelectedAvatar, "interactive")
+    : false;
+
+  useEffect(() => {
+    if (!currentSelectedAvatar) {
+      return;
+    }
+
+    if (actionFilter === "basic") {
+      return;
+    }
+
+    if (!avatarSupportsCategory(currentSelectedAvatar, actionFilter)) {
+      setActionFilter("basic");
+    }
+  }, [actionFilter, currentSelectedAvatar]);
 
   const actionMap = useMemo(
     () => buildActionMap(selectedAvatarDetail?.actions ?? []),
@@ -741,71 +773,11 @@ export default function Customization() {
     }
   };
 
-  const renderCategoryStatus = (avatar: CustomizationAvatar) => {
-    const avatarActions = selectedAvatarDetail?.id === avatar.id ? selectedAvatarDetail.actions : [];
-    const basicTaskProgress = getTaskProgress(avatar.task, "basic");
-    const funTaskProgress = getTaskProgress(avatar.task, "fun");
-    const interactiveTaskProgress = getTaskProgress(avatar.task, "interactive");
-    const supportsFunActions = avatarSupportsCategory(avatar, "fun");
-    const supportsInteractiveActions = avatarSupportsCategory(avatar, "interactive");
-
-    if (avatarActions.length === 0 && !avatar.task) {
-      const meta = getStatusMetaForAvatarStatus(avatar.status as CustomizationStatus);
-
-      if (categoryFilter === "basic") {
-        return <Tag color={meta.color}>{`基础动作 · ${meta.label}`}</Tag>;
-      }
-
-      if (categoryFilter === "fun") {
-        return supportsFunActions ? <Tag color={meta.color}>{`趣味动作 · ${meta.label}`}</Tag> : null;
-      }
-
-      if (categoryFilter === "interactive") {
-        return supportsInteractiveActions ? <Tag color={meta.color}>{`交互动作 · ${meta.label}`}</Tag> : null;
-      }
-
-      return (
-        <Space size={[6, 6]} wrap>
-          <Tag color={meta.color}>{`基础动作 · ${meta.label}`}</Tag>
-          {supportsFunActions ? <Tag color={meta.color}>{`趣味动作 · ${meta.label}`}</Tag> : null}
-          {supportsInteractiveActions ? <Tag color={meta.color}>{`交互动作 · ${meta.label}`}</Tag> : null}
-        </Space>
-      );
-    }
-
-    if (categoryFilter === "basic") {
-      const meta = getCategoryStatusTag(basicTaskProgress ?? getCategoryProgress(avatarActions, "basic"));
-      return <Tag color={meta.color}>{`基础动作 · ${meta.label}`}</Tag>;
-    }
-
-    if (categoryFilter === "fun") {
-      const meta = getCategoryStatusTag(funTaskProgress ?? getCategoryProgress(avatarActions, "fun"));
-      return supportsFunActions ? <Tag color={meta.color}>{`趣味动作 · ${meta.label}`}</Tag> : null;
-    }
-
-    if (categoryFilter === "interactive") {
-      const meta = getCategoryStatusTag(
-        interactiveTaskProgress ?? getCategoryProgress(avatarActions, "interactive"),
-      );
-      return supportsInteractiveActions ? <Tag color={meta.color}>{`交互动作 · ${meta.label}`}</Tag> : null;
-    }
-
-    const basicMeta = getCategoryStatusTag(basicTaskProgress ?? getCategoryProgress(avatarActions, "basic"));
-    const funMeta = getCategoryStatusTag(funTaskProgress ?? getCategoryProgress(avatarActions, "fun"));
-    const interactiveMeta = getCategoryStatusTag(
-      interactiveTaskProgress ?? getCategoryProgress(avatarActions, "interactive"),
-    );
-
-    return (
-      <Space size={[6, 6]} wrap>
-        <Tag color={basicMeta.color}>{`基础动作 · ${basicMeta.label}`}</Tag>
-        {supportsFunActions ? <Tag color={funMeta.color}>{`趣味动作 · ${funMeta.label}`}</Tag> : null}
-        {supportsInteractiveActions ? (
-          <Tag color={interactiveMeta.color}>{`交互动作 · ${interactiveMeta.label}`}</Tag>
-        ) : null}
-      </Space>
-    );
-  };
+  const renderCategoryStatus = (avatar: CustomizationAvatar) => (
+    <Tag color={hasPersonalizedTask(avatar) ? "purple" : "blue"}>
+      {hasPersonalizedTask(avatar) ? "个性化动作" : "系统动作"}
+    </Tag>
+  );
 
   const renderActionSection = (title: string, actions: readonly ActionType[]) => (
     <Card
@@ -919,6 +891,31 @@ export default function Customization() {
     </Card>
   );
 
+  const actionFilterOptions = [
+    { label: "基础动作", value: "basic" },
+    { label: "趣味动作", value: "fun", disabled: !supportsFunActions },
+    { label: "交互动作", value: "interactive", disabled: !supportsInteractiveActions },
+  ] satisfies { label: string; value: ActionCategoryFilter; disabled?: boolean }[];
+
+  const currentActionSection =
+    actionFilter === "basic"
+      ? renderActionSection("基础动作", BASIC_ACTIONS)
+      : actionFilter === "fun"
+        ? supportsFunActions
+          ? renderActionSection("趣味动作", FUN_ACTIONS)
+          : (
+              <Card>
+                <Empty description="当前任务暂无趣味动作素材" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              </Card>
+            )
+        : supportsInteractiveActions
+          ? renderActionSection("交互动作", INTERACTIVE_ACTIONS)
+          : (
+              <Card>
+                <Empty description="当前任务暂无交互动作素材" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+              </Card>
+            );
+
   return (
     <>
       {contextHolder}
@@ -960,7 +957,7 @@ export default function Customization() {
                 </Button>
               </div>
 
-              <Segmented<CategoryFilter>
+              <Segmented<TaskCategoryFilter>
                 block
                 value={categoryFilter}
                 options={categoryOptions}
@@ -1173,13 +1170,13 @@ export default function Customization() {
                   ) : null}
                 </Card>
 
-                {renderActionSection("基础动作", BASIC_ACTIONS)}
-                {avatarSupportsCategory(selectedAvatarDetail ?? selectedAvatarSummary, "fun")
-                  ? renderActionSection("趣味动作", FUN_ACTIONS)
-                  : null}
-                {avatarSupportsCategory(selectedAvatarDetail ?? selectedAvatarSummary, "interactive")
-                  ? renderActionSection("交互动作", INTERACTIVE_ACTIONS)
-                  : null}
+                <Segmented<ActionCategoryFilter>
+                  value={actionFilter}
+                  options={actionFilterOptions}
+                  onChange={(value) => setActionFilter(value)}
+                  style={{ width: "fit-content" }}
+                />
+                {currentActionSection}
               </div>
             </Spin>
           )}
