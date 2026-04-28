@@ -1,7 +1,7 @@
 import { View, Text, Button } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useState } from "react";
-import { clearToken, request, setToken } from "../../utils/request";
+import { BASE_URL, clearToken, request, setToken } from "../../utils/request";
 import { connectWs } from "../../utils/ws";
 import "./index.scss";
 
@@ -11,6 +11,11 @@ interface AuthResponse {
 }
 
 const LOGIN_DRAFT_KEY = "loginAgreementDraft";
+const DEV_LOGIN_PHONE = "13800000000";
+
+function isLocalDevApi() {
+  return /127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\./.test(BASE_URL);
+}
 
 export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(false);
@@ -68,24 +73,50 @@ export default function Login() {
     Taro.reLaunch({ url: "/pages/index/index" });
   };
 
+  const loginWithDevAccount = async () => {
+    const { token, user } = await request<AuthResponse>({
+      url: "/api/auth/dev-login",
+      method: "POST",
+      data: { phone: DEV_LOGIN_PHONE },
+      needAuth: false,
+    });
+
+    await finishLogin(token, user.id);
+  };
+
+  const tryDevLoginFallback = async (error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error || "");
+    if (!isLocalDevApi() && !message.includes("微信登录未配置")) {
+      throw error;
+    }
+
+    await loginWithDevAccount();
+  };
+
   const handlePhoneQuickLogin = async (event: any) => {
     if (!ensureAgreementsAccepted() || loadingType) {
       return;
     }
 
     const phoneCode = event?.detail?.code;
-    if (!phoneCode) {
-      Taro.showToast({
-        title: "未获取到手机号授权",
-        icon: "none",
-      });
-      return;
-    }
 
     setLoadingType("phone");
     try {
       clearToken();
       Taro.removeStorageSync("userId");
+
+      if (isLocalDevApi()) {
+        await loginWithDevAccount();
+        return;
+      }
+
+      if (!phoneCode) {
+        Taro.showToast({
+          title: "未获取到手机号授权",
+          icon: "none",
+        });
+        return;
+      }
 
       const { token, user } = await request<AuthResponse>({
         url: "/api/auth/phone/wechat",
@@ -96,6 +127,11 @@ export default function Login() {
 
       await finishLogin(token, user.id);
     } catch (error: any) {
+      try {
+        await tryDevLoginFallback(error);
+        return;
+      } catch {}
+
       Taro.showToast({
         title: error?.message ?? "本机号登录失败",
         icon: "none",
@@ -115,6 +151,11 @@ export default function Login() {
       clearToken();
       Taro.removeStorageSync("userId");
 
+      if (isLocalDevApi()) {
+        await loginWithDevAccount();
+        return;
+      }
+
       const loginRes = await Taro.login();
       if (!loginRes.code) {
         throw new Error("获取微信登录凭证失败");
@@ -129,6 +170,11 @@ export default function Login() {
 
       await finishLogin(token, user.id);
     } catch (error: any) {
+      try {
+        await tryDevLoginFallback(error);
+        return;
+      } catch {}
+
       Taro.showToast({
         title: error?.message ?? "微信登录失败",
         icon: "none",

@@ -1,6 +1,6 @@
 import { View, Text } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import PageBack from "../../components/PageBack";
 import { getPetActivityMode, setPetActivityMode, type PetActivityMode } from "../../utils/storage";
 import { request } from "../../utils/request";
@@ -50,6 +50,8 @@ const ORDER_MAP: Record<PetActivityMode, PetActivityMode[]> = {
   real: ["custom", "real", "free"],
 };
 
+const MODE_SEQUENCE: PetActivityMode[] = ["free", "custom", "real"];
+
 function renderModeIcon(mode: PetActivityMode) {
   if (mode === "custom") {
     return (
@@ -92,6 +94,7 @@ export default function PetModePage() {
   const initialMode = (router.params.mode as PetActivityMode) || getPetActivityMode(petId);
   const [selectedMode, setSelectedMode] = useState<PetActivityMode>(initialMode);
   const [hasCollar, setHasCollar] = useState(false);
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useDidShow(() => {
     void request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" })
@@ -103,6 +106,42 @@ export default function PetModePage() {
 
   const orderedModes = useMemo(() => ORDER_MAP[selectedMode], [selectedMode]);
   const current = MODE_CONTENT[selectedMode];
+
+  const switchModeBySwipe = (direction: "left" | "right") => {
+    const currentIndex = MODE_SEQUENCE.indexOf(selectedMode);
+    if (currentIndex < 0) return;
+
+    const nextIndex =
+      direction === "left"
+        ? (currentIndex + 1) % MODE_SEQUENCE.length
+        : (currentIndex - 1 + MODE_SEQUENCE.length) % MODE_SEQUENCE.length;
+
+    setSelectedMode(MODE_SEQUENCE[nextIndex]);
+  };
+
+  const handleTouchStart = (e: any) => {
+    const touch = e.touches?.[0];
+    if (!touch) return;
+
+    touchStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+    };
+  };
+
+  const handleTouchEnd = (e: any) => {
+    const touch = e.changedTouches?.[0];
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    if (!touch || !start) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+
+    if (Math.abs(deltaX) < 28 || Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+    switchModeBySwipe(deltaX < 0 ? "left" : "right");
+  };
 
   const handleConfirm = () => {
     if (selectedMode === "custom") {
@@ -129,7 +168,7 @@ export default function PetModePage() {
       </View>
 
       <View className="pet-mode-shell">
-        <View className="mode-switch-row">
+        <View className="mode-switch-row" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           {orderedModes.map((mode) => {
             const item = MODE_CONTENT[mode];
             const active = mode === selectedMode;

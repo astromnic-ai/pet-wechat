@@ -21,7 +21,7 @@
 .home-content {
   height: 100%;
   box-sizing: border-box;
-  padding: calc(env(safe-area-inset-top) + 124rpx) 30rpx calc(env(safe-area-inset-bottom) + 120rpx);
+  padding: calc(env(safe-area-inset-top) + 124rpx) 30rpx calc(env(safe-area-inset-bottom) + 142rpx);
   display: flex;
   flex-direction: column;
   gap: 18rpx;
@@ -238,6 +238,7 @@
   height: 760rpx;
   opacity: 0;
   pointer-events: none;
+  background: transparent;
 }
 
 .pet-showcase-video--active {
@@ -321,8 +322,10 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: 100%;
-  font-size: 28rpx;
-  color: #8f8779;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #ffffff;
+  text-shadow: 0 4rpx 12rpx rgba(46, 37, 19, 0.18);
   z-index: 2;
   text-align: center;
 }
@@ -387,6 +390,7 @@
   display: flex;
   align-items: stretch;
   gap: 12rpx;
+  margin-bottom: 30rpx;
 }
 
 .empty-device-card {
@@ -399,9 +403,9 @@
 }
 
 .managed-device-card {
-  width: 100%;
+  width: 94%;
   min-height: 196rpx;
-  margin-top: 6rpx;
+  margin: 6rpx auto 34rpx;
   flex-direction: column;
   gap: 18rpx;
 }
@@ -414,7 +418,7 @@
 }
 
 .device-plus-box {
-  margin: 22rpx auto 0;
+  margin: 14rpx auto 0;
   width: 132rpx;
   height: 132rpx;
   border-radius: 26rpx;
@@ -423,6 +427,10 @@
   align-items: center;
   justify-content: center;
   box-shadow: 0 10rpx 18rpx rgba(255, 214, 107, 0.18);
+}
+
+.device-plus-box.managed-empty {
+  margin-top: 6rpx;
 }
 
 .device-plus-icon {

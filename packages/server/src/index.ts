@@ -1,6 +1,7 @@
 import type { Serve } from "bun";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import path from "node:path";
 import { authMiddleware } from "./middleware/auth";
@@ -30,6 +31,27 @@ export function createApp() {
 
   app.use("*", logger());
   app.use("*", cors());
+  app.onError((error, c) => {
+    const errorWithStatus = error as unknown as { status?: unknown };
+    const status =
+      error instanceof HTTPException
+        ? error.status
+        : typeof errorWithStatus.status === "number"
+          ? errorWithStatus.status
+          : null;
+
+    if (status !== null && status >= 400 && status < 500) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+    }
+
+    console.error(`[${c.req.method}] ${c.req.path} failed:`, error);
+    return c.json({ error: "服务器内部错误" }, 500);
+  });
 
   app.get("/", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
   app.get("/health", (c) => c.json({ status: "ok" }));

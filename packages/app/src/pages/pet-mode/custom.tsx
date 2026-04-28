@@ -3,7 +3,7 @@ import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import {
-  getPetModePlans,
+  getPersistedPetModePlans,
   setPetActivityMode,
   type PetModePlan,
   type PetModeWeekday,
@@ -71,13 +71,15 @@ export default function PetModeCustomOverviewPage() {
   const [plans, setPlans] = useState<PetModePlan[]>([]);
 
   useDidShow(() => {
-    setPlans(getPetModePlans(petId));
+    setPlans(getPersistedPetModePlans(petId));
   });
 
   const handleOpenSchedule = (scheduleId?: string) => {
     const query = [`petId=${encodeURIComponent(petId)}`];
     if (scheduleId) {
       query.push(`scheduleId=${encodeURIComponent(scheduleId)}`);
+    } else {
+      query.push("create=1");
     }
     Taro.navigateTo({ url: `/pages/pet-mode/schedule?${query.join("&")}` });
   };

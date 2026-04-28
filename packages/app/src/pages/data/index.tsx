@@ -333,9 +333,9 @@ export default function DataPage() {
               <ScrollView
                 className="pet-tabs-scroll"
                 scrollX
-                enhanced
                 showScrollbar={false}
                 scrollIntoView={petTabsScrollIntoView}
+                scrollWithAnimation
               >
                 <View className="pet-tabs">
                   {mergedPets.map((item) => {

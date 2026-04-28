@@ -1,6 +1,6 @@
 import { View, Text, Picker, PickerView, PickerViewColumn, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageBack from "../../components/PageBack";
 import {
   addPetCustomActionLabel,
@@ -89,20 +89,17 @@ export default function PetModeSchedulePage() {
   const router = useRouter();
   const petId = router.params.petId || "";
   const scheduleId = router.params.scheduleId || "";
+  const isCreating = router.params.create === "1" || !scheduleId;
   const plans = useMemo(() => getPetModePlans(petId), [petId]);
   const existingPlan = useMemo(
-    () => plans.find((item) => item.id === scheduleId) ?? null,
-    [plans, scheduleId]
+    () => (isCreating ? null : plans.find((item) => item.id === scheduleId) ?? null),
+    [isCreating, plans, scheduleId]
   );
 
-  const defaultDay = existingPlan?.days[0] || getTodayWeekday();
+  const existingOrderedDays = existingPlan?.days?.length ? orderDays(existingPlan.days) : [];
   const [repeat, setRepeat] = useState<PetModeRepeatType>(existingPlan?.repeat || "once");
-  const [selectedDays, setSelectedDays] = useState<PetModeWeekday[]>(
-    existingPlan?.days?.length ? orderDays(existingPlan.days) : [defaultDay]
-  );
-  const [selectedDate, setSelectedDate] = useState<string>(
-    existingPlan?.date || getCurrentWeekDateByDay(defaultDay)
-  );
+  const [selectedDays, setSelectedDays] = useState<PetModeWeekday[]>(existingOrderedDays);
+  const [selectedDate, setSelectedDate] = useState<string>(existingPlan?.date || "");
   const [slots, setSlots] = useState<PetModeSlot[]>(() => sortSlots(existingPlan?.slots || []));
   const [customActions, setCustomActions] = useState<string[]>([]);
   const [timeEditor, setTimeEditor] = useState<TimeEditorState>({
@@ -118,6 +115,21 @@ export default function PetModeSchedulePage() {
     slotIndex: -1,
   });
 
+  useEffect(() => {
+    if (existingPlan) {
+      setRepeat(existingPlan.repeat);
+      setSelectedDays(existingPlan.days?.length ? orderDays(existingPlan.days) : []);
+      setSelectedDate(existingPlan.date || "");
+      setSlots(sortSlots(existingPlan.slots || []));
+      return;
+    }
+
+    setRepeat("once");
+    setSelectedDays(["mon"]);
+    setSelectedDate(getCurrentWeekDateByDay("mon"));
+    setSlots([]);
+  }, [existingPlan]);
+
   useDidShow(() => {
     setCustomActions(getPetCustomActionLabels(petId));
   });
@@ -127,7 +139,7 @@ export default function PetModeSchedulePage() {
     [customActions]
   );
 
-  const canSaveSchedule = slots.length > 0;
+  const canSaveSchedule = slots.length > 0 && selectedDays.length > 0;
   const canDeleteSchedule = slots.length > 0;
 
   const handleToggleDay = (day: PetModeWeekday) => {
@@ -208,12 +220,17 @@ export default function PetModeSchedulePage() {
   const handleSaveSchedule = () => {
     if (!canSaveSchedule) return;
 
-    const normalizedDays = orderDays(selectedDays.length > 0 ? selectedDays : [getTodayWeekday()]);
+    const normalizedDays = orderDays(selectedDays);
+    if (normalizedDays.length === 0) {
+      Taro.showToast({ title: "请选择日期", icon: "none" });
+      return;
+    }
+
     const nextPlan: PetModePlan = {
       id: existingPlan?.id || `plan-${Date.now()}`,
       repeat,
       days: normalizedDays,
-      date: repeat === "once" ? selectedDate || getCurrentWeekDateByDay(normalizedDays[0]) : null,
+      date: repeat === "once" ? selectedDate || null : null,
       slots: sortSlots(slots),
     };
 
@@ -276,7 +293,7 @@ export default function PetModeSchedulePage() {
                   onClick={() => {
                     setRepeat(item.key);
                     if (item.key === "once") {
-                      const nextDay = selectedDays[0] || getTodayWeekday();
+                      const nextDay = selectedDays[0] || "mon";
                       setSelectedDays([nextDay]);
                       setSelectedDate(getCurrentWeekDateByDay(nextDay));
                     }

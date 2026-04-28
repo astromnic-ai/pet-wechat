@@ -93,6 +93,23 @@ describe("Avatar Routes", () => {
       );
       expect(res.status).toBe(201);
     });
+
+    it("allows up to three avatar creations from one desktop quota source", async () => {
+      const pet = fakePet();
+      const user = fakeUser({ avatarQuota: 0 });
+      const avatar = fakeAvatar();
+      mockDb._results.select = [[pet], [user], [{ count: 1 }], [{ count: 2 }]];
+      mockDb._results.insert = [[avatar]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/avatars", {
+          headers,
+          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+        })
+      );
+      expect(res.status).toBe(201);
+    });
   });
 
   // ===== GET /api/avatars/:id =====

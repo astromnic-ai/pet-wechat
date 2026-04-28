@@ -296,6 +296,15 @@ export function getPetModePlans(petId?: string): PetModePlan[] {
   return getLegacyPetModePlan(petId);
 }
 
+export function getPersistedPetModePlans(petId?: string): PetModePlan[] {
+  const value = Taro.getStorageSync(getPetModePlansKey(petId));
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((plan, index) => normalizePlan(plan, index));
+}
+
 export function setPetModePlans(petId: string | undefined, plans: PetModePlan[]) {
   const normalizedPlans = plans.map((plan, index) => normalizePlan(plan, index));
   Taro.setStorageSync(getPetModePlansKey(petId), normalizedPlans);

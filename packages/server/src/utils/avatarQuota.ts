@@ -3,6 +3,7 @@ import { db } from "../db";
 import { desktopDevices, petAvatars, pets } from "../db/schema";
 
 const COUNTED_AVATAR_STATUSES = ["pending", "processing", "approved", "done"] as const;
+const AVATAR_QUOTA_PER_DESKTOP = 3;
 
 function parseCount(value: unknown) {
   const num = Number(value ?? 0);
@@ -22,11 +23,11 @@ export async function getUserAvatarQuotaSummary(userId: string, purchasedQuotaRa
 
   const [desktopCountRows, usedCountRows] = await Promise.all([
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(desktopDevices)
       .where(eq(desktopDevices.userId, userId)),
     db
-      .select({ count: sql<number>`count(*)::int` })
+      .select({ count: sql<number>`count(*)` })
       .from(petAvatars)
       .leftJoin(pets, eq(pets.id, petAvatars.petId))
       .where(
@@ -37,7 +38,7 @@ export async function getUserAvatarQuotaSummary(userId: string, purchasedQuotaRa
       ),
   ]);
 
-  const desktopQuota = parseCount(desktopCountRows[0]?.count);
+  const desktopQuota = parseCount(desktopCountRows[0]?.count) * AVATAR_QUOTA_PER_DESKTOP;
   const usedQuota = parseCount(usedCountRows[0]?.count);
   const totalQuota = desktopQuota + purchasedQuota;
   const remainingQuota = Math.max(0, totalQuota - usedQuota);

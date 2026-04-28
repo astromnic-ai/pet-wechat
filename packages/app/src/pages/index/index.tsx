@@ -154,6 +154,7 @@ export default function Index() {
   const [frameIndex, setFrameIndex] = useState(0);
   const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
   const [isWaitingVideoPlaying, setIsWaitingVideoPlaying] = useState(false);
+  const [waitingVideoPlayToken, setWaitingVideoPlayToken] = useState(0);
   const skipNextDidShowRef = useRef(true);
   const petTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -505,12 +506,8 @@ export default function Index() {
     if (deltaX > 18 || deltaY > 18) return;
 
     if (homeHeroState === "processing") {
+      setWaitingVideoPlayToken((prev) => prev + 1);
       setIsWaitingVideoPlaying(true);
-      Taro.nextTick(() => {
-        const context = Taro.createVideoContext(waitingVideoId);
-        context.seek?.(0);
-        context.play?.();
-      });
       return;
     }
 
@@ -584,7 +581,7 @@ export default function Index() {
                 <Swiper
                   className="pet-swiper"
                   current={currentPetIndex}
-                  circular
+                  circular={false}
                   duration={280}
                   onChange={(e) => setCurrentPetIndex(e.detail.current)}
                 >
@@ -603,12 +600,13 @@ export default function Index() {
                               mode="widthFix"
                             />
                             <Video
+                              key={`${waitingVideoId}-${waitingVideoPlayToken}`}
                               id={waitingVideoId}
                               className={`pet-showcase-video ${
                                 isWaitingVideoPlaying ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
                               }`}
                               src={HOME_WAITING_VIDEO}
-                              autoplay={false}
+                              autoplay={isWaitingVideoPlaying}
                               loop={false}
                               muted
                               controls={false}
@@ -616,11 +614,7 @@ export default function Index() {
                               enableProgressGesture={false}
                               objectFit="contain"
                               poster={HOME_PET_LIE_IMAGE}
-                              onEnded={() => {
-                                const context = Taro.createVideoContext(waitingVideoId);
-                                context.seek?.(0);
-                                setIsWaitingVideoPlaying(false);
-                              }}
+                              onEnded={() => setIsWaitingVideoPlaying(false)}
                               onPause={() => setIsWaitingVideoPlaying(false)}
                               onError={() => setIsWaitingVideoPlaying(false)}
                             />
