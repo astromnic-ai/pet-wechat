@@ -2,6 +2,7 @@ import { View, Text, Image, Input } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
+import { addPetCustomActionLabel } from "../../utils/storage";
 import "./index.scss";
 
 export default function CustomAction() {
@@ -28,6 +29,8 @@ export default function CustomAction() {
       Taro.showToast({ title: "请输入动作名称", icon: "none" });
       return;
     }
+
+    addPetCustomActionLabel(petId, actionName);
 
     const query = [
       "status=done",

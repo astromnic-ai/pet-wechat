@@ -210,6 +210,16 @@
   position: relative;
 }
 
+.pet-showcase-media-stage {
+  position: relative;
+  width: 96%;
+  max-width: 628rpx;
+  height: 760rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .pet-showcase {
   display: block;
   width: 96%;
@@ -217,10 +227,26 @@
   animation: pet-float 2.4s ease-in-out infinite;
 }
 
+.pet-showcase--hidden {
+  opacity: 0;
+}
+
 .pet-showcase-video {
-  width: 96%;
-  max-width: 628rpx;
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 760rpx;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pet-showcase-video--active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pet-showcase-video--hidden {
+  opacity: 0;
 }
 
 .pet-showcase-overlay {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, CollarDevice, DesktopDevice, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
-import { getPetActivityMode, getPetModeSchedule, getPetModeSlots } from "../../utils/storage";
+import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import { getPetDisplayImage, getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
@@ -108,8 +108,7 @@ function matchActionsByKeyword(actions: PetAvatarAction[], action?: string | nul
 }
 
 function getCurrentCustomAction(petId?: string) {
-  const schedule = getPetModeSchedule(petId);
-  const slots = getPetModeSlots(petId);
+  const plans = getPetModePlans(petId);
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(
@@ -118,16 +117,18 @@ function getCurrentCustomAction(petId?: string) {
   const dayMap = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
   const todayWeekday = dayMap[now.getDay()];
 
-  const appliesToToday =
-    schedule.repeat === "weekly"
-      ? schedule.days.includes(todayWeekday)
-      : schedule.date === today;
+  const activePlan = plans.find((plan) => {
+    const appliesToToday =
+      plan.repeat === "weekly"
+        ? plan.days.includes(todayWeekday)
+        : plan.date === today;
 
-  if (!appliesToToday) {
-    return "";
-  }
+    return appliesToToday;
+  });
 
-  const activeSlot = slots.find((slot) => {
+  if (!activePlan) return "";
+
+  const activeSlot = activePlan.slots.find((slot) => {
     const [startHour, startMinute] = String(slot.start).split(":").map(Number);
     const [endHour, endMinute] = String(slot.end).split(":").map(Number);
     const start = startHour * 60 + startMinute;
@@ -395,6 +396,7 @@ export default function Index() {
       : homeHeroState === "processing"
         ? HOME_PET_LIE_IMAGE
         : HOME_PET_SIT_IMAGE;
+  const waitingVideoId = `home-waiting-video-${currentPet?.id || "default"}`;
   const currentPetDescription = currentPet?.id ? petDescriptionMap[currentPet.id] : "";
   const petSubtitle = getPetSubtitle(currentPet, currentPetDescription);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
@@ -504,6 +506,11 @@ export default function Index() {
 
     if (homeHeroState === "processing") {
       setIsWaitingVideoPlaying(true);
+      Taro.nextTick(() => {
+        const context = Taro.createVideoContext(waitingVideoId);
+        context.seek?.(0);
+        context.play?.();
+      });
       return;
     }
 
@@ -588,20 +595,36 @@ export default function Index() {
                         onTouchStart={handlePetTouchStart}
                         onTouchEnd={handlePetTouchEnd}
                       >
-                        {pet?.id === currentPet?.id && homeHeroState === "processing" && isWaitingVideoPlaying ? (
-                          <Video
-                            className="pet-showcase-video"
-                            src={HOME_WAITING_VIDEO}
-                            autoplay
-                            loop={false}
-                            muted
-                            controls={false}
-                            showCenterPlayBtn={false}
-                            enableProgressGesture={false}
-                            objectFit="contain"
-                            onEnded={() => setIsWaitingVideoPlaying(false)}
-                            onError={() => setIsWaitingVideoPlaying(false)}
-                          />
+                        {pet?.id === currentPet?.id && homeHeroState === "processing" ? (
+                          <View className="pet-showcase-media-stage">
+                            <Image
+                              className={`pet-showcase ${isWaitingVideoPlaying ? "pet-showcase--hidden" : ""}`}
+                              src={currentFrameImage}
+                              mode="widthFix"
+                            />
+                            <Video
+                              id={waitingVideoId}
+                              className={`pet-showcase-video ${
+                                isWaitingVideoPlaying ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
+                              }`}
+                              src={HOME_WAITING_VIDEO}
+                              autoplay={false}
+                              loop={false}
+                              muted
+                              controls={false}
+                              showCenterPlayBtn={false}
+                              enableProgressGesture={false}
+                              objectFit="contain"
+                              poster={HOME_PET_LIE_IMAGE}
+                              onEnded={() => {
+                                const context = Taro.createVideoContext(waitingVideoId);
+                                context.seek?.(0);
+                                setIsWaitingVideoPlaying(false);
+                              }}
+                              onPause={() => setIsWaitingVideoPlaying(false)}
+                              onError={() => setIsWaitingVideoPlaying(false)}
+                            />
+                          </View>
                         ) : (
                           <Image
                             className="pet-showcase"
