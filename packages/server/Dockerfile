@@ -15,4 +15,4 @@ RUN sed -i 's/"shared": "workspace:\*"/"shared": "file:..\/shared"/' package.jso
 
 EXPOSE 9527
 
-CMD ["bun", "src/index.ts"]
+CMD ["bun", "run", "start"]

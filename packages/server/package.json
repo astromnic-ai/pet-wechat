@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bun --watch src/index.ts",
-    "start": "bun src/index.ts",
+    "start": "drizzle-kit migrate && bun src/index.ts",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
