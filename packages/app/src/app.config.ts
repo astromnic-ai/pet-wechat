@@ -7,11 +7,11 @@ export default defineAppConfig({
     "pages/messages/index",
     "pages/profile/index",
     "pages/member-center/index",
-    "pages/pet-info/index",
   ],
   subPackages: [
     { root: "pages/collar-bind", pages: ["index"] },
     { root: "pages/wifi-config", pages: ["index"] },
+    { root: "pages/pet-info", pages: ["index"] },
     { root: "pages/pet-avatar", pages: ["index"] },
     { root: "pages/pets", pages: ["index"] },
     { root: "pages/profile-edit", pages: ["index"] },
