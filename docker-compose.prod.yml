@@ -55,12 +55,29 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   admin:
     image: ghcr.io/thup-jds/pet-wechat/admin:latest
     restart: unless-stopped
     ports:
       - "9528:80"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+
+  watchtower:
+    image: containrrr/watchtower
+    restart: unless-stopped
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_LABEL_ENABLE: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
 volumes:
   pg_data:
