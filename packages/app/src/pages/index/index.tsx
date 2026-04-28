@@ -51,11 +51,10 @@ function getBubbleText(pet: Pet | null) {
   return `主人，${pet.name}正在${getBehaviorLabel(pet.latestBehavior.actionType)}`;
 }
 
-function getPetSubtitle(pet: Pet | null) {
+function getPetSubtitle(pet: Pet | null, petDescription?: string | null) {
   if (!pet) return "点击开始创建宠物";
-  if (pet.breed?.trim()) return pet.breed.trim();
-  if (pet.latestBehavior?.actionType) return `${getBehaviorLabel(pet.latestBehavior.actionType)}中`;
-  return "待完善宠物资料";
+  if (petDescription?.trim()) return petDescription.trim();
+  return "待完善宠物描述";
 }
 
 function resolveLatestAvatar(avatars: PetAvatar[] = []) {
@@ -144,6 +143,7 @@ export default function Index() {
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [desktops, setDesktops] = useState<DesktopDeviceWithBindings[]>([]);
   const [petActionMap, setPetActionMap] = useState<Record<string, PetAvatarAction[]>>({});
+  const [petDescriptionMap, setPetDescriptionMap] = useState<Record<string, string>>({});
   const [petAvatarTaskMap, setPetAvatarTaskMap] = useState<
     Record<string, { avatarId: string; status: AvatarStatus | null }>
   >({});
@@ -209,6 +209,11 @@ export default function Index() {
             .sort((a, b) => a.sortOrder - b.sortOrder),
         }));
 
+        setPetDescriptionMap((prev) => ({
+          ...prev,
+          [currentPet.id]: latestAvatar?.petDescription?.trim() || "",
+        }));
+
         setPetAvatarTaskMap((prev) => ({
           ...prev,
           [currentPet.id]: {
@@ -223,6 +228,11 @@ export default function Index() {
         setPetActionMap((prev) => ({
           ...prev,
           [currentPet.id]: [],
+        }));
+
+        setPetDescriptionMap((prev) => ({
+          ...prev,
+          [currentPet.id]: "",
         }));
 
         setPetAvatarTaskMap((prev) => ({
@@ -385,7 +395,8 @@ export default function Index() {
       : homeHeroState === "processing"
         ? HOME_PET_LIE_IMAGE
         : HOME_PET_SIT_IMAGE;
-  const petSubtitle = getPetSubtitle(currentPet);
+  const currentPetDescription = currentPet?.id ? petDescriptionMap[currentPet.id] : "";
+  const petSubtitle = getPetSubtitle(currentPet, currentPetDescription);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
 
   const currentModeFrames = useMemo(() => {
