@@ -1,7 +1,9 @@
 import { View, Text, Button } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useState } from "react";
-import { BASE_URL, clearToken, request, setToken } from "../../utils/request";
+import type { User } from "@pet-wechat/shared";
+import { BASE_URL, clearToken, request, setToken, uploadFile } from "../../utils/request";
+import { setUserInfo } from "../../utils/storage";
 import { connectWs } from "../../utils/ws";
 import "./index.scss";
 
@@ -12,6 +14,16 @@ interface AuthResponse {
 
 const LOGIN_DRAFT_KEY = "loginAgreementDraft";
 const DEV_LOGIN_PHONE = "13800000000";
+const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
+
+function getChooseImageErrorMessage(error?: unknown) {
+  const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
+  if (message.includes("cancel")) return "";
+  if (message.includes("auth deny") || message.includes("permission") || message.includes("authorize")) {
+    return "需要相册或相机权限";
+  }
+  return "选择头像失败，请重试";
+}
 
 function isLocalDevApi() {
   return /127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\./.test(BASE_URL);
@@ -22,6 +34,8 @@ export default function Login() {
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [loadingType, setLoadingType] = useState<"wechat" | "phone" | null>(null);
   const [agreementShaking, setAgreementShaking] = useState(false);
+  const [avatarPromptVisible, setAvatarPromptVisible] = useState(false);
+  const [avatarPromptLoading, setAvatarPromptLoading] = useState<"wechat" | "custom" | null>(null);
 
   const hasAcceptedAgreements = agreedTerms && agreedPrivacy;
 
@@ -59,9 +73,9 @@ export default function Login() {
     });
   }, [agreedPrivacy, agreedTerms]);
 
-  const finishLogin = async (token: string, userId: string) => {
+  const enterHome = (userId: string) => {
     Taro.removeStorageSync(LOGIN_DRAFT_KEY);
-    setToken(token);
+    setAvatarPromptVisible(false);
     Taro.setStorageSync("userId", userId);
     Taro.showLoading({
       title: "进入主页中",
@@ -71,6 +85,113 @@ export default function Login() {
       // Keep login flow responsive in dev even if websocket connects later.
     });
     Taro.reLaunch({ url: "/pages/index/index" });
+  };
+
+  const finishLogin = async (token: string, userId: string) => {
+    setToken(token);
+    Taro.setStorageSync("userId", userId);
+
+    try {
+      const res = await request<{ user: User }>({ url: "/api/me" });
+      if (res.user) {
+        setUserInfo(res.user);
+        if (res.user.avatarUrl) {
+          enterHome(userId);
+          return;
+        }
+      }
+    } catch {
+      // Allow avatar confirmation flow to proceed even if profile preload fails.
+    }
+
+    setAvatarPromptVisible(true);
+  };
+
+  const saveAvatarAndEnter = async (avatarUrl: string) => {
+    const res = await request<{ user: User }>({
+      url: "/api/me",
+      method: "PUT",
+      data: { avatarUrl },
+    });
+    setUserInfo(res.user);
+    enterHome(res.user.id);
+  };
+
+  const handleUseWechatAvatar = async () => {
+    if (avatarPromptLoading) return;
+    setAvatarPromptLoading("wechat");
+    try {
+      const getUserProfile = (Taro as any).getUserProfile as
+        | ((options: { desc: string }) => Promise<{ userInfo?: { avatarUrl?: string } }>)
+        | undefined;
+
+      if (!getUserProfile) {
+        throw new Error("当前微信版本暂不支持获取头像");
+      }
+
+      const res = await getUserProfile({
+        desc: "用于设置您的头像",
+      });
+      const avatarUrl = res.userInfo?.avatarUrl?.trim();
+      if (!avatarUrl) {
+        throw new Error("未获取到微信头像");
+      }
+
+      await saveAvatarAndEnter(avatarUrl);
+    } catch (error: any) {
+      const message = String(error?.errMsg || error?.message || "");
+      if (!message.includes("cancel")) {
+        Taro.showToast({
+          title: error?.message || "获取微信头像失败",
+          icon: "none",
+        });
+      }
+    } finally {
+      setAvatarPromptLoading(null);
+    }
+  };
+
+  const handleChooseCustomAvatar = async () => {
+    if (avatarPromptLoading) return;
+    setAvatarPromptLoading("custom");
+    try {
+      const res = await Taro.chooseImage({
+        count: 1,
+        sizeType: ["compressed"],
+        sourceType: ["album", "camera"],
+      });
+      const selectedFile = res.tempFiles?.[0];
+      const nextImageSize = selectedFile?.size ?? null;
+      if (nextImageSize !== null && nextImageSize > MAX_UPLOAD_SIZE) {
+        Taro.showToast({ title: "文件过大，请上传 10MB 以内的图片", icon: "none" });
+        return;
+      }
+
+      const nextPath = res.tempFilePaths?.[0] || "";
+      if (!nextPath) return;
+
+      const uploadRes = await uploadFile<{ url: string }>({
+        url: "/api/upload",
+        filePath: nextPath,
+        name: "file",
+      });
+
+      await saveAvatarAndEnter(uploadRes.url);
+    } catch (error: any) {
+      const errorMessage = getChooseImageErrorMessage(error);
+      if (errorMessage) {
+        Taro.showToast({ title: errorMessage, icon: "none" });
+      }
+    } finally {
+      setAvatarPromptLoading(null);
+    }
+  };
+
+  const handleSkipAvatarSetup = () => {
+    const userId = Taro.getStorageSync("userId");
+    if (userId) {
+      enterHome(userId);
+    }
   };
 
   const loginWithDevAccount = async () => {
@@ -266,6 +387,38 @@ export default function Login() {
           <Text className="register-link">立即注册</Text>
         </View>
       </View>
+
+      {avatarPromptVisible ? (
+        <View className="avatar-prompt-mask">
+          <View className="avatar-prompt-card">
+            <Text className="avatar-prompt-title">设置登录头像</Text>
+            <Text className="avatar-prompt-desc">
+              是否使用当前微信头像作为默认头像？你也可以现在自己上传，后续在用户信息里继续修改。
+            </Text>
+            <View className="avatar-prompt-actions">
+              <Button
+                className="avatar-prompt-btn avatar-prompt-btn--primary"
+                loading={avatarPromptLoading === "wechat"}
+                disabled={avatarPromptLoading !== null}
+                onClick={handleUseWechatAvatar}
+              >
+                使用微信头像
+              </Button>
+              <Button
+                className="avatar-prompt-btn avatar-prompt-btn--secondary"
+                loading={avatarPromptLoading === "custom"}
+                disabled={avatarPromptLoading !== null}
+                onClick={handleChooseCustomAvatar}
+              >
+                自己设置头像
+              </Button>
+            </View>
+            <Text className="avatar-prompt-skip" onClick={handleSkipAvatarSetup}>
+              稍后设置
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }

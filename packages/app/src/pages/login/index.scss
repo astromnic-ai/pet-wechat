@@ -170,6 +170,85 @@
   font-weight: 600;
 }
 
+.avatar-prompt-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(27, 21, 12, 0.44);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+.avatar-prompt-card {
+  width: 100%;
+  max-width: 620rpx;
+  background: #ffffff;
+  border-radius: 40rpx;
+  padding: 48rpx 40rpx 36rpx;
+  box-sizing: border-box;
+  box-shadow: 0 24rpx 60rpx rgba(34, 27, 15, 0.16);
+}
+
+.avatar-prompt-title {
+  display: block;
+  text-align: center;
+  font-size: 38rpx;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #222222;
+}
+
+.avatar-prompt-desc {
+  display: block;
+  margin-top: 18rpx;
+  text-align: center;
+  font-size: 26rpx;
+  line-height: 1.7;
+  color: #6b645a;
+}
+
+.avatar-prompt-actions {
+  margin-top: 40rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.avatar-prompt-btn {
+  width: 100%;
+  height: 92rpx;
+  line-height: 92rpx;
+  border-radius: 28rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+
+  &::after {
+    border: none;
+  }
+}
+
+.avatar-prompt-btn--primary {
+  background: #ffd96b;
+  color: #3f3320;
+}
+
+.avatar-prompt-btn--secondary {
+  background: #ffffff;
+  color: #2f2f2f;
+  border: 2rpx solid #ebe4d7;
+}
+
+.avatar-prompt-skip {
+  display: block;
+  margin-top: 28rpx;
+  text-align: center;
+  font-size: 25rpx;
+  color: #9a9184;
+}
+
 @keyframes agreement-shake {
   0%,
   100% {
