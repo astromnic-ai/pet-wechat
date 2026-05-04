@@ -80,8 +80,8 @@ const TASK_STATUSES: CustomizationStatus[] = ["approved", "processing", "done"];
 
 const categoryOptions = [
   { label: "全部", value: "all" },
-  { label: "系统动作", value: "system" },
-  { label: "个性化动作", value: "personalized" },
+  { label: "系统定制", value: "system" },
+  { label: "个性化定制", value: "personalized" },
 ] satisfies { label: string; value: TaskCategoryFilter }[];
 
 const statusMeta: Record<CustomizationStatus, { label: string; color: string }> = {
@@ -468,8 +468,10 @@ export default function Customization() {
   const [uploadImageUrl, setUploadImageUrl] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState("");
+  const [petDescriptionDraft, setPetDescriptionDraft] = useState("");
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
+  const [metaSaving, setMetaSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const detailRequestRef = useRef(0);
 
@@ -522,6 +524,7 @@ export default function Customization() {
 
       if (detailRequestRef.current === requestId) {
         setSelectedAvatarDetail(detail);
+        setPetDescriptionDraft(detail.petDescription?.trim() ?? "");
         setPreviewActionType((current) => {
           if (current && detail.actions.some((action) => action.actionType === current)) {
             return current;
@@ -535,6 +538,7 @@ export default function Customization() {
     } catch (error) {
       if (detailRequestRef.current === requestId) {
         setSelectedAvatarDetail(null);
+        setPetDescriptionDraft("");
         setPreviewActionType(null);
       }
 
@@ -598,6 +602,7 @@ export default function Customization() {
     if (filteredAvatars.length === 0) {
       setSelectedAvatarId(null);
       setSelectedAvatarDetail(null);
+      setPetDescriptionDraft("");
       setPreviewActionType(null);
       return;
     }
@@ -621,6 +626,7 @@ export default function Customization() {
     () => avatars.find((avatar) => avatar.id === selectedAvatarId) ?? null,
     [avatars, selectedAvatarId],
   );
+  const selectedPetDescription = (selectedAvatarDetail?.petDescription ?? selectedAvatarSummary?.petDescription ?? "").trim();
   const currentSelectedAvatar = selectedAvatarDetail ?? selectedAvatarSummary;
   const supportsFunActions = currentSelectedAvatar ? avatarSupportsCategory(currentSelectedAvatar, "fun") : false;
   const supportsInteractiveActions = currentSelectedAvatar
@@ -669,6 +675,25 @@ export default function Customization() {
     await Promise.all([loadAvatars(), loadAvatarDetail(avatarId, { keepLoading: true })]);
   };
 
+  const handleSavePetDescription = async () => {
+    if (!selectedAvatarDetail) {
+      return;
+    }
+
+    setMetaSaving(true);
+    try {
+      await api.updateAvatarMeta(selectedAvatarDetail.id, {
+        petDescription: petDescriptionDraft.trim(),
+      });
+      messageApi.success("宠物描述已保存");
+      await refreshCurrentAvatar(selectedAvatarDetail.id);
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : "宠物描述保存失败");
+    } finally {
+      setMetaSaving(false);
+    }
+  };
+
   const handleOpenUploadModal = (actionType: ActionType) => {
     setUploadActionType(actionType);
     setUploadImageUrl("");
@@ -701,20 +726,8 @@ export default function Customization() {
         }
 
         const contentType = resolveMjpegContentType(uploadFile);
-        const presign = await api.createUploadPresign(contentType);
-        const uploadResponse = await fetch(presign.uploadUrl, {
-          method: "PUT",
-          headers: {
-            "Content-Type": contentType,
-          },
-          body: uploadFile,
-        });
-
-        if (!uploadResponse.ok) {
-          throw new Error("素材文件上传失败");
-        }
-
-        imageUrl = presign.publicUrl;
+        const uploadResult = await api.uploadAdminMedia(uploadFile, contentType);
+        imageUrl = uploadResult.url;
       }
 
       if (!imageUrl) {
@@ -775,13 +788,13 @@ export default function Customization() {
 
   const renderCategoryStatus = (avatar: CustomizationAvatar) => (
     <Tag color={hasPersonalizedTask(avatar) ? "purple" : "blue"}>
-      {hasPersonalizedTask(avatar) ? "个性化动作" : "系统动作"}
+      {hasPersonalizedTask(avatar) ? "个性化定制" : "系统定制"}
     </Tag>
   );
 
   const renderActionSection = (title: string, actions: readonly ActionType[]) => (
     <Card
-      title={title}
+      title={`${title}（${actions.length}个）`}
       styles={{ body: { padding: 16 } }}
     >
       <div
@@ -892,9 +905,13 @@ export default function Customization() {
   );
 
   const actionFilterOptions = [
-    { label: "基础动作", value: "basic" },
-    { label: "趣味动作", value: "fun", disabled: !supportsFunActions },
-    { label: "交互动作", value: "interactive", disabled: !supportsInteractiveActions },
+    { label: `基础动作 ${BASIC_ACTIONS.length}个`, value: "basic" },
+    { label: `趣味动作 ${FUN_ACTIONS.length}个`, value: "fun", disabled: !supportsFunActions },
+    {
+      label: `交互动作 ${INTERACTIVE_ACTIONS.length}个`,
+      value: "interactive",
+      disabled: !supportsInteractiveActions,
+    },
   ] satisfies { label: string; value: ActionCategoryFilter; disabled?: boolean }[];
 
   const currentActionSection =
@@ -1120,6 +1137,27 @@ export default function Customization() {
                         <Text type="secondary">{`${uploadedProgress.completed}/${totalActionCount} 已完成`}</Text>
                       </div>
                       <Progress percent={Math.round((uploadedProgress.completed / totalActionCount) * 100)} showInfo={false} strokeColor="#52c41a" />
+                    </div>
+
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <Text strong>宠物描述</Text>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <Input
+                          value={petDescriptionDraft}
+                          placeholder="请输入宠物描述"
+                          maxLength={100}
+                          onChange={(event) => setPetDescriptionDraft(event.target.value)}
+                          style={{ flex: 1, minWidth: 220 }}
+                        />
+                        <Button
+                          type="primary"
+                          loading={metaSaving}
+                          disabled={petDescriptionDraft.trim() === selectedPetDescription}
+                          onClick={() => void handleSavePetDescription()}
+                        >
+                          保存描述
+                        </Button>
+                      </div>
                     </div>
                   </div>
 

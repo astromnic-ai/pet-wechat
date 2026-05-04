@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
 import {
   Badge,
   Button,
@@ -33,6 +33,12 @@ type BlockFormState = {
   startMinute: number | null;
   endHour: number | null;
   endMinute: number | null;
+};
+
+type DragState = {
+  blockId: string;
+  pointerOffsetMinutes: number;
+  durationMinutes: number;
 };
 
 const speciesLabels: Record<ScheduleSpecies, string> = {
@@ -91,6 +97,7 @@ const TIMELINE_SEGMENT_MINUTES = 3 * 60;
 const TIMELINE_SEGMENT_HEIGHT = 110;
 const verticalTimelineHours = Array.from({ length: 8 }, (_, index) => index * 3);
 const TIMELINE_CANVAS_HEIGHT = verticalTimelineHours.length * TIMELINE_SEGMENT_HEIGHT;
+const DRAG_SNAP_MINUTES = 15;
 
 const timelineStyles: Record<string, CSSProperties> = {
   page: {
@@ -216,6 +223,7 @@ const timelineStyles: Record<string, CSSProperties> = {
     borderRadius: 16,
     background: "#fff",
     overflow: "hidden",
+    userSelect: "none",
   },
   scheduleGridLine: {
     position: "absolute",
@@ -363,8 +371,16 @@ function getDefaultBlockRange(clickedMinutes: number) {
   return { startMinutes, endMinutes };
 }
 
+function snapMinutes(minutes: number) {
+  return Math.round(minutes / DRAG_SNAP_MINUTES) * DRAG_SNAP_MINUTES;
+}
+
 function minutesToTimelineOffset(minutes: number) {
   return (Math.max(0, Math.min(MINUTES_PER_DAY, minutes)) / TIMELINE_SEGMENT_MINUTES) * TIMELINE_SEGMENT_HEIGHT;
+}
+
+function timelineOffsetToMinutes(offset: number, canvasHeight: number) {
+  return Math.round((Math.max(0, Math.min(canvasHeight, offset)) / Math.max(canvasHeight, 1)) * MINUTES_PER_DAY);
 }
 
 function getNextSequentialBlockRange(blocks: BehaviorScheduleBlock[]) {
@@ -484,6 +500,8 @@ export default function Schedules() {
   const [blockModalMode, setBlockModalMode] = useState<BlockModalMode>("create");
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [blockForm, setBlockForm] = useState<BlockFormState>(() => buildBlockForm(0, 60));
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const scheduleCanvasRef = useRef<HTMLDivElement | null>(null);
   const selectedBlock = editorSchedule?.blocks?.find((block) => block.id === selectedBlockId) ?? null;
   const sortedBlocks = normalizeBlocks(editorSchedule?.blocks ?? []);
 
@@ -521,6 +539,58 @@ export default function Schedules() {
     setEditorSchedule(source ? cloneSchedule(source) : null);
     setSelectedBlockId(null);
   }, [draftSchedule, schedules, selectedScheduleId]);
+
+  useEffect(() => {
+    if (!dragState) {
+      return;
+    }
+
+    const handlePointerMove = (event: globalThis.MouseEvent) => {
+      if (!editorSchedule || !scheduleCanvasRef.current) {
+        return;
+      }
+
+      const rect = scheduleCanvasRef.current.getBoundingClientRect();
+      const rawMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
+      const snappedStart = snapMinutes(rawMinutes - dragState.pointerOffsetMinutes);
+      const startMinutes = Math.max(0, Math.min(MINUTES_PER_DAY - dragState.durationMinutes, snappedStart));
+      const endMinutes = startMinutes + dragState.durationMinutes;
+
+      const editorBlocks = editorSchedule.blocks ?? [];
+      const movingBlock = editorBlocks.find((block) => block.id === dragState.blockId);
+      if (!movingBlock) {
+        return;
+      }
+
+      const nextBlock = {
+        ...movingBlock,
+        startMinutes,
+        endMinutes,
+      };
+
+      if (hasBlockOverlap(editorBlocks, nextBlock)) {
+        return;
+      }
+
+      updateEditorSchedule((current) => ({
+        ...current,
+        blocks: (current.blocks ?? []).map((block) => (block.id === dragState.blockId ? nextBlock : block)),
+      }));
+      setSelectedBlockId(dragState.blockId);
+    };
+
+    const handlePointerUp = () => {
+      setDragState(null);
+    };
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerUp);
+    };
+  }, [dragState, editorSchedule]);
 
   const updateEditorSchedule = (updater: (current: BehaviorSchedule) => BehaviorSchedule) => {
     setEditorSchedule((current) => {
@@ -577,6 +647,21 @@ export default function Schedules() {
     setEditingBlockId(selectedBlock.id);
     setBlockForm(buildBlockForm(selectedBlock.startMinutes, selectedBlock.endMinutes, selectedBlock.actionType));
     setBlockModalOpen(true);
+  };
+
+  const deleteBlockById = (blockId: string | null) => {
+    if (!blockId) {
+      return;
+    }
+
+    updateEditorSchedule((current) => ({
+      ...current,
+      blocks: (current.blocks ?? []).filter((block) => block.id !== blockId),
+    }));
+    setSelectedBlockId((current) => (current === blockId ? null : current));
+    if (editingBlockId === blockId) {
+      closeBlockModal();
+    }
   };
 
   const handleTimelineClick = (event: MouseEvent<HTMLDivElement>) => {
@@ -673,14 +758,7 @@ export default function Schedules() {
   };
 
   const handleDeleteSelectedBlock = () => {
-    if (!selectedBlockId) {
-      return;
-    }
-    updateEditorSchedule((current) => ({
-      ...current,
-      blocks: (current.blocks ?? []).filter((block) => block.id !== selectedBlockId),
-    }));
-    setSelectedBlockId(null);
+    deleteBlockById(selectedBlockId);
   };
 
   const persistSchedule = async () => {
@@ -841,7 +919,14 @@ export default function Schedules() {
                     </div>
 
                     <div style={timelineStyles.scheduleColumn}>
-                      <div style={timelineStyles.scheduleCanvas} onClick={handleTimelineClick}>
+                      <div
+                        ref={scheduleCanvasRef}
+                        style={{
+                          ...timelineStyles.scheduleCanvas,
+                          cursor: dragState ? "grabbing" : "default",
+                        }}
+                        onClick={handleTimelineClick}
+                      >
                         {verticalTimelineHours.map((hour, index) => {
                           const top = index * TIMELINE_SEGMENT_HEIGHT;
                           return (
@@ -874,6 +959,25 @@ export default function Schedules() {
                                 key={block.id}
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                  if (selectedBlockId === block.id) {
+                                    openEditBlockModal();
+                                    return;
+                                  }
+                                  setSelectedBlockId(block.id);
+                                }}
+                                onMouseDown={(event) => {
+                                  event.stopPropagation();
+                                  if (!scheduleCanvasRef.current) {
+                                    return;
+                                  }
+
+                                  const rect = scheduleCanvasRef.current.getBoundingClientRect();
+                                  const pointerMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
+                                  setDragState({
+                                    blockId: block.id,
+                                    pointerOffsetMinutes: Math.max(0, pointerMinutes - block.startMinutes),
+                                    durationMinutes: block.endMinutes - block.startMinutes,
+                                  });
                                   setSelectedBlockId(block.id);
                                 }}
                                 style={{
@@ -889,7 +993,7 @@ export default function Schedules() {
                                   display: "flex",
                                   alignItems: "flex-start",
                                   gap: 14,
-                                  cursor: "pointer",
+                                  cursor: dragState?.blockId === block.id ? "grabbing" : "grab",
                                   boxShadow: isSelected ? `0 0 0 2px ${visual.border}` : "none",
                                   overflow: "hidden",
                                 }}
@@ -1075,6 +1179,21 @@ export default function Schedules() {
         open={blockModalOpen}
         onOk={handleSubmitBlock}
         onCancel={closeBlockModal}
+        footer={(_, { OkBtn, CancelBtn }) => (
+          <Space style={{ width: "100%", justifyContent: "space-between" }}>
+            <Button
+              danger
+              disabled={blockModalMode !== "edit" || !editingBlockId}
+              onClick={() => deleteBlockById(editingBlockId)}
+            >
+              删除时间块
+            </Button>
+            <Space>
+              <CancelBtn />
+              <OkBtn />
+            </Space>
+          </Space>
+        )}
         destroyOnHidden
       >
         <Space direction="vertical" size={16} style={{ width: "100%" }}>

@@ -3,7 +3,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
-import { normalizePublicFileUrl } from "../../utils/storage";
+import { isManagedStorageUrl, normalizePublicFileUrl } from "../../utils/storage";
 import { broadcast } from "../../ws";
 
 const avatarsRoute = new Hono();
@@ -36,15 +36,6 @@ type AvatarRow = {
   userWechatOpenid: string | null;
   userPhone: string | null;
 };
-
-function isSafeImageUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 function toAvatarResponse(row: AvatarRow) {
   const normalizedAdditionalImages = row.avatar.additionalImageUrls
@@ -388,7 +379,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
     return c.json({ error: "Invalid actionType" }, 400);
   }
 
-  if (typeof imageUrl !== "string" || !isSafeImageUrl(imageUrl)) {
+  if (typeof imageUrl !== "string" || !isManagedStorageUrl(imageUrl)) {
     return c.json({ error: "Invalid imageUrl" }, 400);
   }
 

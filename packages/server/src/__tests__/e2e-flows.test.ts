@@ -74,7 +74,7 @@ describe("E2E Flows", () => {
       const avatarRes = await app.request(
         jsonReq("POST", "/api/avatars", {
           headers,
-          body: { petId: "new-pet", sourceImageUrl: "https://example.com/cat.jpg" },
+          body: { petId: "new-pet", sourceImageUrl: "http://localhost:9527/storage/uploads/test/cat.jpg" },
         })
       );
       // Accept 201 (created) or 200 (ok)

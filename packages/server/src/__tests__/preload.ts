@@ -26,6 +26,8 @@ const ALLOWED_IMAGE_CONTENT_TYPES = {
   "image/jpeg": "jpg",
   "image/png": "png",
   "image/webp": "webp",
+  "video/mjpeg": "mjpeg",
+  "video/x-motion-jpeg": "mjpeg",
 } as const;
 
 const uploadFile = async (key: string) => `https://test-storage.local/${key}`;
@@ -46,11 +48,14 @@ const createPresignedPutUrl = async (opts: {
 
 const saveLocalDevUpload = async (key: string) => `http://localhost:9527/storage/${key}`;
 const normalizePublicFileUrl = (url: string | null | undefined) => url ?? null;
+const isManagedStorageUrl = (url: string | null | undefined) =>
+  typeof url === "string" && (url.includes("/storage/") || url.includes("/pet-uploads/"));
 mock.module("../utils/storage", () => ({
   uploadFile,
   createPresignedPutUrl,
   saveLocalDevUpload,
   normalizePublicFileUrl,
+  isManagedStorageUrl,
   ALLOWED_IMAGE_CONTENT_TYPES,
 }));
 mock.module("../utils/storage.ts", () => ({
@@ -58,6 +63,7 @@ mock.module("../utils/storage.ts", () => ({
   createPresignedPutUrl,
   saveLocalDevUpload,
   normalizePublicFileUrl,
+  isManagedStorageUrl,
   ALLOWED_IMAGE_CONTENT_TYPES,
 }));
 
@@ -67,5 +73,6 @@ mock.module(storagePath, () => ({
   createPresignedPutUrl,
   saveLocalDevUpload,
   normalizePublicFileUrl,
+  isManagedStorageUrl,
   ALLOWED_IMAGE_CONTENT_TYPES,
 }));

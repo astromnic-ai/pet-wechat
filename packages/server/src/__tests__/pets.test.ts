@@ -10,6 +10,13 @@ import {
 
 const app = createApp();
 
+function getStableTodayEventTime(now: Date) {
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const elapsedTodayMs = now.getTime() - todayStart.getTime();
+  return new Date(now.getTime() - Math.min(60 * 60 * 1000, Math.max(0, elapsedTodayMs)));
+}
+
 describe("Pet Routes", () => {
   beforeEach(() => {
     mockDb._reset();
@@ -95,7 +102,7 @@ describe("Pet Routes", () => {
     it("returns aggregated counts and buckets for owner", async () => {
       const now = new Date();
       const todayEvent = fakeInteractionEvent({
-        occurredAt: new Date(now.getTime() - 60 * 60 * 1000),
+        occurredAt: getStableTodayEventTime(now),
       });
       const weekEvent = fakeInteractionEvent({
         id: "interaction-2",
@@ -129,7 +136,7 @@ describe("Pet Routes", () => {
     it("excludes future events from day and rolling window counts", async () => {
       const now = new Date();
       const todayEvent = fakeInteractionEvent({
-        occurredAt: new Date(now.getTime() - 60 * 60 * 1000),
+        occurredAt: getStableTodayEventTime(now),
       });
       const futureEvent = fakeInteractionEvent({
         id: "interaction-future",

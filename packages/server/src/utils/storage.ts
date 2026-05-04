@@ -106,6 +106,51 @@ function getStorageRelativePath(pathname: string) {
   return null;
 }
 
+function toOrigin(rawUrl: string | null | undefined) {
+  if (!rawUrl) {
+    return null;
+  }
+
+  try {
+    return new URL(rawUrl).origin;
+  } catch {
+    return null;
+  }
+}
+
+function getAllowedStorageOrigins() {
+  return new Set(
+    [
+      getLocalStorageBaseUrl(),
+      process.env.APP_PUBLIC_URL,
+      process.env.S3_PUBLIC_URL,
+      process.env.S3_ENDPOINT,
+      `http://localhost:${process.env.PORT ?? 9527}`,
+      "http://localhost:9000",
+    ]
+      .map((value) => toOrigin(value))
+      .filter((value): value is string => Boolean(value)),
+  );
+}
+
+export function isManagedStorageUrl(rawUrl: string | null | undefined) {
+  if (!rawUrl) {
+    return false;
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    const relativePath = getStorageRelativePath(parsed.pathname);
+    if (!relativePath) {
+      return false;
+    }
+
+    return getAllowedStorageOrigins().has(parsed.origin);
+  } catch {
+    return getStorageRelativePath(rawUrl) !== null;
+  }
+}
+
 export function normalizePublicFileUrl(rawUrl: string | null | undefined) {
   if (!rawUrl) {
     return rawUrl ?? null;

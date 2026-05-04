@@ -45,4 +45,25 @@ describe("Admin Upload Routes", () => {
 
     expect(res.status).toBe(400);
   });
+
+  it("uploads mjpeg media through the admin uploads endpoint", async () => {
+    const formData = new FormData();
+    formData.append("contentType", "video/x-motion-jpeg");
+    formData.append(
+      "file",
+      new File([new Uint8Array([1, 2, 3])], "base-sit-6.mjpeg", { type: "video/x-motion-jpeg" }),
+    );
+
+    const res = await app.request(
+      new Request("http://localhost/api/admin/uploads", {
+        method: "POST",
+        body: formData,
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const json = await res.json();
+    expect(json.url).toContain(".mjpeg");
+    expect(json.url).toContain("uploads/admin/");
+  });
 });

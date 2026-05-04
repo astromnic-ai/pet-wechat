@@ -8,6 +8,7 @@ import {
   Image,
   Input,
   Row,
+  Select,
   Space,
   Spin,
   Statistic,
@@ -25,6 +26,15 @@ const { Text, Title } = Typography;
 const { TextArea } = Input;
 
 const reviewTabs = ["all", "pending", "rejected", "approved"] as const;
+const CUSTOM_REJECT_REASON = "__custom__";
+const REJECT_REASON_OPTIONS = [
+  "图像有遮挡",
+  "宠物面部不完整",
+  "图片不够清晰",
+  "宠物主体过小",
+  "图片包含多只宠物",
+  "非宠物图片",
+] as const;
 
 type ReviewTabKey = (typeof reviewTabs)[number];
 
@@ -127,6 +137,7 @@ export default function ImageReview() {
   const [activeTab, setActiveTab] = useState<ReviewTabKey>("all");
   const [selectedAvatarId, setSelectedAvatarId] = useState<string | null>(null);
   const [selectedAvatarDetail, setSelectedAvatarDetail] = useState<ReviewAvatarDetail | null>(null);
+  const [rejectReasonOption, setRejectReasonOption] = useState<string | undefined>(undefined);
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
@@ -162,7 +173,15 @@ export default function ImageReview() {
       const response = await api.getAvatar(avatarId);
       const detail = response.avatar as ReviewAvatarDetail;
       setSelectedAvatarDetail(detail);
-      setRejectReason(detail.rejectReason?.trim() ?? "");
+      const nextReason = detail.rejectReason?.trim() ?? "";
+      setRejectReason(nextReason);
+      setRejectReasonOption(
+        nextReason
+          ? REJECT_REASON_OPTIONS.includes(nextReason as (typeof REJECT_REASON_OPTIONS)[number])
+            ? nextReason
+            : CUSTOM_REJECT_REASON
+          : undefined,
+      );
       return detail;
     } catch (error) {
       messageApi.error(error instanceof Error ? error.message : "图像详情加载失败");
@@ -256,6 +275,7 @@ export default function ImageReview() {
     if (filteredAvatars.length === 0) {
       setSelectedAvatarId(null);
       setSelectedAvatarDetail(null);
+      setRejectReasonOption(undefined);
       setRejectReason("");
       return;
     }
@@ -607,12 +627,37 @@ export default function ImageReview() {
                           <Text strong style={{ color: "#ff4d4f", display: "block", marginBottom: 8 }}>
                             拒绝原因
                           </Text>
+                          <Select
+                            value={rejectReasonOption}
+                            placeholder="请选择拒绝原因"
+                            disabled={!canReject}
+                            style={{ width: "100%", marginBottom: 12 }}
+                            options={[
+                              ...REJECT_REASON_OPTIONS.map((reason) => ({
+                                label: reason,
+                                value: reason,
+                              })),
+                              { label: "手动填写其他原因", value: CUSTOM_REJECT_REASON },
+                            ]}
+                            onChange={(value) => {
+                              setRejectReasonOption(value);
+                              if (value === CUSTOM_REJECT_REASON) {
+                                setRejectReason("");
+                                return;
+                              }
+                              setRejectReason(value);
+                            }}
+                          />
                           <TextArea
                             value={rejectReason}
                             rows={5}
                             maxLength={200}
                             showCount
-                            placeholder="请输入拒绝原因，不超过 200 字"
+                            placeholder={
+                              rejectReasonOption === CUSTOM_REJECT_REASON
+                                ? "请输入其他拒绝原因，不超过 200 字"
+                                : "可直接选择预设原因，或切换到“手动填写其他原因”"
+                            }
                             disabled={!canReject}
                             onChange={(event) => setRejectReason(event.target.value)}
                           />

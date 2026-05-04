@@ -92,6 +92,39 @@ async function uploadAdminFile(path: string, file: File): Promise<{ url: string;
   return res.json();
 }
 
+async function uploadAdminAsset(
+  path: string,
+  file: File,
+  contentType?: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+): Promise<{ url: string; fileId: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (contentType) {
+    formData.append("contentType", contentType);
+  }
+
+  const res = await fetch(`/api/admin${path}`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": getAdminKey(),
+    },
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("adminKey");
+    window.location.reload();
+    throw new Error("Admin Key 无效");
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+
+  return res.json();
+}
+
 export const api = {
   // Stats
   getStats: () => request<Record<string, number>>("/stats"),
@@ -199,4 +232,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ contentType }),
     }),
+  uploadAdminMedia: (
+    file: File,
+    contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+  ) => uploadAdminAsset("/uploads", file, contentType),
 };
