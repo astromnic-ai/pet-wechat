@@ -56,6 +56,7 @@ export const deviceTypeEnum = pgEnum("device_type", ["collar", "desktop"]);
 export const deviceClaimStatusEnum = pgEnum("device_claim_status", [
   "occupied",
   "available",
+  "unclaimed",
   "reset_required",
 ]);
 export const deviceUpgradeStatusEnum = pgEnum("device_upgrade_status", [
@@ -162,6 +163,7 @@ export const collarDevices = pgTable(
     userId: text("user_id"),
     petId: text("pet_id"),
     name: text("name").notNull(),
+    chipId: text("chip_id").unique(),
     macAddress: text("mac_address").notNull().unique(),
     status: deviceStatusEnum("status").notNull().default("offline"),
     battery: integer("battery"),
@@ -193,6 +195,7 @@ export const desktopDevices = pgTable("desktop_devices", {
   id: text("id").primaryKey().$defaultFn(createId),
   userId: text("user_id"),
   name: text("name").notNull(),
+  chipId: text("chip_id").unique(),
   macAddress: text("mac_address").notNull().unique(),
   status: deviceStatusEnum("status").notNull().default("offline"),
   firmwareVersion: text("firmware_version"),
@@ -300,6 +303,8 @@ export const petAvatarActions = pgTable(
     petAvatarId: text("pet_avatar_id").notNull(),
     actionType: text("action_type").notNull(),
     imageUrl: text("image_url").notNull(),
+    videoUrl: text("video_url"),
+    videoHash: text("video_hash"),
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [

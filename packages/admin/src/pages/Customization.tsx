@@ -663,7 +663,7 @@ export default function Customization() {
   const canSync = !!selectedAvatarDetail && uploadedProgress.completed > 0 && selectedAvatarDetail.status !== "done";
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
-  const previewImageUrl = previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
+  const previewImageUrl = previewAction?.videoUrl ?? previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
   const selectedAvatarImage =
     selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
   const referenceImages = parseAdditionalImages(
@@ -735,10 +735,15 @@ export default function Customization() {
         return;
       }
 
-      await api.createAvatarAction(selectedAvatarDetail.id, {
+      const actionResult = await api.createAvatarAction(selectedAvatarDetail.id, {
         actionType: uploadActionType,
         imageUrl,
       });
+
+      if (uploadFile && actionResult.action?.id) {
+        await api.uploadAvatarActionVideo(selectedAvatarDetail.id, actionResult.action.id, uploadFile);
+      }
+
       messageApi.success("动作素材已上传");
       handleCloseUploadModal();
       await refreshCurrentAvatar(selectedAvatarDetail.id);
@@ -845,7 +850,7 @@ export default function Customization() {
               >
                 {action ? (
                   <video
-                    src={action.imageUrl}
+                    src={action.videoUrl ?? action.imageUrl}
                     controls
                     preload="metadata"
                     playsInline

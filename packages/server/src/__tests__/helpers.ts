@@ -122,6 +122,7 @@ export function fakeCollar(overrides: Record<string, unknown> = {}) {
     userId: "user-1",
     petId: "pet-1",
     name: "My Collar",
+    chipId: "collar-chip-1",
     macAddress: "AA:BB:CC:DD:EE:FF",
     status: "offline",
     battery: null,
@@ -142,6 +143,7 @@ export function fakeDesktop(overrides: Record<string, unknown> = {}) {
     id: "desktop-1",
     userId: "user-1",
     name: "My Desktop",
+    chipId: "desktop-chip-1",
     macAddress: "11:22:33:44:55:66",
     status: "offline",
     firmwareVersion: null,
@@ -173,8 +175,26 @@ export function fakeAvatar(overrides: Record<string, unknown> = {}) {
     id: "avatar-1",
     petId: "pet-1",
     sourceImageUrl: "https://example.com/photo.jpg",
+    additionalImageUrls: null,
+    petDescription: null,
+    funFact: null,
     status: "pending",
+    rejectReason: null,
+    reviewedAt: null,
     createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+export function fakeAvatarAction(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "action-1",
+    petAvatarId: "avatar-1",
+    actionType: "lay",
+    imageUrl: "https://example.com/lay.jpg",
+    videoUrl: null,
+    videoHash: null,
+    sortOrder: 0,
     ...overrides,
   };
 }
