@@ -22,7 +22,7 @@ export type BindingType = "owner" | "authorized";
 export type AuthorizationStatus = "pending" | "accepted" | "rejected";
 export type ScheduleEffectiveType = "everyday" | "weekday" | "friday";
 export type DeviceType = "collar" | "desktop";
-export type DeviceClaimStatus = "occupied" | "available" | "reset_required";
+export type DeviceClaimStatus = "occupied" | "available" | "unclaimed" | "reset_required";
 export type DeviceUpgradeStatus = "idle" | "pending" | "success" | "failed";
 export type UserSettingTheme = "system" | "light" | "dark" | "blue";
 export type UserSettingLanguage = "zh-CN" | "zh-TW" | "en-US";
@@ -270,6 +270,8 @@ export interface PetAvatarAction {
   petAvatarId: string;
   actionType: string;
   imageUrl: string;
+  videoUrl?: string | null;
+  videoHash?: string | null;
   sortOrder: number;
 }
 

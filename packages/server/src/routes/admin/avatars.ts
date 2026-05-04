@@ -1,9 +1,10 @@
+import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
-import { isManagedStorageUrl, normalizePublicFileUrl } from "../../utils/storage";
+import { isManagedStorageUrl, normalizePublicFileUrl, uploadFile } from "../../utils/storage";
 import { broadcast } from "../../ws";
 
 const avatarsRoute = new Hono();
@@ -19,6 +20,8 @@ const VALID_AVATAR_STATUSES = new Set([
 const EDITABLE_ACTION_STATUSES = new Set(["approved", "processing"]);
 const VALID_ACTIONS = new Set<string>(ALL_ACTIONS);
 const ADMIN_TIME_ZONE = "Asia/Shanghai";
+const MAX_ACTION_VIDEO_SIZE = 50 * 1024 * 1024;
+const ACTION_VIDEO_TYPES = new Set(["video/mjpeg", "video/x-motion-jpeg"]);
 type AvatarStatus = (typeof petAvatars.$inferSelect)["status"];
 
 type AvatarRow = {
@@ -120,7 +123,20 @@ async function getAvatarActions(avatarId: string) {
   return actions.map((action) => ({
     ...action,
     imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
   }));
+}
+
+function resolveActionVideoContentType(file: File) {
+  if (ACTION_VIDEO_TYPES.has(file.type)) {
+    return file.type;
+  }
+
+  if (/\.(mjpeg|mjpg)$/i.test(file.name)) {
+    return "video/mjpeg";
+  }
+
+  return null;
 }
 
 function getAvatarOwnerContext(row: AvatarRow) {
@@ -491,6 +507,71 @@ avatarsRoute.delete("/avatars/:id/actions/:actionId", async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {
+  const avatarId = c.req.param("id");
+  const actionId = c.req.param("actionId");
+  const row = await getAvatarRow(avatarId);
+
+  if (!row) {
+    return c.json({ error: "Avatar not found" }, 404);
+  }
+
+  const [action] = await db
+    .select()
+    .from(petAvatarActions)
+    .where(and(eq(petAvatarActions.id, actionId), eq(petAvatarActions.petAvatarId, avatarId)))
+    .limit(1);
+
+  if (!action) {
+    return c.json({ error: "Action not found" }, 404);
+  }
+
+  try {
+    const body = await c.req.parseBody();
+    const file = body.file;
+
+    if (!file || typeof file === "string" || Array.isArray(file)) {
+      return c.json({ error: "未检测到上传文件" }, 400);
+    }
+
+    const uploadedFile = file as File;
+    const contentType = resolveActionVideoContentType(uploadedFile);
+
+    if (!contentType) {
+      return c.json({ error: "不支持的文件格式，请上传 MJPEG 文件" }, 400);
+    }
+
+    if (uploadedFile.size > MAX_ACTION_VIDEO_SIZE) {
+      return c.json({ error: "文件过大，请上传 50MB 以内的视频" }, 400);
+    }
+
+    const buffer = Buffer.from(await uploadedFile.arrayBuffer());
+    const videoHash = createHash("sha256").update(buffer).digest("hex");
+    const videoUrl = await uploadFile(
+      `avatars/${avatarId}/${action.actionType}.mjpeg`,
+      buffer,
+      contentType,
+    );
+
+    const [updatedAction] = await db
+      .update(petAvatarActions)
+      .set({ videoUrl, videoHash })
+      .where(and(eq(petAvatarActions.id, actionId), eq(petAvatarActions.petAvatarId, avatarId)))
+      .returning();
+
+    return c.json({
+      action: {
+        ...(updatedAction ?? action),
+        videoUrl,
+        videoHash,
+      },
+    });
+  } catch (error) {
+    console.error("Admin action video upload failed:", error);
+    return c.json({ error: "视频上传失败，请稍后重试" }, 503);
+  }
 });
 
 avatarsRoute.post("/avatars/:id/sync", async (c) => {

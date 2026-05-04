@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { db } from "../db";
@@ -9,8 +9,11 @@ import {
   desktopDevices,
   desktopPetBindings,
   interactionEvents,
+  petAvatarActions,
+  petAvatars,
   petBehaviors,
 } from "../db/schema";
+import { normalizePublicFileUrl } from "../utils/storage";
 
 const deviceReportRoute = new Hono();
 
@@ -48,6 +51,10 @@ const eventBodySchema = z.object({
   type: deviceTypeSchema,
   actionType: z.string().trim().min(1).max(64),
   occurredAt: isoDatetimeSchema.optional(),
+});
+
+const manifestQuerySchema = z.object({
+  chipId: z.string().trim().min(1),
 });
 
 function toIsoString(value: Date | string | null | undefined): string | null {
@@ -93,7 +100,75 @@ async function findDesktopByMac(macAddress: string) {
   return desktop ?? null;
 }
 
+async function findDesktopByChipId(chipId: string) {
+  const [desktop] = await db
+    .select()
+    .from(desktopDevices)
+    .where(eq(desktopDevices.chipId, chipId));
+
+  return desktop ?? null;
+}
+
+async function getActiveDesktopPetId(desktopDeviceId: string) {
+  const [binding] = await db
+    .select()
+    .from(desktopPetBindings)
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktopDeviceId),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
+    .orderBy(desc(desktopPetBindings.createdAt))
+    .limit(1);
+
+  return binding?.petId ?? null;
+}
+
+async function getCollarChipId(petId: string) {
+  const [collar] = await db
+    .select()
+    .from(collarDevices)
+    .where(eq(collarDevices.petId, petId))
+    .orderBy(desc(collarDevices.createdAt))
+    .limit(1);
+
+  return collar?.chipId ?? null;
+}
+
+async function buildAvatarManifestFiles(petId: string) {
+  const [avatar] = await db
+    .select()
+    .from(petAvatars)
+    .where(and(eq(petAvatars.petId, petId), eq(petAvatars.status, "approved")))
+    .orderBy(desc(petAvatars.createdAt))
+    .limit(1);
+
+  if (!avatar) {
+    return [];
+  }
+
+  const actions = await db
+    .select()
+    .from(petAvatarActions)
+    .where(eq(petAvatarActions.petAvatarId, avatar.id))
+    .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
+
+  return actions
+    .filter((action) => action.videoUrl && action.videoHash)
+    .map((action) => ({
+      path: `/avatar/${action.actionType}.mjpeg`,
+      hash: action.videoHash as string,
+      url: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl as string,
+    }));
+}
+
 deviceReportRoute.use("*", async (c, next) => {
+  if (c.req.path.endsWith("/tabletop/manifest")) {
+    await next();
+    return;
+  }
+
   const expectedSecret = process.env.DEVICE_REPORT_SECRET?.trim();
   if (!expectedSecret) {
     return c.json({ error: "Device report secret is not configured" }, 503);
@@ -105,6 +180,46 @@ deviceReportRoute.use("*", async (c, next) => {
   }
 
   await next();
+});
+
+deviceReportRoute.get("/tabletop/manifest", async (c) => {
+  const parsedQuery = manifestQuerySchema.safeParse({ chipId: c.req.query("chipId") });
+  if (!parsedQuery.success) {
+    return c.json({ error: "chipId is required" }, 400);
+  }
+
+  const { chipId } = parsedQuery.data;
+  let desktop = await findDesktopByChipId(chipId);
+
+  if (!desktop) {
+    const [createdDesktop] = await db
+      .insert(desktopDevices)
+      .values({
+        name: `摆台-${chipId.slice(-6)}`,
+        chipId,
+        macAddress: chipId,
+        claimStatus: "unclaimed",
+      })
+      .returning();
+
+    desktop = createdDesktop ?? null;
+  }
+
+  if (!desktop) {
+    return c.json({ collarChipId: null, files: [] });
+  }
+
+  const petId = await getActiveDesktopPetId(desktop.id);
+  if (!petId) {
+    return c.json({ collarChipId: null, files: [] });
+  }
+
+  const [collarChipId, files] = await Promise.all([
+    getCollarChipId(petId),
+    buildAvatarManifestFiles(petId),
+  ]);
+
+  return c.json({ collarChipId, files });
 });
 
 deviceReportRoute.post("/heartbeat", async (c) => {

@@ -2,6 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { mockDb } from "./setup";
 import {
   createApp,
+  fakeAvatar,
+  fakeAvatarAction,
   fakeBehavior,
   fakeBinding,
   fakeCollar,
@@ -30,6 +32,122 @@ describe("Device Report Routes", () => {
     }
 
     process.env.DEVICE_REPORT_SECRET = originalDeviceReportSecret;
+  });
+
+  describe("GET /api/device-report/tabletop/manifest", () => {
+    it("auto creates an unclaimed desktop for unknown chipId", async () => {
+      mockDb._results.select = [[], []];
+      mockDb._results.insert = [[fakeDesktop({ id: "desktop-new", chipId: "8c4718feff49fd8c" })]];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=8c4718feff49fd8c"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ collarChipId: null, files: [] });
+      expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+        name: "摆台-49fd8c",
+        chipId: "8c4718feff49fd8c",
+        macAddress: "8c4718feff49fd8c",
+        claimStatus: "unclaimed",
+      });
+    });
+
+    it("returns empty files for an existing desktop without pet binding", async () => {
+      mockDb._results.select = [
+        [fakeDesktop({ chipId: "desktop-chip-1" })],
+        [],
+      ];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ collarChipId: null, files: [] });
+      expect(mockDb._calls.insert).toHaveLength(0);
+    });
+
+    it("returns collar chipId and avatar video files for bound pet", async () => {
+      mockDb._results.select = [
+        [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
+        [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
+        [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [
+          fakeAvatarAction({
+            petAvatarId: "avatar-1",
+            actionType: "lay",
+            videoUrl: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
+            videoHash: "sha256-lay",
+          }),
+        ],
+      ];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        collarChipId: "collar-chip-1",
+        files: [
+          {
+            path: "/avatar/lay.mjpeg",
+            hash: "sha256-lay",
+            url: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
+          },
+        ],
+      });
+    });
+
+    it("returns null collarChipId when no collar is bound to the pet", async () => {
+      mockDb._results.select = [
+        [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
+        [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
+        [],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [
+          fakeAvatarAction({
+            petAvatarId: "avatar-1",
+            videoUrl: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
+            videoHash: "sha256-lay",
+          }),
+        ],
+      ];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).collarChipId).toBeNull();
+    });
+
+    it("ignores avatar actions without video", async () => {
+      mockDb._results.select = [
+        [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
+        [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
+        [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakeAvatarAction({ petAvatarId: "avatar-1", videoUrl: null, videoHash: null })],
+      ];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ collarChipId: "collar-chip-1", files: [] });
+    });
+
+    it("returns 400 when chipId is missing or blank", async () => {
+      const missing = await app.request(jsonReq("GET", "/api/device-report/tabletop/manifest"));
+      const blank = await app.request(jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=%20"));
+
+      expect(missing.status).toBe(400);
+      expect(blank.status).toBe(400);
+    });
   });
 
   describe("POST /api/device-report/heartbeat", () => {
