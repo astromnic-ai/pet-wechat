@@ -28,8 +28,11 @@ function resolveLocalDevApiBaseUrl() {
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig(async (merge, { command, mode }) => {
   const isWatchMode = process.argv.includes('--watch')
+  const useLocalApi =
+    process.env.USE_LOCAL_API === '1' ||
+    process.env.USE_LOCAL_API === 'true'
   const defaultApiBaseUrl =
-    mode === 'development' || isWatchMode
+    mode === 'development' || isWatchMode || useLocalApi
       ? resolveLocalDevApiBaseUrl()
       : 'https://pet-wechat.yangl.com.cn'
   const apiBaseUrl =

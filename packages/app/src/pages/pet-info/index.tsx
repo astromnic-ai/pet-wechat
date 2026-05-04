@@ -237,7 +237,7 @@ export default function PetInfo() {
         return;
       }
 
-      Taro.redirectTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
+      Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
     } catch (e: any) {
       Taro.showToast({ title: e.message || "保存失败", icon: "none" });
     } finally {

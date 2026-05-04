@@ -11,8 +11,9 @@ import {
   deviceAuthorizations,
 } from "../db/schema";
 import { eq, and, isNull, inArray, gte, desc } from "drizzle-orm";
-import type { PetLatestBehavior } from "shared";
+import type { AvatarStatus, PetLatestBehavior } from "shared";
 import { interactionRangeSchema } from "../validators/user-end";
+import { rewriteLocalAssetUrl } from "../utils/publicUrl";
 
 const petsRoute = new Hono();
 
@@ -66,72 +67,88 @@ async function getLatestBehavior(petId: string) {
   } satisfies PetLatestBehavior;
 }
 
-async function getLatestAvatarImageMap(petIds: string[]) {
-  const latestAvatarImageMap = new Map<string, string>();
-  if (petIds.length === 0) return latestAvatarImageMap;
+type LatestAvatarSummary = {
+  avatarId: string;
+  status: AvatarStatus;
+  sourceImageUrl: string;
+  imageUrl: string | null;
+};
 
-  // 对每个 petId 取最新一条 done avatar（使用 SQL 子查询避免全量扫描）
-  // Drizzle 不支持 DISTINCT ON，改用应用层去重但限制查询量
-  const doneAvatars = await db
+async function getLatestAvatarSummaryMap(petIds: string[]) {
+  const latestAvatarSummaryMap = new Map<string, LatestAvatarSummary>();
+  if (petIds.length === 0) return latestAvatarSummaryMap;
+
+  const latestAvatars = await db
     .select({
       id: petAvatars.id,
       petId: petAvatars.petId,
+      status: petAvatars.status,
+      sourceImageUrl: petAvatars.sourceImageUrl,
     })
     .from(petAvatars)
-    .where(
-      and(
-        inArray(petAvatars.petId, petIds),
-        eq(petAvatars.status, "done"),
-      )
-    )
-    .orderBy(desc(petAvatars.createdAt))
-    .limit(petIds.length); // 最多只取 petIds.length 条，每个宠物最多 1 条
+    .where(inArray(petAvatars.petId, petIds))
+    .orderBy(desc(petAvatars.createdAt));
 
-  const latestAvatarByPetId = new Map<string, string>();
-  for (const avatar of doneAvatars) {
+  const latestAvatarByPetId = new Map<string, (typeof latestAvatars)[number]>();
+  for (const avatar of latestAvatars) {
     if (latestAvatarByPetId.has(avatar.petId)) continue;
-    latestAvatarByPetId.set(avatar.petId, avatar.id);
+    latestAvatarByPetId.set(avatar.petId, avatar);
   }
 
-  const latestAvatarIds = Array.from(latestAvatarByPetId.values());
-  if (latestAvatarIds.length === 0) return latestAvatarImageMap;
+  const latestDoneAvatarIds = Array.from(latestAvatarByPetId.values())
+    .filter((avatar) => avatar.status === "done")
+    .map((avatar) => avatar.id);
 
-  // 取每个 avatar 的第一张 action 图片（按 sortOrder 最小的）
-  const primaryActions = await db
-    .select({
-      petAvatarId: petAvatarActions.petAvatarId,
-      imageUrl: petAvatarActions.imageUrl,
-      sortOrder: petAvatarActions.sortOrder,
-    })
-    .from(petAvatarActions)
-    .where(inArray(petAvatarActions.petAvatarId, latestAvatarIds))
-    .orderBy(petAvatarActions.sortOrder);
-
-  // 应用层去重：每个 avatarId 只取 sortOrder 最小的
   const primaryImageByAvatarId = new Map<string, string>();
-  for (const action of primaryActions) {
-    if (primaryImageByAvatarId.has(action.petAvatarId)) continue;
-    primaryImageByAvatarId.set(action.petAvatarId, action.imageUrl);
+
+  if (latestDoneAvatarIds.length > 0) {
+    const primaryActions = await db
+      .select({
+        petAvatarId: petAvatarActions.petAvatarId,
+        imageUrl: petAvatarActions.imageUrl,
+        sortOrder: petAvatarActions.sortOrder,
+      })
+      .from(petAvatarActions)
+      .where(inArray(petAvatarActions.petAvatarId, latestDoneAvatarIds))
+      .orderBy(petAvatarActions.sortOrder);
+
+    for (const action of primaryActions) {
+      if (primaryImageByAvatarId.has(action.petAvatarId)) continue;
+      primaryImageByAvatarId.set(action.petAvatarId, action.imageUrl);
+    }
   }
 
-  for (const [petId, avatarId] of latestAvatarByPetId) {
-    const imageUrl = primaryImageByAvatarId.get(avatarId);
-    if (!imageUrl) continue;
-    latestAvatarImageMap.set(petId, imageUrl);
+  for (const [petId, avatar] of latestAvatarByPetId) {
+    latestAvatarSummaryMap.set(petId, {
+      avatarId: avatar.id,
+      status: avatar.status,
+      sourceImageUrl: avatar.sourceImageUrl,
+      imageUrl: primaryImageByAvatarId.get(avatar.id) ?? null,
+    });
   }
 
-  return latestAvatarImageMap;
+  return latestAvatarSummaryMap;
 }
 
 function attachPetSummary<T extends typeof pets.$inferSelect>(
   petList: T[],
   latestBehaviorMap: Map<string, PetLatestBehavior>,
-  latestAvatarImageMap: Map<string, string>,
+  latestAvatarSummaryMap: Map<string, LatestAvatarSummary>,
+  requestUrl: string,
 ) {
   return petList.map((pet) => ({
     ...pet,
     latestBehavior: latestBehaviorMap.get(pet.id) ?? null,
-    avatarImageUrl: latestAvatarImageMap.get(pet.id) ?? null,
+    avatarImageUrl: rewriteLocalAssetUrl(
+      latestAvatarSummaryMap.get(pet.id)?.imageUrl ?? null,
+      requestUrl,
+    ),
+    latestAvatarId: latestAvatarSummaryMap.get(pet.id)?.avatarId ?? null,
+    latestAvatarStatus: latestAvatarSummaryMap.get(pet.id)?.status ?? null,
+    latestAvatarSourceImageUrl: rewriteLocalAssetUrl(
+      latestAvatarSummaryMap.get(pet.id)?.sourceImageUrl ?? null,
+      requestUrl,
+    ),
   }));
 }
 
@@ -266,17 +283,18 @@ petsRoute.get("/", async (c) => {
     ...authorizedPets.map((pet) => pet.id),
   ]);
 
-  const latestAvatarImageMap = await getLatestAvatarImageMap([
+  const latestAvatarSummaryMap = await getLatestAvatarSummaryMap([
     ...ownPets.map((pet) => pet.id),
     ...authorizedPets.map((pet) => pet.id),
   ]);
 
   return c.json({
-    pets: attachPetSummary(ownPets, latestBehaviorMap, latestAvatarImageMap),
+    pets: attachPetSummary(ownPets, latestBehaviorMap, latestAvatarSummaryMap, c.req.url),
     authorizedPets: attachPetSummary(
       authorizedPets,
       latestBehaviorMap,
-      latestAvatarImageMap,
+      latestAvatarSummaryMap,
+      c.req.url,
     ),
   });
 });
@@ -399,7 +417,17 @@ petsRoute.get("/:id", async (c) => {
   // TODO: 活跃值算法待产品定义，当前简单按行为次数映射 0-100
   const activityScore = Math.min(100, recentCount * 10);
 
-  return c.json({ pet: { ...pet, activityScore, latestBehavior }, avatars, actions });
+  return c.json({
+    pet: { ...pet, activityScore, latestBehavior },
+    avatars: avatars.map((avatar) => ({
+      ...avatar,
+      sourceImageUrl: rewriteLocalAssetUrl(avatar.sourceImageUrl, c.req.url),
+    })),
+    actions: actions.map((action) => ({
+      ...action,
+      imageUrl: rewriteLocalAssetUrl(action.imageUrl, c.req.url) ?? action.imageUrl,
+    })),
+  });
 });
 
 // 创建宠物

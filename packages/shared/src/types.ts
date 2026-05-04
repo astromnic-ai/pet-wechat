@@ -56,6 +56,9 @@ export interface Pet {
   activityScore: number;
   latestBehavior?: PetLatestBehavior | null;
   avatarImageUrl?: string | null;
+  latestAvatarId?: string | null;
+  latestAvatarStatus?: AvatarStatus | null;
+  latestAvatarSourceImageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
