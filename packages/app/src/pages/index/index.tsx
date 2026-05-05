@@ -14,6 +14,7 @@ const HOME_LOGO_IMAGE = require("@/assets/images/logo.png");
 const HOME_PET_SIT_IMAGE = require("@/assets/home/pet-sit.png");
 const HOME_PET_LIE_IMAGE = require("@/assets/home/pet-lie.png");
 const HOME_WAITING_VIDEO = `${BASE_URL}/static/home/pet-waiting-loop.mp4`;
+const HOME_WAITING_POSTER = `${BASE_URL}/static/home/pet-waiting-poster.png`;
 
 type DesktopDeviceWithBindings = DesktopDevice & {
   bindings?: Array<{
@@ -411,6 +412,9 @@ export default function Index() {
         ? currentPet?.latestAvatarSourceImageUrl || HOME_PET_LIE_IMAGE
         : HOME_PET_SIT_IMAGE;
   const waitingVideoId = `home-waiting-video-${currentPet?.id || "default"}`;
+  const waitingVideoPoster = hasWaitingPreviewImage
+    ? currentPet?.latestAvatarSourceImageUrl || HOME_WAITING_POSTER
+    : HOME_WAITING_POSTER;
   const currentPetDescription = currentPet?.id ? petDescriptionMap[currentPet.id] : "";
   const petSubtitle = getPetSubtitle(currentPet, currentPetDescription);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
@@ -455,30 +459,12 @@ export default function Index() {
   useEffect(() => {
     if (!isWaitingVideoRequested) return;
 
-    const timer = setTimeout(() => {
-      try {
-        console.info("waiting video play requested", {
-          waitingVideoId,
-          src: HOME_WAITING_VIDEO,
-          petId: currentPet?.id || "",
-        });
-        const context = Taro.createVideoContext(waitingVideoId);
-        context.seek(0);
-        context.play();
-      } catch (error) {
-        console.error("waiting video context play failed", {
-          waitingVideoId,
-          src: HOME_WAITING_VIDEO,
-          petId: currentPet?.id || "",
-          error,
-        });
-        setIsWaitingVideoRequested(false);
-        setIsWaitingVideoVisible(false);
-      }
-    }, 80);
-
-    return () => clearTimeout(timer);
-  }, [isWaitingVideoRequested, waitingVideoId, waitingVideoPlayToken]);
+    console.info("waiting video play requested", {
+      waitingVideoId,
+      src: HOME_WAITING_VIDEO,
+      petId: currentPet?.id || "",
+    });
+  }, [isWaitingVideoRequested, waitingVideoId, currentPet?.id]);
 
   useEffect(() => {
     if (currentModeFrames.length <= 1) return;
@@ -712,6 +698,7 @@ export default function Index() {
                         isWaitingVideoVisible ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
                       }`}
                       src={HOME_WAITING_VIDEO}
+                      poster={waitingVideoPoster}
                       autoplay={false}
                       loop={false}
                       muted
@@ -738,6 +725,8 @@ export default function Index() {
                                 petId: currentPet?.id || "",
                                 error,
                               });
+                              setIsWaitingVideoRequested(false);
+                              setIsWaitingVideoVisible(false);
                             }
                           }, 0);
                         }
@@ -777,8 +766,6 @@ export default function Index() {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                         });
-                        setIsWaitingVideoRequested(false);
-                        setIsWaitingVideoVisible(false);
                       }}
                       onError={(event) => {
                         console.error("waiting video play error", {

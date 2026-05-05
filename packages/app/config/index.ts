@@ -31,10 +31,9 @@ export default defineConfig(async (merge, { command, mode }) => {
   const useLocalApi =
     process.env.USE_LOCAL_API === '1' ||
     process.env.USE_LOCAL_API === 'true'
-  const defaultApiBaseUrl =
-    mode === 'development' || isWatchMode || useLocalApi
-      ? resolveLocalDevApiBaseUrl()
-      : 'https://pet-wechat.yangl.com.cn'
+  const defaultApiBaseUrl = useLocalApi
+    ? resolveLocalDevApiBaseUrl()
+    : 'https://pet-wechat.yangl.com.cn'
   const apiBaseUrl =
     process.env.API_BASE_URL ||
     defaultApiBaseUrl
