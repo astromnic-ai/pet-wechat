@@ -117,15 +117,21 @@ export default function UsersPage() {
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [form] = Form.useForm();
 
-  const load = () => {
+  const load = async () => {
     setLoading(true);
-    api.getEnhancedUsers()
-      .then((r) => setData(r.users as UserRecord[]))
-      .catch((e) => message.error(e.message))
-      .finally(() => setLoading(false));
+    try {
+      const r = await api.getEnhancedUsers();
+      setData(r.users as UserRecord[]);
+    } catch (e: any) {
+      message.error(e?.message || "用户列表加载失败");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(load, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
   useEffect(() => {
     if (!detailOpen || !detailUserId) {
@@ -207,6 +213,32 @@ export default function UsersPage() {
   const handleOpenDetail = (record: UserRecord) => {
     setDetailUserId(record.id);
     setDetailOpen(true);
+  };
+
+  const reloadCurrentDetail = async (userId: string) => {
+    setDetailLoading(true);
+    try {
+      const result = await api.getUserDetail(userId);
+      setDetail(result as UserDetail);
+    } catch (e) {
+      message.error(e instanceof Error ? e.message : "用户详情加载失败");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleDeletePet = async (petId: string) => {
+    if (!detailUserId) {
+      return;
+    }
+
+    try {
+      await api.deletePet(petId);
+      message.success("宠物已删除");
+      await Promise.all([load(), reloadCurrentDetail(detailUserId)]);
+    } catch (e: any) {
+      message.error(e?.message || "删除宠物失败");
+    }
   };
 
   const petNameMap = new Map(detail?.pets.map((pet) => [pet.id, pet.name]) ?? []);
@@ -404,6 +436,23 @@ export default function UsersPage() {
                       key: "createdAt",
                       width: 160,
                       render: (value: string) => formatTime(value),
+                    },
+                    {
+                      title: "操作",
+                      key: "action",
+                      width: 100,
+                      fixed: "right",
+                      render: (_value: unknown, record: PetRecord) => (
+                        <Popconfirm
+                          title="确认删除这只宠物？"
+                          description="删除后无法恢复。"
+                          onConfirm={() => void handleDeletePet(record.id)}
+                        >
+                          <Button size="small" danger>
+                            删除
+                          </Button>
+                        </Popconfirm>
+                      ),
                     },
                   ]}
                 />

@@ -249,12 +249,23 @@
   flex-wrap: nowrap;
 }
 
+.detail-pill-gender-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  flex-wrap: nowrap;
+}
+
 .detail-pill-symbol {
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 700;
   color: #1d1d1d;
-  line-height: 1.1;
-  display: block;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(1rpx);
 }
 
 .detail-pill-separator {

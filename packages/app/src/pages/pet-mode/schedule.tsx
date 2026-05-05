@@ -85,6 +85,36 @@ function hasOverlap(slots: PetModeSlot[]) {
   return false;
 }
 
+function toTimeValue(totalMinutes: number) {
+  const safeMinutes = Math.max(0, Math.min(totalMinutes, 23 * 60 + 59));
+  const hour = Math.floor(safeMinutes / 60);
+  const minute = safeMinutes % 60;
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function getNextTimeSuggestion(slots: PetModeSlot[]) {
+  if (slots.length === 0) {
+    return { start: "07:00", end: "09:00" };
+  }
+
+  const sorted = sortSlots(slots);
+  const lastSlot = sorted[sorted.length - 1];
+  const startMinutes = toMinutes(lastSlot.end);
+  const endMinutes = Math.min(startMinutes + 120, 23 * 60 + 59);
+
+  if (endMinutes <= startMinutes) {
+    return {
+      start: toTimeValue(Math.max(0, startMinutes - 120)),
+      end: toTimeValue(startMinutes),
+    };
+  }
+
+  return {
+    start: toTimeValue(startMinutes),
+    end: toTimeValue(endMinutes),
+  };
+}
+
 export default function PetModeSchedulePage() {
   const router = useRouter();
   const petId = router.params.petId || "";
@@ -161,11 +191,12 @@ export default function PetModeSchedulePage() {
 
   const openTimeEditor = (slotIndex = -1) => {
     const target = slotIndex >= 0 ? slots[slotIndex] : null;
+    const nextSuggestion = getNextTimeSuggestion(slots);
     setTimeEditor({
       visible: true,
       editIndex: slotIndex,
-      start: target?.start || "07:00",
-      end: target?.end || "09:00",
+      start: target?.start || nextSuggestion.start,
+      end: target?.end || nextSuggestion.end,
       action: target?.action || allActions[0] || DEFAULT_SYSTEM_ACTIONS[0] || "蹲坐",
       activeField: "start",
     });

@@ -378,7 +378,6 @@ export default function Index() {
   const primaryManagedDeviceLabel = primaryManagedDevice ? getUsageLabel(primaryManagedDevice.createdAt) : "";
   const primaryManagedDeviceStatus = primaryManagedDevice ? getDeviceStatusText(primaryManagedDevice.status) : "";
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
-  const hasCompletePetProfile = Boolean(currentPet?.name?.trim() && currentPet?.breed?.trim());
   const defaultPetHeroImage = getPetFallbackImage(currentPet?.species);
   const currentPetAvatarTask = currentPet?.id ? petAvatarTaskMap[currentPet.id] : null;
   const currentPetAvatarStatus =
@@ -497,16 +496,12 @@ export default function Index() {
       : petHeroImage;
 
   const handleOpenPetInfo = () => {
-    if (hasPet && hasCompletePetProfile) {
-      if (!currentPet) return;
+    if (currentPet?.id) {
       Taro.navigateTo({ url: `/pages/pet-info/index?petId=${currentPet.id}` });
       return;
     }
 
-    const incompletePetId = currentPet?.id;
-    Taro.navigateTo({
-      url: incompletePetId ? `/pages/pet-info/index?petId=${incompletePetId}&edit=1` : "/pages/pet-info/index",
-    });
+    Taro.navigateTo({ url: "/pages/pet-info/index" });
   };
   const handleAddPet = () => {
     Taro.navigateTo({ url: "/pages/pet-info/index" });

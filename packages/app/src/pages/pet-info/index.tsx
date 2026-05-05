@@ -533,8 +533,10 @@ export default function PetInfo() {
                 </View>
                 <View className="detail-pill">
                   <View className="detail-pill-gender">
-                    <Text className="detail-pill-symbol">{gender === "female" ? "♀" : "♂"}</Text>
-                    <Text className="detail-pill-text">{gender === "female" ? "母" : "公"}</Text>
+                    <View className="detail-pill-gender-main">
+                      <Text className="detail-pill-symbol">{gender === "female" ? "♀" : "♂"}</Text>
+                      <Text className="detail-pill-text">{gender === "female" ? "母" : "公"}</Text>
+                    </View>
                     <Text className="detail-pill-separator">·</Text>
                     <Text className="detail-pill-text">{ageLabel}</Text>
                   </View>
