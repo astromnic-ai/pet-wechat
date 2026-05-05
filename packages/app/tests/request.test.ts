@@ -21,7 +21,7 @@ mock.module("@tarojs/taro", () => ({
     removeStorageSync(key: string) {
       delete taroState.storage[key];
     },
-    redirectTo({ url }: { url: string }) {
+    reLaunch({ url }: { url: string }) {
       taroState.redirectedTo = url;
       return Promise.resolve();
     },
