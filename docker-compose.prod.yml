@@ -68,6 +68,9 @@ services:
       WATCHTOWER_LABEL_ENABLE: "true"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      # 挂载主机的 docker 凭据以便对私有 GHCR 镜像执行 HEAD digest 检查；
+      # 缺失会导致 watchtower 持续 403、updated=0，无法热更新。
+      - ${HOME}/.docker/config.json:/config.json:ro
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
