@@ -4,6 +4,7 @@ import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
+import { extractFirstJpegFrame } from "../../utils/mjpeg";
 import { isManagedStorageUrl, normalizePublicFileUrl, uploadFile } from "../../utils/storage";
 import { broadcast } from "../../ws";
 
@@ -23,6 +24,7 @@ const ADMIN_TIME_ZONE = "Asia/Shanghai";
 const MAX_ACTION_VIDEO_SIZE = 50 * 1024 * 1024;
 const ACTION_VIDEO_TYPES = new Set(["video/mjpeg", "video/x-motion-jpeg"]);
 type AvatarStatus = (typeof petAvatars.$inferSelect)["status"];
+type AvatarAction = typeof petAvatarActions.$inferSelect;
 
 type AvatarRow = {
   avatar: typeof petAvatars.$inferSelect;
@@ -88,6 +90,14 @@ function toAvatarResponse(row: AvatarRow) {
   };
 }
 
+function toActionResponse(action: AvatarAction) {
+  return {
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
+  };
+}
+
 async function getAvatarRow(avatarId: string) {
   const [row] = await db
     .select({
@@ -120,11 +130,7 @@ async function getAvatarActions(avatarId: string) {
     .where(eq(petAvatarActions.petAvatarId, avatarId))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
 
-  return actions.map((action) => ({
-    ...action,
-    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
-    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
-  }));
+  return actions.map(toActionResponse);
 }
 
 function resolveActionVideoContentType(file: File) {
@@ -387,9 +393,11 @@ avatarsRoute.put("/avatars/:id/meta", async (c) => {
 
 avatarsRoute.post("/avatars/:id/actions", async (c) => {
   const avatarId = c.req.param("id");
-  const body = await c.req.json<{ actionType?: string; imageUrl?: string }>();
+  const body = await c.req.json<{ actionType?: string; imageUrl?: string; videoUrl?: string | null }>();
   const actionType = body.actionType;
   const imageUrl = body.imageUrl;
+  const hasVideoUrl = Object.prototype.hasOwnProperty.call(body, "videoUrl");
+  const videoUrl = body.videoUrl ?? null;
 
   if (typeof actionType !== "string" || !VALID_ACTIONS.has(actionType)) {
     return c.json({ error: "Invalid actionType" }, 400);
@@ -397,6 +405,10 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
 
   if (typeof imageUrl !== "string" || !isManagedStorageUrl(imageUrl)) {
     return c.json({ error: "Invalid imageUrl" }, 400);
+  }
+
+  if (hasVideoUrl && videoUrl !== null && (typeof videoUrl !== "string" || !isManagedStorageUrl(videoUrl))) {
+    return c.json({ error: "Invalid videoUrl" }, 400);
   }
 
   const row = await getAvatarRow(avatarId);
@@ -433,6 +445,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
           .update(petAvatarActions)
           .set({
             imageUrl,
+            ...(hasVideoUrl ? { videoUrl } : {}),
           })
           .where(eq(petAvatarActions.id, existingAction.id))
           .returning()
@@ -442,6 +455,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
             petAvatarId: avatarId,
             actionType,
             imageUrl,
+            videoUrl,
             sortOrder: (lastAction?.sortOrder ?? -1) + 1,
           })
           .returning();
@@ -460,7 +474,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
   });
 
   return c.json({
-    action,
+    action: toActionResponse(action),
     avatarStatus: avatar?.status ?? (row.avatar.status === "approved" ? "processing" : row.avatar.status),
   });
 });
@@ -548,25 +562,37 @@ avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {
     }
 
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
+    const thumbnailBuffer = extractFirstJpegFrame(buffer);
+
+    if (!thumbnailBuffer) {
+      return c.json({ error: "无法从 MJPEG 文件中提取首帧" }, 400);
+    }
+
     const videoHash = createHash("sha256").update(buffer).digest("hex");
     const videoUrl = await uploadFile(
       `avatars/${avatarId}/${action.actionType}.mjpeg`,
       buffer,
       contentType,
     );
+    const imageUrl = await uploadFile(
+      `avatars/${avatarId}/${action.actionType}-thumb.jpg`,
+      thumbnailBuffer,
+      "image/jpeg",
+    );
 
     const [updatedAction] = await db
       .update(petAvatarActions)
-      .set({ videoUrl, videoHash })
+      .set({ imageUrl, videoUrl, videoHash })
       .where(and(eq(petAvatarActions.id, actionId), eq(petAvatarActions.petAvatarId, avatarId)))
       .returning();
 
     return c.json({
-      action: {
+      action: toActionResponse({
         ...(updatedAction ?? action),
+        imageUrl,
         videoUrl,
         videoHash,
-      },
+      }),
     });
   } catch (error) {
     console.error("Admin action video upload failed:", error);

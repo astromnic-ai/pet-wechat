@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { createId } from "../../utils/id";
+import { extractFirstJpegFrame } from "../../utils/mjpeg";
 import { ALLOWED_IMAGE_CONTENT_TYPES, createPresignedPutUrl, uploadFile } from "../../utils/storage";
 
 const uploadsRoute = new Hono();
@@ -62,10 +63,23 @@ uploadsRoute.post("/uploads", async (c) => {
     const ext = ALLOWED_IMAGE_CONTENT_TYPES[resolvedContentType];
     const key = `uploads/admin/${new Date().getUTCFullYear()}/${String(new Date().getUTCMonth() + 1).padStart(2, "0")}/${fileId}.${ext}`;
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
+    const isMjpeg = resolvedContentType === "video/mjpeg" || resolvedContentType === "video/x-motion-jpeg";
+    const thumbnailBuffer = isMjpeg ? extractFirstJpegFrame(buffer) : null;
+
+    if (isMjpeg && !thumbnailBuffer) {
+      return c.json({ error: "无法从 MJPEG 文件中提取首帧" }, 400);
+    }
 
     try {
       const url = await uploadFile(key, buffer, resolvedContentType);
-      return c.json({ url, fileId }, 201);
+      let thumbnailUrl: string | null = null;
+
+      if (thumbnailBuffer) {
+        const thumbnailKey = key.replace(/\.[^.]+$/, "-thumb.jpg");
+        thumbnailUrl = await uploadFile(thumbnailKey, thumbnailBuffer, "image/jpeg");
+      }
+
+      return c.json({ url, thumbnailUrl, fileId }, 201);
     } catch (error) {
       console.error("Admin media upload failed:", error);
       const msg = error instanceof Error && error.message.includes("bucket")

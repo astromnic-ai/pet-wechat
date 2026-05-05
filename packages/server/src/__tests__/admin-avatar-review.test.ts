@@ -6,6 +6,7 @@ import { mockDb } from "./setup";
 
 const app = new Hono();
 app.route("/api/admin", avatarsRoute);
+const TEST_MJPEG = new Uint8Array([0xff, 0xd8, 104, 101, 108, 108, 111, 0xff, 0xd9]);
 
 describe("Admin Avatar Review Routes", () => {
   beforeEach(() => {
@@ -41,8 +42,9 @@ describe("Admin Avatar Review Routes", () => {
     const action = fakeAvatarAction({ id: "action-1", petAvatarId: "avatar-1", actionType: "lay" });
     const updatedAction = {
       ...action,
+      imageUrl: "https://test-storage.local/avatars/avatar-1/lay-thumb.jpg",
       videoUrl: "https://test-storage.local/avatars/avatar-1/lay.mjpeg",
-      videoHash: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      videoHash: "ac39d47c7b92ef8b2393ffff158c34707441867980f143f41f076b3bc8a6a6a1",
     };
 
     mockDb._results.select = [
@@ -66,7 +68,7 @@ describe("Admin Avatar Review Routes", () => {
     mockDb._results.update = [[updatedAction]];
 
     const formData = new FormData();
-    formData.append("file", new File(["hello"], "lay.mjpeg", { type: "video/mjpeg" }));
+    formData.append("file", new File([TEST_MJPEG], "lay.mjpeg", { type: "video/mjpeg" }));
 
     const res = await app.request(
       new Request("http://localhost/api/admin/avatars/avatar-1/actions/action-1/video", {
@@ -79,7 +81,8 @@ describe("Admin Avatar Review Routes", () => {
     expect(await res.json()).toEqual({ action: updatedAction });
     expect((mockDb._calls.update[0] as any).set).toEqual({
       videoUrl: "https://test-storage.local/avatars/avatar-1/lay.mjpeg",
-      videoHash: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      videoHash: "ac39d47c7b92ef8b2393ffff158c34707441867980f143f41f076b3bc8a6a6a1",
+      imageUrl: "https://test-storage.local/avatars/avatar-1/lay-thumb.jpg",
     });
   });
 });

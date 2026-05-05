@@ -5,6 +5,7 @@ import { jsonReq } from "./helpers";
 
 const app = new Hono();
 app.route("/api/admin", uploadsRoute);
+const TEST_MJPEG = new Uint8Array([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]);
 
 describe("Admin Upload Routes", () => {
   const originalEnableDevLogin = process.env.ENABLE_DEV_LOGIN;
@@ -51,7 +52,7 @@ describe("Admin Upload Routes", () => {
     formData.append("contentType", "video/x-motion-jpeg");
     formData.append(
       "file",
-      new File([new Uint8Array([1, 2, 3])], "base-sit-6.mjpeg", { type: "video/x-motion-jpeg" }),
+      new File([TEST_MJPEG], "base-sit-6.mjpeg", { type: "video/x-motion-jpeg" }),
     );
 
     const res = await app.request(
@@ -65,5 +66,6 @@ describe("Admin Upload Routes", () => {
     const json = await res.json();
     expect(json.url).toContain(".mjpeg");
     expect(json.url).toContain("uploads/admin/");
+    expect(json.thumbnailUrl).toContain("-thumb.jpg");
   });
 });
