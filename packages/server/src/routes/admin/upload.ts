@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createId } from "../../utils/id";
 import { uploadFile } from "../../utils/storage";
+import { extractFirstJpegFrame } from "../../utils/mjpeg";
 
 const adminUploadRoute = new Hono();
 
@@ -56,10 +57,15 @@ adminUploadRoute.post("/upload", async (c) => {
     const key = `admin/customization/${fileId}.${ext}`;
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
     const contentType = resolveMjpegContentType(uploadedFile);
+    const firstFrame = extractFirstJpegFrame(buffer);
 
     let url: string;
+    let thumbnailUrl: string | null = null;
     try {
       url = await uploadFile(key, buffer, contentType);
+      if (firstFrame) {
+        thumbnailUrl = await uploadFile(`admin/customization/${fileId}-thumb.jpg`, firstFrame, "image/jpeg");
+      }
     } catch (error) {
       console.error("Admin storage upload failed:", error);
       const msg = error instanceof Error && error.message.includes("bucket")
@@ -68,7 +74,7 @@ adminUploadRoute.post("/upload", async (c) => {
       return c.json({ error: msg }, 503);
     }
 
-    return c.json({ url, fileId }, 201);
+    return c.json({ url, thumbnailUrl, fileId }, 201);
   } catch (error) {
     console.error("Admin upload failed:", error);
     return c.json({ error: "文件上传失败，请稍后重试" }, 503);

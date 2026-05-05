@@ -55,6 +55,19 @@ function isMjpegVideoFile(file: File) {
   return (ext === "mjpeg" || ext === "mjpg") && allowedTypes.has(file.type);
 }
 
+function isMjpegAssetUrl(url?: string | null) {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    return pathname.endsWith(".mjpeg") || pathname.endsWith(".mjpg");
+  } catch {
+    return /\.mjpeg?$/.test(url.toLowerCase());
+  }
+}
+
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskFilter = "all" | CustomizationStatus;
 type CustomizationCategory = "basic" | "personalized";
@@ -380,7 +393,8 @@ export default function Customization() {
       const uploadRes = await api.uploadAdminImage(file);
       await api.createAvatarAction(selectedAvatarDetail.id, {
         actionType,
-        imageUrl: uploadRes.url,
+        imageUrl: uploadRes.thumbnailUrl || selectedAvatarDetail.sourceImageUrl,
+        videoUrl: uploadRes.url,
       });
       messageApi.success(`${ACTION_LABELS[actionType] ?? actionType} 已上传`);
       await refreshCurrentAvatar(selectedAvatarDetail.id);
@@ -464,6 +478,12 @@ export default function Customization() {
           const action = actionMap[actionType];
           const isUploading = uploadingActionType === actionType;
           const isDeleting = deletingActionId === action?.id;
+          const videoSrc = action?.videoUrl || action?.imageUrl || "";
+          const posterSrc = action
+            ? !isMjpegAssetUrl(action.imageUrl)
+              ? action.imageUrl
+              : selectedAvatarDetail?.sourceImageUrl || selectedAvatarSummary?.sourceImageUrl || undefined
+            : undefined;
 
           return (
             <Col key={actionType} xs={24} sm={12} xl={8} xxl={6}>
@@ -492,8 +512,9 @@ export default function Customization() {
 
                   {action ? (
                     <video
-                      key={action.imageUrl}
-                      src={action.imageUrl}
+                      key={videoSrc}
+                      src={videoSrc}
+                      poster={posterSrc}
                       controls
                       preload="metadata"
                       playsInline

@@ -3,6 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
+import { rewriteLocalAssetUrl } from "../../utils/publicUrl";
 import { broadcast } from "../../ws";
 
 const avatarsRoute = new Hono();
@@ -35,7 +36,7 @@ type AvatarRow = {
   userPhone: string | null;
 };
 
-function isSafeImageUrl(url: string): boolean {
+function isSafeAssetUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
     return parsed.protocol === "http:" || parsed.protocol === "https:";
@@ -96,11 +97,13 @@ async function getAvatarRow(avatarId: string) {
 }
 
 async function getAvatarActions(avatarId: string) {
-  return db
+  const actions = await db
     .select()
     .from(petAvatarActions)
     .where(eq(petAvatarActions.petAvatarId, avatarId))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
+
+  return actions;
 }
 
 function getAvatarOwnerContext(row: AvatarRow) {
@@ -164,7 +167,11 @@ avatarsRoute.get("/avatars/:id", async (c) => {
   return c.json({
     avatar: {
       ...toAvatarResponse(row),
-      actions,
+      actions: actions.map((action) => ({
+        ...action,
+        imageUrl: rewriteLocalAssetUrl(action.imageUrl, c.req.url) ?? action.imageUrl,
+        videoUrl: rewriteLocalAssetUrl(action.videoUrl, c.req.url) ?? action.videoUrl ?? null,
+      })),
     },
   });
 });
@@ -313,7 +320,13 @@ avatarsRoute.get("/avatars/:id/actions", async (c) => {
 
   const actions = await getAvatarActions(avatarId);
 
-  return c.json({ actions });
+  return c.json({
+    actions: actions.map((action) => ({
+      ...action,
+      imageUrl: rewriteLocalAssetUrl(action.imageUrl, c.req.url) ?? action.imageUrl,
+      videoUrl: rewriteLocalAssetUrl(action.videoUrl, c.req.url) ?? action.videoUrl ?? null,
+    })),
+  });
 });
 
 avatarsRoute.put("/avatars/:id/meta", async (c) => {
@@ -351,16 +364,21 @@ avatarsRoute.put("/avatars/:id/meta", async (c) => {
 
 avatarsRoute.post("/avatars/:id/actions", async (c) => {
   const avatarId = c.req.param("id");
-  const body = await c.req.json<{ actionType?: string; imageUrl?: string }>();
+  const body = await c.req.json<{ actionType?: string; imageUrl?: string; videoUrl?: string | null }>();
   const actionType = body.actionType;
   const imageUrl = body.imageUrl;
+  const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl : null;
 
   if (typeof actionType !== "string" || !VALID_ACTIONS.has(actionType)) {
     return c.json({ error: "Invalid actionType" }, 400);
   }
 
-  if (typeof imageUrl !== "string" || !isSafeImageUrl(imageUrl)) {
+  if (typeof imageUrl !== "string" || !isSafeAssetUrl(imageUrl)) {
     return c.json({ error: "Invalid imageUrl" }, 400);
+  }
+
+  if (videoUrl !== null && !isSafeAssetUrl(videoUrl)) {
+    return c.json({ error: "Invalid videoUrl" }, 400);
   }
 
   const row = await getAvatarRow(avatarId);
@@ -397,6 +415,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
           .update(petAvatarActions)
           .set({
             imageUrl,
+            videoUrl,
           })
           .where(eq(petAvatarActions.id, existingAction.id))
           .returning()
@@ -406,6 +425,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
             petAvatarId: avatarId,
             actionType,
             imageUrl,
+            videoUrl,
             sortOrder: (lastAction?.sortOrder ?? -1) + 1,
           })
           .returning();

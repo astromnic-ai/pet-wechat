@@ -74,6 +74,19 @@ type LatestAvatarSummary = {
   imageUrl: string | null;
 };
 
+function isVideoAssetUrl(url?: string | null) {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    return pathname.endsWith(".mjpeg") || pathname.endsWith(".mjpg");
+  } catch {
+    return /\.mjpeg?$/.test(url.toLowerCase());
+  }
+}
+
 async function getLatestAvatarSummaryMap(petIds: string[]) {
   const latestAvatarSummaryMap = new Map<string, LatestAvatarSummary>();
   if (petIds.length === 0) return latestAvatarSummaryMap;
@@ -106,6 +119,7 @@ async function getLatestAvatarSummaryMap(petIds: string[]) {
       .select({
         petAvatarId: petAvatarActions.petAvatarId,
         imageUrl: petAvatarActions.imageUrl,
+        videoUrl: petAvatarActions.videoUrl,
         sortOrder: petAvatarActions.sortOrder,
       })
       .from(petAvatarActions)
@@ -114,7 +128,9 @@ async function getLatestAvatarSummaryMap(petIds: string[]) {
 
     for (const action of primaryActions) {
       if (primaryImageByAvatarId.has(action.petAvatarId)) continue;
-      primaryImageByAvatarId.set(action.petAvatarId, action.imageUrl);
+      if (!isVideoAssetUrl(action.imageUrl)) {
+        primaryImageByAvatarId.set(action.petAvatarId, action.imageUrl);
+      }
     }
   }
 
@@ -399,6 +415,7 @@ petsRoute.get("/:id", async (c) => {
     .where(eq(petAvatars.petId, petId));
 
   const avatarIds = avatars.map((a) => a.id);
+  const avatarSourceImageMap = new Map(avatars.map((avatar) => [avatar.id, avatar.sourceImageUrl]));
   const actions: (typeof petAvatarActions.$inferSelect)[] =
     avatarIds.length > 0
       ? await db
@@ -425,7 +442,13 @@ petsRoute.get("/:id", async (c) => {
     })),
     actions: actions.map((action) => ({
       ...action,
-      imageUrl: rewriteLocalAssetUrl(action.imageUrl, c.req.url) ?? action.imageUrl,
+      imageUrl: rewriteLocalAssetUrl(
+        !isVideoAssetUrl(action.imageUrl)
+          ? action.imageUrl
+          : avatarSourceImageMap.get(action.petAvatarId) ?? action.imageUrl,
+        c.req.url,
+      ) ?? action.imageUrl,
+      videoUrl: rewriteLocalAssetUrl(action.videoUrl, c.req.url) ?? action.videoUrl ?? null,
     })),
   });
 });

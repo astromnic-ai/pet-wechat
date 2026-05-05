@@ -237,6 +237,7 @@ export const petAvatarActions = pgTable("pet_avatar_actions", {
   petAvatarId: text("pet_avatar_id").notNull(),
   actionType: text("action_type").notNull(),
   imageUrl: text("image_url").notNull(),
+  videoUrl: text("video_url"),
   sortOrder: integer("sort_order").notNull().default(0),
 });
 

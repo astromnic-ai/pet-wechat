@@ -58,7 +58,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-async function uploadAdminFile(path: string, file: File): Promise<{ url: string; fileId: string }> {
+async function uploadAdminFile(path: string, file: File): Promise<{ url: string; thumbnailUrl: string | null; fileId: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
@@ -132,7 +132,7 @@ export const api = {
   approveAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/approve`, { method: "PUT" }),
   rejectAvatar: (id: string, reason: string) => request<{ avatar: any }>(`/avatars/${id}/reject`, { method: "PUT", body: JSON.stringify({ reason }) }),
   getAvatarActions: (id: string) => request<{ actions: any[] }>(`/avatars/${id}/actions`),
-  createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
+  createAvatarAction: (id: string, data: { actionType: string; imageUrl: string; videoUrl?: string | null }) =>
     request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
   deleteAvatarAction: (id: string, actionId: string) => request(`/avatars/${id}/actions/${actionId}`, { method: "DELETE" }),
   updateAvatarMeta: (id: string, data: { petDescription?: string; funFact?: string }) =>

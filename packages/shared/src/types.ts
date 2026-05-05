@@ -243,6 +243,7 @@ export interface PetAvatarAction {
   petAvatarId: string;
   actionType: string;
   imageUrl: string;
+  videoUrl?: string | null;
   sortOrder: number;
 }
 
