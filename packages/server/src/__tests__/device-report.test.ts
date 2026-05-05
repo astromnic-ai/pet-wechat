@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
+import { ALL_ACTIONS } from "shared";
 import { mockDb } from "./setup";
 import {
   createApp,
@@ -44,7 +45,7 @@ describe("Device Report Routes", () => {
       );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ collarChipId: null, files: [] });
+      expect(await res.json()).toEqual({ collarChipId: null, files: [], allActionTypes: [...ALL_ACTIONS] });
       expect((mockDb._calls.insert[0] as any).values).toMatchObject({
         name: "摆台-49fd8c",
         chipId: "8c4718feff49fd8c",
@@ -64,7 +65,7 @@ describe("Device Report Routes", () => {
       );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ collarChipId: null, files: [] });
+      expect(await res.json()).toEqual({ collarChipId: null, files: [], allActionTypes: [...ALL_ACTIONS] });
       expect(mockDb._calls.insert).toHaveLength(0);
     });
 
@@ -98,6 +99,7 @@ describe("Device Report Routes", () => {
             url: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
           },
         ],
+        allActionTypes: [...ALL_ACTIONS],
       });
     });
 
@@ -138,7 +140,7 @@ describe("Device Report Routes", () => {
       );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ collarChipId: "collar-chip-1", files: [] });
+      expect(await res.json()).toEqual({ collarChipId: "collar-chip-1", files: [], allActionTypes: [...ALL_ACTIONS] });
     });
 
     it("returns 400 when chipId is missing or blank", async () => {

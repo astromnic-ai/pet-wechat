@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
+import { ALL_ACTIONS } from "shared";
 import { db } from "../db";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import {
@@ -206,12 +207,12 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
   }
 
   if (!desktop) {
-    return c.json({ collarChipId: null, files: [] });
+    return c.json({ collarChipId: null, files: [], allActionTypes: ALL_ACTIONS });
   }
 
   const petId = await getActiveDesktopPetId(desktop.id);
   if (!petId) {
-    return c.json({ collarChipId: null, files: [] });
+    return c.json({ collarChipId: null, files: [], allActionTypes: ALL_ACTIONS });
   }
 
   const [collarChipId, files] = await Promise.all([
@@ -219,7 +220,7 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
     buildAvatarManifestFiles(petId),
   ]);
 
-  return c.json({ collarChipId, files });
+  return c.json({ collarChipId, files, allActionTypes: ALL_ACTIONS });
 });
 
 deviceReportRoute.post("/heartbeat", async (c) => {
