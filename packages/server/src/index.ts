@@ -1,5 +1,6 @@
 import type { Serve } from "bun";
 import { Hono } from "hono";
+import type { Context } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
@@ -31,6 +32,85 @@ import { wsHandler, type WsConnectionData } from "./ws";
 const adminDistRoot = path.resolve(process.env.ADMIN_DIST_DIR ?? "../../admin-dist");
 const adminIndexPath = path.join(adminDistRoot, "index.html");
 
+function parseRangeHeader(rangeHeader: string | undefined, fileSize: number) {
+  if (!rangeHeader?.startsWith("bytes=")) return null;
+
+  const [startText, endText] = rangeHeader.replace("bytes=", "").split("-");
+  const hasStart = startText !== "";
+  const hasEnd = endText !== "";
+
+  if (!hasStart && !hasEnd) return null;
+
+  let start = hasStart ? Number(startText) : NaN;
+  let end = hasEnd ? Number(endText) : NaN;
+
+  if (Number.isNaN(start) && Number.isNaN(end)) return null;
+
+  if (Number.isNaN(start)) {
+    const suffixLength = end;
+    if (!Number.isFinite(suffixLength) || suffixLength <= 0) return null;
+    start = Math.max(fileSize - suffixLength, 0);
+    end = fileSize - 1;
+  } else {
+    if (!Number.isFinite(start) || start < 0) return null;
+    if (Number.isNaN(end) || !Number.isFinite(end)) {
+      end = fileSize - 1;
+    }
+  }
+
+  if (start >= fileSize) return { invalid: true as const };
+
+  end = Math.min(end, fileSize - 1);
+  if (end < start) return { invalid: true as const };
+
+  return { invalid: false as const, start, end };
+}
+
+async function serveStaticFile(c: Context) {
+  const relativePath = c.req.path.replace(/^\/static\//, "");
+  const filePath = path.resolve(process.cwd(), "public", relativePath);
+  const file = Bun.file(filePath);
+
+  if (!(await file.exists())) {
+    return c.json({ error: "文件不存在" }, 404);
+  }
+
+  const contentType = file.type || "application/octet-stream";
+  const range = parseRangeHeader(c.req.header("range"), file.size);
+
+  if (range?.invalid) {
+    return new Response(null, {
+      status: 416,
+      headers: {
+        "Content-Range": `bytes */${file.size}`,
+        "Accept-Ranges": "bytes",
+      },
+    });
+  }
+
+  if (range) {
+    const chunk = file.slice(range.start, range.end + 1);
+    const chunkSize = range.end - range.start + 1;
+    return new Response(chunk, {
+      status: 206,
+      headers: {
+        "Content-Type": contentType,
+        "Content-Length": String(chunkSize),
+        "Accept-Ranges": "bytes",
+        "Content-Range": `bytes ${range.start}-${range.end}/${file.size}`,
+      },
+    });
+  }
+
+  return new Response(file, {
+    headers: {
+      "Content-Type": contentType,
+      "Content-Length": String(file.size),
+      "Accept-Ranges": "bytes",
+    },
+  });
+}
+
 export function createApp() {
   const app = new Hono();
 
@@ -38,6 +118,7 @@ export function createApp() {
   app.use("*", cors());
 
   app.get("/health", (c) => c.json({ status: "ok" }));
+  app.get("/static/*", serveStaticFile);
   app.get("/storage/*", async (c) => {
     const relativePath = c.req.path.replace(/^\/storage\//, "");
     const filePath = path.resolve(process.cwd(), "storage", relativePath);
