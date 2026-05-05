@@ -93,7 +93,7 @@ describe("Device Report Routes", () => {
         collarChipId: "collar-chip-1",
         files: [
           {
-            path: "/avatar/lay.mjpeg",
+            actionType: "lay",
             hash: "sha256-lay",
             url: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
           },

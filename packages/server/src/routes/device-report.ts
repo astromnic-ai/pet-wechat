@@ -157,7 +157,7 @@ async function buildAvatarManifestFiles(petId: string) {
   return actions
     .filter((action) => action.videoUrl && action.videoHash)
     .map((action) => ({
-      path: `/avatar/${action.actionType}.mjpeg`,
+      actionType: action.actionType,
       hash: action.videoHash as string,
       url: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl as string,
     }));
