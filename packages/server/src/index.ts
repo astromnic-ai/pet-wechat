@@ -1,5 +1,6 @@
 import type { Serve } from "bun";
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import path from "node:path";
@@ -27,13 +28,15 @@ import { runPreflight } from "./preflight";
 import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
+const adminDistRoot = path.resolve(process.env.ADMIN_DIST_DIR ?? "../../admin-dist");
+const adminIndexPath = path.join(adminDistRoot, "index.html");
+
 export function createApp() {
   const app = new Hono();
 
   app.use("*", logger());
   app.use("*", cors());
 
-  app.get("/", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/storage/*", async (c) => {
     const relativePath = c.req.path.replace(/^\/storage\//, "");
@@ -72,6 +75,7 @@ export function createApp() {
   app.route("/api/schedules", schedulesRoute);
   app.route("/api/device-report", deviceReportRoute);
   app.route("/api/content", contentRoute);
+  app.get("/api", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);
@@ -90,6 +94,29 @@ export function createApp() {
   app.route("/api/debug", debugRoute);
   app.route("/api/settings", settingsRoute);
   app.route("/api/account", accountRoute);
+
+  app.use("*", serveStatic({ root: adminDistRoot }));
+  app.get("*", async (c) => {
+    if (
+      c.req.path.startsWith("/api") ||
+      c.req.path.startsWith("/storage") ||
+      c.req.path === "/health"
+    ) {
+      return c.notFound();
+    }
+
+    const file = Bun.file(adminIndexPath);
+
+    if (!(await file.exists())) {
+      return c.notFound();
+    }
+
+    return new Response(file, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    });
+  });
 
   return app;
 }

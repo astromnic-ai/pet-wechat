@@ -58,14 +58,6 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
-  admin:
-    image: ghcr.io/thup-jds/pet-wechat/admin:latest
-    restart: unless-stopped
-    ports:
-      - "9528:80"
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-
   watchtower:
     image: nickfedor/watchtower:latest
     restart: unless-stopped
