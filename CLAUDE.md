@@ -44,15 +44,20 @@ YEHEY 宠物"在场" - 微信小程序 MVP
 ### 域名
 
 - 后端 API：`https://pet-wechat.yangl.com.cn`（反代 → localhost:9527）
-- 管理后台：`https://pet-admin.yangl.com.cn`（反代 → localhost:9528，当前未上线，待认证功能完成）
+- 管理后台：`https://pet-admin.yangl.com.cn`（反代 → localhost:9527，由 server 镜像提供 SPA）
 - 文件存储：`https://pet-wechat.yangl.com.cn/storage/`（反代 → MinIO localhost:9000）
 
 ### Docker Compose 服务（docker-compose.prod.yml）
 
 - `postgres` - PostgreSQL 16
 - `minio` - MinIO 对象存储（S3 兼容）
-- `server` - 后端 API（镜像来自 GHCR：`ghcr.io/thup-jds/pet-wechat/server`）
-- `admin` - 管理后台（镜像来自 GHCR：`ghcr.io/thup-jds/pet-wechat/admin`）
+- `server` - 后端 API + 管理后台 SPA（镜像来自 GHCR：`ghcr.io/thup-jds/pet-wechat/server`）
+
+### 管理后台镜像合并
+
+管理后台不再单独构建 nginx 镜像，也不再由 `docker-compose.prod.yml` 启动 `admin` 服务。CI 只构建 `ghcr.io/thup-jds/pet-wechat/server`，该镜像内置 `packages/admin` 的构建产物，由 Hono/Bun 在 9527 端口提供 SPA 静态资源和路由 fallback。
+
+部署时需要手动调整 Caddy：将 `pet-admin.yangl.com.cn` 从原来的 `admin:80` / `localhost:9528` 改为反代到 `server:9527` / `localhost:9527`。
 
 ### 环境变量
 
