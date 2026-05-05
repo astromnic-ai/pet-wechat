@@ -375,6 +375,15 @@ export interface WsAvatarDoneMessage {
   };
 }
 
+export interface WsMessageNewMessage {
+  type: "message:new";
+  data: {
+    title: string;
+    content: string;
+    messageType: MessageType;
+  };
+}
+
 export interface WsPingMessage {
   type: "ping";
 }
@@ -386,6 +395,7 @@ export interface WsPongMessage {
 export type WsMessage =
   | WsBehaviorNewMessage
   | WsAvatarDoneMessage
+  | WsMessageNewMessage
   | WsPingMessage
   | WsPongMessage;
 

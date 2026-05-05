@@ -264,6 +264,12 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
+    return subscribe("message:new", () => {
+      void loadUnreadCount();
+    });
+  }, []);
+
+  useEffect(() => {
     const handleDevicesChanged = () => {
       void loadPets();
       void loadDevices();

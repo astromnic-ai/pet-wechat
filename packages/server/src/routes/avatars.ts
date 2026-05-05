@@ -157,6 +157,14 @@ avatarsRoute.post("/:id/actions", async (c) => {
 
   if (shouldNotify) {
     broadcast(pet.userId, {
+      type: "message:new",
+      data: {
+        title: "形象已就绪",
+        content: `${pet.name} 的新形象已生成，快去主页看看吧。`,
+        messageType: "system",
+      },
+    });
+    broadcast(pet.userId, {
       type: "avatar:done",
       data: {
         petId: pet.id,

@@ -1,9 +1,10 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
 import PageBack from "../../components/PageBack";
 import type { Message } from "@pet-wechat/shared";
+import { subscribe } from "../../utils/ws";
 import "./index.scss";
 
 const ICON_MAP = {
@@ -58,11 +59,6 @@ function getTimeText(message: Message) {
 export default function MessagesPage() {
   const [messages, setMessages] = useState<Message[]>([]);
 
-  useDidShow(() => {
-    Taro.hideTabBar();
-    void loadMessages();
-  });
-
   const loadMessages = async () => {
     try {
       const list = await request<Message[]>({ url: "/api/messages" });
@@ -77,6 +73,18 @@ export default function MessagesPage() {
       setMessages([]);
     }
   };
+
+  useDidShow(() => {
+    Taro.hideTabBar();
+    void loadMessages();
+  });
+
+  useEffect(() => {
+    return subscribe("message:new", () => {
+      void loadMessages();
+    });
+  }, []);
+
   const displayMessages = messages.slice(0, 5);
 
   return (

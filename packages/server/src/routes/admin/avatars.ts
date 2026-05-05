@@ -157,6 +157,59 @@ function getAvatarOwnerContext(row: AvatarRow) {
   };
 }
 
+function buildApprovalMessage() {
+  return {
+    title: "进度更新：您的宝贝数字影像开始“加载”啦！",
+    content:
+      "您的宠物图像已通过审核，现在正式进入【24组动态影像定制】阶段。请耐心等待，您的桌面小精灵正在赶来的路上。",
+  };
+}
+
+function buildRejectMessage(reason: string) {
+  switch (reason) {
+    case "该图片不是宠物图片":
+      return {
+        title: "图像审核未通过：未检测到宠物形象",
+        content:
+          "抱歉，您上传的图片中似乎没有发现可爱的宠物身影。本产品暂仅支持【猫/狗】的宠物专项影像定制，请重新上传一张宠物的清晰美照吧。",
+      };
+    case "宠物形象有遮挡":
+      return {
+        title: "图像审核未通过：宠物身体存在遮挡",
+        content:
+          "宠物照片被其他物体遮挡住了一部分。为了保证定制出的动作（如扑、跳、滚）足够完整自然，请上传一张【全身无遮挡】的宠物全身或半身照。",
+      };
+    case "宠物面部不完全":
+      return {
+        title: "图像审核未通过：面部识别不完整",
+        content:
+          "您上传的图片中，宠物的面部五官不完整，请重新上传一张【正面】的照片。",
+      };
+    case "光线过暗":
+      return {
+        title: "图像审核未通过：环境光线太暗啦",
+        content:
+          "图片光线不足影响宠物定制细节效果，建议您在【光线充足的白天】或【明亮的室内】为宝贝重新拍一张照片哦。",
+      };
+    default:
+      return {
+        title: "图像审核未通过",
+        content: `抱歉，您上传的宠物图片未通过审核：${reason}。请根据提示调整后重新上传。`,
+      };
+  }
+}
+
+function broadcastSystemMessage(userId: string, payload: { title: string; content: string }) {
+  broadcast(userId, {
+    type: "message:new",
+    data: {
+      title: payload.title,
+      content: payload.content,
+      messageType: "system",
+    },
+  });
+}
+
 avatarsRoute.get("/avatars", async (c) => {
   const status = c.req.query("status");
 
@@ -233,6 +286,7 @@ avatarsRoute.put("/avatars/:id/approve", async (c) => {
   }
 
   const reviewedAt = new Date();
+  const approvalMessage = buildApprovalMessage();
 
   const [avatar] = await db.transaction(async (tx) => {
     const [updatedAvatar] = await tx
@@ -248,12 +302,14 @@ avatarsRoute.put("/avatars/:id/approve", async (c) => {
     await tx.insert(messages).values({
       userId: ownerContext.userId,
       type: "system",
-      title: "图像审核通过",
-      content: `您的宠物 ${ownerContext.petName} 的图像已通过审核`,
+      title: approvalMessage.title,
+      content: approvalMessage.content,
     });
 
     return [updatedAvatar];
   });
+
+  broadcastSystemMessage(ownerContext.userId, approvalMessage);
 
   return c.json({
     avatar: toAvatarResponse({
@@ -297,6 +353,7 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
   }
 
   const nextReviewedAt = row.avatar.status === "pending" ? new Date() : row.avatar.reviewedAt;
+  const rejectMessage = buildRejectMessage(reason);
 
   const [avatar] = await db.transaction(async (tx) => {
     const [updatedAvatar] = await tx
@@ -318,12 +375,14 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
     await tx.insert(messages).values({
       userId: ownerContext.userId,
       type: "system",
-      title: "图像审核未通过",
-      content: `您的宠物 ${ownerContext.petName} 的图像审核未通过：${reason}`,
+      title: rejectMessage.title,
+      content: rejectMessage.content,
     });
 
     return [updatedAvatar];
   });
+
+  broadcastSystemMessage(ownerContext.userId, rejectMessage);
 
   return c.json({
     avatar: toAvatarResponse({
@@ -647,6 +706,14 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
     return [updatedAvatar];
   });
 
+  broadcastSystemMessage(ownerContext.userId, {
+    title: "形象已就绪",
+    content:
+      row.avatar.petDescription || row.avatar.funFact
+        ? `${ownerContext.petName} 的新形象和定制描述已同步完成，快去主页看看吧。`
+        : `${ownerContext.petName} 的新形象已生成，快去主页看看吧。`,
+  });
+
   broadcast(ownerContext.userId, {
     type: "avatar:done",
     data: {
@@ -681,27 +748,14 @@ avatarsRoute.get("/avatar-review/stats", async (c) => {
         WHERE pa.status IN ('approved', 'processing', 'done')
       )::int AS approved_total,
       COUNT(*) FILTER (
-        WHERE pa.status = 'approved'
-          AND (
-            EXISTS (
-              SELECT 1
-              FROM collar_devices cd
-              WHERE cd.pet_id = pa.pet_id
-                AND cd.status = 'online'
-            )
-            OR EXISTS (
-              SELECT 1
-              FROM desktop_pet_bindings b
-              WHERE b.pet_id = pa.pet_id
-                AND b.unbound_at IS NULL
-            )
-          )
+        WHERE pa.reviewed_at IS NOT NULL
+          AND pa.status IN ('approved', 'processing', 'done', 'rejected')
       )::int AS synced_to_devices,
       COUNT(*) FILTER (
         WHERE (pa.created_at AT TIME ZONE ${ADMIN_TIME_ZONE})::date = (now() AT TIME ZONE ${ADMIN_TIME_ZONE})::date
       )::int AS today_new_uploads,
       COUNT(*) FILTER (
-        WHERE pa.status IN ('approved', 'rejected')
+        WHERE pa.reviewed_at IS NOT NULL
           AND (pa.reviewed_at AT TIME ZONE ${ADMIN_TIME_ZONE})::date = (now() AT TIME ZONE ${ADMIN_TIME_ZONE})::date
       )::int AS today_completed
     FROM pet_avatars pa

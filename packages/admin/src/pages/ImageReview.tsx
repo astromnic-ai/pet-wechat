@@ -28,13 +28,13 @@ const { TextArea } = Input;
 const reviewTabs = ["all", "pending", "rejected", "approved"] as const;
 const CUSTOM_REJECT_REASON = "__custom__";
 const REJECT_REASON_OPTIONS = [
-  "图像有遮挡",
-  "宠物面部不完整",
-  "图片不够清晰",
-  "宠物主体过小",
-  "图片包含多只宠物",
-  "非宠物图片",
+  "该图片不是宠物图片",
+  "宠物形象有遮挡",
+  "宠物面部不完全",
+  "光线过暗",
 ] as const;
+const APPROVED_REVIEW_STATUSES: AvatarStatus[] = ["approved", "processing", "done"];
+const REVIEWED_AVATAR_STATUSES: AvatarStatus[] = ["approved", "processing", "done", "rejected"];
 
 type ReviewTabKey = (typeof reviewTabs)[number];
 
@@ -128,6 +128,14 @@ function toReviewAvatarSummary(avatar: ReviewAvatarDetail): ReviewAvatar {
   return summary;
 }
 
+function isApprovedReviewStatus(status: AvatarStatus) {
+  return APPROVED_REVIEW_STATUSES.includes(status);
+}
+
+function isReviewedAvatarStatus(status: AvatarStatus) {
+  return REVIEWED_AVATAR_STATUSES.includes(status);
+}
+
 export default function ImageReview() {
   const [messageApi, contextHolder] = message.useMessage();
   const [avatars, setAvatars] = useState<ReviewAvatar[]>([]);
@@ -197,7 +205,12 @@ export default function ImageReview() {
     () =>
       reviewTabs.reduce<Record<ReviewTabKey, number>>(
         (counts, status) => {
-          counts[status] = status === "all" ? avatars.length : avatars.filter((avatar) => avatar.status === status).length;
+          counts[status] =
+            status === "all"
+              ? avatars.length
+              : status === "approved"
+                ? avatars.filter((avatar) => isApprovedReviewStatus(avatar.status)).length
+                : avatars.filter((avatar) => avatar.status === status).length;
           return counts;
         },
         {
@@ -228,7 +241,7 @@ export default function ImageReview() {
       reviewStats?.todayCompleted ??
       avatars.filter(
         (avatar) =>
-          (avatar.status === "approved" || avatar.status === "rejected") && isSameDay(avatar.reviewedAt, today),
+          isReviewedAvatarStatus(avatar.status) && isSameDay(avatar.reviewedAt, today),
       ).length,
     [avatars, reviewStats, today],
   );
@@ -237,20 +250,20 @@ export default function ImageReview() {
     () =>
       avatars.filter(
         (avatar) =>
-          (avatar.status === "approved" || avatar.status === "rejected") && isSameDay(avatar.reviewedAt, yesterday),
+          isReviewedAvatarStatus(avatar.status) && isSameDay(avatar.reviewedAt, yesterday),
       ).length,
     [avatars, yesterday],
   );
 
   const syncedDeviceCount = useMemo(
-    () => reviewStats?.syncedToDevices ?? avatars.filter((avatar) => avatar.status === "done").length,
+    () => reviewStats?.syncedToDevices ?? avatars.filter((avatar) => isReviewedAvatarStatus(avatar.status)).length,
     [avatars, reviewStats],
   );
 
   const todaySyncedCount = useMemo(
     () =>
       avatars.filter(
-        (avatar) => avatar.status === "done" && isSameDay(avatar.reviewedAt ?? avatar.createdAt, today),
+        (avatar) => isReviewedAvatarStatus(avatar.status) && isSameDay(avatar.reviewedAt, today),
       ).length,
     [avatars, today],
   );
@@ -258,7 +271,7 @@ export default function ImageReview() {
   const yesterdaySyncedCount = useMemo(
     () =>
       avatars.filter(
-        (avatar) => avatar.status === "done" && isSameDay(avatar.reviewedAt ?? avatar.createdAt, yesterday),
+        (avatar) => isReviewedAvatarStatus(avatar.status) && isSameDay(avatar.reviewedAt, yesterday),
       ).length,
     [avatars, yesterday],
   );
@@ -266,6 +279,10 @@ export default function ImageReview() {
   const filteredAvatars = useMemo(() => {
     if (activeTab === "all") {
       return avatars;
+    }
+
+    if (activeTab === "approved") {
+      return avatars.filter((avatar) => isApprovedReviewStatus(avatar.status));
     }
 
     return avatars.filter((avatar) => avatar.status === activeTab);
@@ -501,7 +518,7 @@ export default function ImageReview() {
                             {petName}
                           </Text>
                           <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.2 }}>
-                            {formatDateTime(avatar.createdAt)}
+                            {`${getSpeciesLabel(avatar.pet?.species)} · ${formatDateTime(avatar.createdAt)}`}
                           </Text>
                         </div>
                       </Card>
