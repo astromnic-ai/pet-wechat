@@ -12,6 +12,7 @@ import {
 } from "../db/schema";
 import { eq, and, isNull, inArray, gte, lte, desc, sql } from "drizzle-orm";
 import type { PetLatestBehavior } from "shared";
+import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
 
 const petsRoute = new Hono();
@@ -133,6 +134,14 @@ function attachPetSummary<T extends typeof pets.$inferSelect>(
     latestBehavior: latestBehaviorMap.get(pet.id) ?? null,
     avatarImageUrl: latestAvatarImageMap.get(pet.id) ?? null,
   }));
+}
+
+function toPetAvatarActionResponse(action: typeof petAvatarActions.$inferSelect) {
+  return {
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
+  };
 }
 
 function getStartOfLocalDay(date: Date) {
@@ -410,7 +419,11 @@ petsRoute.get("/:id", async (c) => {
   // TODO: 活跃值算法待产品定义，当前简单按行为次数映射 0-100
   const activityScore = Math.min(100, recentCount * 10);
 
-  return c.json({ pet: { ...pet, activityScore, latestBehavior }, avatars, actions });
+  return c.json({
+    pet: { ...pet, activityScore, latestBehavior },
+    avatars,
+    actions: actions.map(toPetAvatarActionResponse),
+  });
 });
 
 // 创建宠物
