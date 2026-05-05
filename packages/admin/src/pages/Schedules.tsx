@@ -41,6 +41,13 @@ type DragState = {
   durationMinutes: number;
 };
 
+type PendingBlockPointerState = {
+  blockId: string;
+  startClientY: number;
+  pointerOffsetMinutes: number;
+  durationMinutes: number;
+};
+
 const speciesLabels: Record<ScheduleSpecies, string> = {
   cat: "猫",
   dog: "狗",
@@ -98,6 +105,7 @@ const TIMELINE_SEGMENT_HEIGHT = 110;
 const verticalTimelineHours = Array.from({ length: 8 }, (_, index) => index * 3);
 const TIMELINE_CANVAS_HEIGHT = verticalTimelineHours.length * TIMELINE_SEGMENT_HEIGHT;
 const DRAG_SNAP_MINUTES = 15;
+const DRAG_START_THRESHOLD_PX = 6;
 
 const timelineStyles: Record<string, CSSProperties> = {
   page: {
@@ -502,6 +510,8 @@ export default function Schedules() {
   const [blockForm, setBlockForm] = useState<BlockFormState>(() => buildBlockForm(0, 60));
   const [dragState, setDragState] = useState<DragState | null>(null);
   const scheduleCanvasRef = useRef<HTMLDivElement | null>(null);
+  const pendingBlockPointerRef = useRef<PendingBlockPointerState | null>(null);
+  const activeDraggedBlockIdRef = useRef<string | null>(null);
   const selectedBlock = editorSchedule?.blocks?.find((block) => block.id === selectedBlockId) ?? null;
   const sortedBlocks = normalizeBlocks(editorSchedule?.blocks ?? []);
 
@@ -550,14 +560,43 @@ export default function Schedules() {
         return;
       }
 
+      let currentDragState = dragState;
+      if (!dragState && pendingBlockPointerRef.current) {
+        const pendingState = pendingBlockPointerRef.current;
+        if (Math.abs(event.clientY - pendingState.startClientY) >= DRAG_START_THRESHOLD_PX) {
+          activeDraggedBlockIdRef.current = pendingState.blockId;
+          currentDragState = {
+            blockId: pendingState.blockId,
+            pointerOffsetMinutes: pendingState.pointerOffsetMinutes,
+            durationMinutes: pendingState.durationMinutes,
+          };
+          setDragState({
+            blockId: pendingState.blockId,
+            pointerOffsetMinutes: pendingState.pointerOffsetMinutes,
+            durationMinutes: pendingState.durationMinutes,
+          });
+          pendingBlockPointerRef.current = null;
+        } else {
+          return;
+        }
+      }
+
+      if (!currentDragState && !activeDraggedBlockIdRef.current) {
+        return;
+      }
+
+      if (!currentDragState) {
+        return;
+      }
+
       const rect = scheduleCanvasRef.current.getBoundingClientRect();
       const rawMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
-      const snappedStart = snapMinutes(rawMinutes - dragState.pointerOffsetMinutes);
-      const startMinutes = Math.max(0, Math.min(MINUTES_PER_DAY - dragState.durationMinutes, snappedStart));
-      const endMinutes = startMinutes + dragState.durationMinutes;
+      const snappedStart = snapMinutes(rawMinutes - currentDragState.pointerOffsetMinutes);
+      const startMinutes = Math.max(0, Math.min(MINUTES_PER_DAY - currentDragState.durationMinutes, snappedStart));
+      const endMinutes = startMinutes + currentDragState.durationMinutes;
 
       const editorBlocks = editorSchedule.blocks ?? [];
-      const movingBlock = editorBlocks.find((block) => block.id === dragState.blockId);
+      const movingBlock = editorBlocks.find((block) => block.id === currentDragState.blockId);
       if (!movingBlock) {
         return;
       }
@@ -574,12 +613,28 @@ export default function Schedules() {
 
       updateEditorSchedule((current) => ({
         ...current,
-        blocks: (current.blocks ?? []).map((block) => (block.id === dragState.blockId ? nextBlock : block)),
+        blocks: (current.blocks ?? []).map((block) => (block.id === currentDragState.blockId ? nextBlock : block)),
       }));
-      setSelectedBlockId(dragState.blockId);
+      setSelectedBlockId(currentDragState.blockId);
     };
 
     const handlePointerUp = () => {
+      if (pendingBlockPointerRef.current) {
+        const { blockId } = pendingBlockPointerRef.current;
+        pendingBlockPointerRef.current = null;
+        activeDraggedBlockIdRef.current = null;
+        setSelectedBlockId(blockId);
+        setEditingBlockId(blockId);
+        const block = (editorSchedule?.blocks ?? []).find((item) => item.id === blockId);
+        if (block) {
+          setBlockModalMode("edit");
+          setBlockForm(buildBlockForm(block.startMinutes, block.endMinutes, block.actionType));
+          setBlockModalOpen(true);
+        }
+        return;
+      }
+
+      activeDraggedBlockIdRef.current = null;
       setDragState(null);
     };
 
@@ -957,14 +1012,6 @@ export default function Schedules() {
                             return (
                               <div
                                 key={block.id}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  if (selectedBlockId === block.id) {
-                                    openEditBlockModal();
-                                    return;
-                                  }
-                                  setSelectedBlockId(block.id);
-                                }}
                                 onMouseDown={(event) => {
                                   event.stopPropagation();
                                   if (!scheduleCanvasRef.current) {
@@ -973,11 +1020,12 @@ export default function Schedules() {
 
                                   const rect = scheduleCanvasRef.current.getBoundingClientRect();
                                   const pointerMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
-                                  setDragState({
+                                  pendingBlockPointerRef.current = {
                                     blockId: block.id,
+                                    startClientY: event.clientY,
                                     pointerOffsetMinutes: Math.max(0, pointerMinutes - block.startMinutes),
                                     durationMinutes: block.endMinutes - block.startMinutes,
-                                  });
+                                  };
                                   setSelectedBlockId(block.id);
                                 }}
                                 style={{
