@@ -179,7 +179,6 @@ export default function Index() {
   const [waitingVideoPlayToken, setWaitingVideoPlayToken] = useState(0);
   const [processingPreviewFailedMap, setProcessingPreviewFailedMap] = useState<Record<string, boolean>>({});
   const skipNextDidShowRef = useRef(true);
-  const petTouchStartRef = useRef<{ x: number; y: number } | null>(null);
 
   useDidShow(() => {
     Taro.hideTabBar();
@@ -545,26 +544,7 @@ export default function Index() {
     return HOME_PET_SIT_IMAGE;
   };
 
-  const handlePetTouchStart = (e: any) => {
-    const touch = e.touches?.[0];
-    if (!touch) return;
-
-    petTouchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-    };
-  };
-
-  const handlePetTouchEnd = (e: any) => {
-    const touch = e.changedTouches?.[0];
-    const start = petTouchStartRef.current;
-    petTouchStartRef.current = null;
-    if (!touch || !start) return;
-
-    const deltaX = Math.abs(touch.clientX - start.x);
-    const deltaY = Math.abs(touch.clientY - start.y);
-    if (deltaX > 18 || deltaY > 18) return;
-
+  const handlePetStageClick = () => {
     if (homeHeroState === "processing") {
       setWaitingVideoPlayToken((prev) => prev + 1);
       setIsWaitingVideoRequested(true);
@@ -654,8 +634,7 @@ export default function Index() {
                     <SwiperItem key={pet?.id ?? `pet-${index}`}>
                       <View
                         className="pet-slide"
-                        onTouchStart={handlePetTouchStart}
-                        onTouchEnd={handlePetTouchEnd}
+                        onClick={handlePetStageClick}
                       >
 {pet?.id === currentPet?.id && homeHeroState === "processing" ? (
                           <View className="pet-showcase-media-stage">
