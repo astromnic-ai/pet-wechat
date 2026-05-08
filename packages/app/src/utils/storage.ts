@@ -12,12 +12,28 @@ export interface PetModeSchedule {
 
 export interface PetModeSlot {
   id: string;
-  day: PetModeWeekday;
   start: string;
   end: string;
   action: string;
-  repeat: PetModeRepeatType;
+  day?: PetModeWeekday;
+  repeat?: PetModeRepeatType;
   date?: string | null;
+}
+
+export interface PetModePlan {
+  id: string;
+  repeat: PetModeRepeatType;
+  days: PetModeWeekday[];
+  date?: string | null;
+  slots: PetModeSlot[];
+}
+
+export type ProfileGender = "male" | "female" | "unknown";
+
+export interface UserProfileExtras {
+  gender: ProfileGender;
+  birthday: string | null;
+  verified: boolean;
 }
 
 export function isLoggedIn(): boolean {
@@ -31,6 +47,35 @@ export function getUserInfo(): any {
 
 export function setUserInfo(user: any) {
   Taro.setStorageSync("userInfo", JSON.stringify(user));
+}
+
+function getUserProfileExtrasKey(userId?: string | null) {
+  return `userProfileExtras_${userId || "default"}`;
+}
+
+export function getUserProfileExtras(userId?: string | null): UserProfileExtras {
+  const raw = Taro.getStorageSync(getUserProfileExtrasKey(userId));
+  if (raw && typeof raw === "object") {
+    return {
+      gender: raw.gender === "male" || raw.gender === "female" ? raw.gender : "unknown",
+      birthday: typeof raw.birthday === "string" && raw.birthday ? raw.birthday : "2002-08-15",
+      verified: raw.verified !== false,
+    };
+  }
+
+  return {
+    gender: "female",
+    birthday: "2002-08-15",
+    verified: true,
+  };
+}
+
+export function setUserProfileExtras(userId: string | null | undefined, extras: UserProfileExtras) {
+  Taro.setStorageSync(getUserProfileExtrasKey(userId), {
+    gender: extras.gender,
+    birthday: extras.birthday || null,
+    verified: extras.verified,
+  });
 }
 
 export function isFirstLogin(userId: string): boolean {
@@ -62,6 +107,14 @@ function getPetModeSlotsKey(petId?: string) {
 
 function getPetModeScheduleKey(petId?: string) {
   return `petActivityModeSchedule_${petId || "default"}`;
+}
+
+function getPetModePlansKey(petId?: string) {
+  return `petActivityModePlans_${petId || "default"}`;
+}
+
+function getPetCustomActionLabelsKey(petId?: string) {
+  return `petCustomActionLabels_${petId || "default"}`;
 }
 
 function padTime(value: string) {
@@ -107,13 +160,67 @@ function normalizeSchedule(value: any): PetModeSchedule {
 function normalizeLegacySlot(slot: any, index: number): PetModeSlot {
   return {
     id: String(slot?.id || `legacy-${index}`),
-    day: slot?.day || getTodayWeekday(),
     start: padTime(slot?.start || "07:00"),
     end: padTime(slot?.end || "09:00"),
     action: String(slot?.action || "跑步"),
+    day: slot?.day || getTodayWeekday(),
     repeat: slot?.repeat === "once" ? "once" : "weekly",
     date: typeof slot?.date === "string" ? slot.date : null,
   };
+}
+
+function normalizePlan(value: any, index: number): PetModePlan {
+  const schedule = normalizeSchedule(value);
+  const slots = Array.isArray(value?.slots)
+    ? value.slots.map((slot: any, slotIndex: number) => {
+        const normalized = normalizeLegacySlot(slot, slotIndex);
+        return {
+          id: normalized.id,
+          start: normalized.start,
+          end: normalized.end,
+          action: normalized.action,
+        };
+      })
+    : [];
+
+  return {
+    id: String(value?.id || `plan-${index}`),
+    repeat: schedule.repeat,
+    days: schedule.days,
+    date: schedule.date,
+    slots,
+  };
+}
+
+function getLegacyPetModePlan(petId?: string): PetModePlan[] {
+  const scheduleValue = Taro.getStorageSync(getPetModeScheduleKey(petId));
+  const slotsValue = Taro.getStorageSync(getPetModeSlotsKey(petId));
+  const schedule = normalizeSchedule(scheduleValue);
+  const slots = Array.isArray(slotsValue)
+    ? slotsValue.map((slot, index) => {
+        const normalized = normalizeLegacySlot(slot, index);
+        return {
+          id: normalized.id,
+          start: normalized.start,
+          end: normalized.end,
+          action: normalized.action,
+        };
+      })
+    : [];
+
+  if (slots.length === 0) {
+    return [];
+  }
+
+  return [
+    {
+      id: "legacy-plan",
+      repeat: schedule.repeat,
+      days: schedule.days,
+      date: schedule.date,
+      slots,
+    },
+  ];
 }
 
 export function getPetActivityMode(petId?: string): PetActivityMode {
@@ -126,6 +233,16 @@ export function setPetActivityMode(petId: string | undefined, mode: PetActivityM
 }
 
 export function getPetModeSchedule(petId?: string): PetModeSchedule {
+  const plans = getPetModePlans(petId);
+  const firstPlan = plans[0];
+  if (firstPlan) {
+    return {
+      repeat: firstPlan.repeat,
+      days: firstPlan.days,
+      date: firstPlan.date ?? null,
+    };
+  }
+
   const value = Taro.getStorageSync(getPetModeScheduleKey(petId));
   if (value && typeof value === "object") {
     return normalizeSchedule(value);
@@ -143,6 +260,21 @@ export function setPetModeSchedule(petId: string | undefined, schedule: PetModeS
 }
 
 export function getPetModeSlots(petId?: string): PetModeSlot[] {
+  const plans = getPetModePlans(petId);
+  if (plans.length > 0) {
+    return plans.flatMap((plan) =>
+      plan.slots.map((slot) => ({
+        id: slot.id,
+        start: slot.start,
+        end: slot.end,
+        action: slot.action,
+        day: plan.days[0] || getTodayWeekday(),
+        repeat: plan.repeat,
+        date: plan.date ?? null,
+      }))
+    );
+  }
+
   const value = Taro.getStorageSync(getPetModeSlotsKey(petId));
   if (Array.isArray(value)) {
     return value.map((slot, index) => normalizeLegacySlot(slot, index));
@@ -153,6 +285,78 @@ export function getPetModeSlots(petId?: string): PetModeSlot[] {
 
 export function setPetModeSlots(petId: string | undefined, slots: PetModeSlot[]) {
   Taro.setStorageSync(getPetModeSlotsKey(petId), slots);
+}
+
+export function getPetModePlans(petId?: string): PetModePlan[] {
+  const value = Taro.getStorageSync(getPetModePlansKey(petId));
+  if (Array.isArray(value)) {
+    return value.map((plan, index) => normalizePlan(plan, index));
+  }
+
+  return getLegacyPetModePlan(petId);
+}
+
+export function getPersistedPetModePlans(petId?: string): PetModePlan[] {
+  const value = Taro.getStorageSync(getPetModePlansKey(petId));
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((plan, index) => normalizePlan(plan, index));
+}
+
+export function setPetModePlans(petId: string | undefined, plans: PetModePlan[]) {
+  const normalizedPlans = plans.map((plan, index) => normalizePlan(plan, index));
+  Taro.setStorageSync(getPetModePlansKey(petId), normalizedPlans);
+
+  const firstPlan = normalizedPlans[0];
+  if (firstPlan) {
+    Taro.setStorageSync(
+      getPetModeScheduleKey(petId),
+      normalizeSchedule({
+        repeat: firstPlan.repeat,
+        days: firstPlan.days,
+        date: firstPlan.date ?? null,
+      })
+    );
+    Taro.setStorageSync(
+      getPetModeSlotsKey(petId),
+      firstPlan.slots.map((slot) => ({
+        ...slot,
+        day: firstPlan.days[0] || getTodayWeekday(),
+        repeat: firstPlan.repeat,
+        date: firstPlan.date ?? null,
+      }))
+    );
+    return;
+  }
+
+  Taro.removeStorageSync(getPetModeScheduleKey(petId));
+  Taro.removeStorageSync(getPetModeSlotsKey(petId));
+}
+
+export function getPetCustomActionLabels(petId?: string): string[] {
+  const value = Taro.getStorageSync(getPetCustomActionLabelsKey(petId));
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item || "").trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+export function addPetCustomActionLabel(petId: string | undefined, label: string) {
+  const nextLabel = String(label || "").trim();
+  if (!nextLabel) return;
+
+  const current = getPetCustomActionLabels(petId);
+  if (current.includes(nextLabel)) return;
+  Taro.setStorageSync(getPetCustomActionLabelsKey(petId), [...current, nextLabel]);
 }
 
 export function getCurrentWeekDateByDay(day: PetModeWeekday, baseDate = new Date()) {

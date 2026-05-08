@@ -1,6 +1,6 @@
 # feat/admin-backend-completion 独立反思
 
-基线：`git diff main...HEAD`  
+基线：`git diff main...HEAD`
 复核时间：2026-04-18
 
 ## 结论

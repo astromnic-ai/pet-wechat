@@ -175,6 +175,7 @@ export default function DataPage() {
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
   const [collars, setCollars] = useState<CollarDevice[]>([]);
   const [selectedPetId, setSelectedPetId] = useState("");
+  const [petTabsScrollIntoView, setPetTabsScrollIntoView] = useState("");
   const [activeTab, setActiveTab] = useState<"interaction" | "activity">("interaction");
   const [range, setRange] = useState<"day" | "week" | "month">("day");
   const [behaviors, setBehaviors] = useState<PetBehavior[]>([]);
@@ -193,6 +194,7 @@ export default function DataPage() {
       setAuthorizedPets(petRes.authorizedPets);
       setCollars(collarRes.collars);
       setSelectedPetId((prev) => prev || merged[0]?.id || "");
+      setPetTabsScrollIntoView((prev) => prev || `pet-tab-${merged[0]?.id || ""}`);
     });
   });
 
@@ -311,7 +313,9 @@ export default function DataPage() {
     if (!currentPet || mergedPets.length <= 1) return;
     const currentIndex = mergedPets.findIndex((item) => item.id === currentPet.id);
     const nextPet = mergedPets[(currentIndex + 1) % mergedPets.length];
-    setSelectedPetId(nextPet?.id || currentPet.id);
+    const nextPetId = nextPet?.id || currentPet.id;
+    setSelectedPetId(nextPetId);
+    setPetTabsScrollIntoView(`pet-tab-${nextPetId}`);
   };
 
   return (
@@ -326,15 +330,25 @@ export default function DataPage() {
         {currentPet ? (
           <>
             <View className="pet-switch-row">
-              <ScrollView className="pet-tabs-scroll" scrollX enhanced showScrollbar={false}>
+              <ScrollView
+                className="pet-tabs-scroll"
+                scrollX
+                showScrollbar={false}
+                scrollIntoView={petTabsScrollIntoView}
+                scrollWithAnimation
+              >
                 <View className="pet-tabs">
                   {mergedPets.map((item) => {
                     const active = item.id === currentPet.id;
                     return (
                       <View
+                        id={`pet-tab-${item.id}`}
                         key={item.id}
                         className={`pet-tab ${active ? "pet-tab--active" : "pet-tab--small"}`}
-                        onClick={() => setSelectedPetId(item.id)}
+                        onClick={() => {
+                          setSelectedPetId(item.id);
+                          setPetTabsScrollIntoView(`pet-tab-${item.id}`);
+                        }}
                       >
                         {active ? (
                           <>

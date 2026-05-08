@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
+import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import path from "node:path";
 import { authMiddleware } from "./middleware/auth";
@@ -66,9 +67,17 @@ function parseRangeHeader(rangeHeader: string | undefined, fileSize: number) {
   return { invalid: false as const, start, end };
 }
 
-async function serveStaticFile(c: Context) {
-  const relativePath = c.req.path.replace(/^\/static\//, "");
-  const filePath = path.resolve(process.cwd(), "public", relativePath);
+function createFileHeaders(contentType: string, contentLength: number) {
+  return {
+    "Content-Type": contentType,
+    "Content-Length": String(contentLength),
+    "Accept-Ranges": "bytes",
+  };
+}
+
+async function serveLocalFile(c: Context, rootDir: string, urlPrefix: string) {
+  const relativePath = c.req.path.replace(new RegExp(`^/${urlPrefix}/`), "");
+  const filePath = path.resolve(process.cwd(), rootDir, relativePath);
   const file = Bun.file(filePath);
 
   if (!(await file.exists())) {
@@ -94,20 +103,14 @@ async function serveStaticFile(c: Context) {
     return new Response(chunk, {
       status: 206,
       headers: {
-        "Content-Type": contentType,
-        "Content-Length": String(chunkSize),
-        "Accept-Ranges": "bytes",
+        ...createFileHeaders(contentType, chunkSize),
         "Content-Range": `bytes ${range.start}-${range.end}/${file.size}`,
       },
     });
   }
 
   return new Response(file, {
-    headers: {
-      "Content-Type": contentType,
-      "Content-Length": String(file.size),
-      "Accept-Ranges": "bytes",
-    },
+    headers: createFileHeaders(contentType, file.size),
   });
 }
 
@@ -116,20 +119,31 @@ export function createApp() {
 
   app.use("*", logger());
   app.use("*", cors());
+  app.onError((error, c) => {
+    const errorWithStatus = error as unknown as { status?: unknown };
+    const status =
+      error instanceof HTTPException
+        ? error.status
+        : typeof errorWithStatus.status === "number"
+          ? errorWithStatus.status
+          : null;
 
-  app.get("/health", (c) => c.json({ status: "ok" }));
-  app.get("/static/*", serveStaticFile);
-  app.get("/storage/*", async (c) => {
-    const relativePath = c.req.path.replace(/^\/storage\//, "");
-    const filePath = path.resolve(process.cwd(), "storage", relativePath);
-    const file = Bun.file(filePath);
-
-    if (!(await file.exists())) {
-      return c.json({ error: "文件不存在" }, 404);
+    if (status !== null && status >= 400 && status < 500) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
     }
 
-    return new Response(file);
+    console.error(`[${c.req.method}] ${c.req.path} failed:`, error);
+    return c.json({ error: "服务器内部错误" }, 500);
   });
+
+  app.get("/health", (c) => c.json({ status: "ok" }));
+  app.get("/static/*", (c) => serveLocalFile(c, "public", "static"));
+  app.get("/storage/*", (c) => serveLocalFile(c, "storage", "storage"));
   app.put("/storage/*", async (c) => {
     if (process.env.ENABLE_DEV_LOGIN !== "true") {
       return c.json({ error: "Upload endpoint unavailable" }, 404);

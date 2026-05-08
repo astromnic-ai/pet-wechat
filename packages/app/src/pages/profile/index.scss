@@ -59,6 +59,7 @@
 .user-card-top {
   display: flex;
   align-items: center;
+  justify-content: space-between;
 }
 
 .user-card-avatar {
@@ -72,6 +73,7 @@
 .user-card-texts {
   flex: 1;
   margin-left: 18rpx;
+  min-width: 0;
 }
 
 .user-card-name {
@@ -90,15 +92,24 @@
 }
 
 .vip-btn {
-  padding: 12rpx 20rpx;
-  border-radius: 22rpx;
-  background: rgba(255, 255, 255, 0.22);
+  min-width: 120rpx;
+  height: 56rpx;
+  padding: 0 16rpx;
+  border-radius: 36rpx;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 12rpx;
+  margin-right: 18rpx;
 }
 
 .vip-btn-text {
   font-size: 24rpx;
-  color: #ffffff;
-  line-height: 1;
+  color: #202020;
+  line-height: 1.1;
+  font-weight: 700;
 }
 
 .account-box {
@@ -106,14 +117,6 @@
   padding: 26rpx 26rpx;
   border-radius: 26rpx;
   background: rgba(255, 255, 255, 0.18);
-}
-
-.account-title {
-  display: block;
-  margin-bottom: 12rpx;
-  font-size: 28rpx;
-  font-weight: 700;
-  color: #ffffff;
 }
 
 .account-line {
@@ -147,21 +150,21 @@
 .pet-card-row {
   display: flex;
   gap: 18rpx;
-  margin-bottom: 10rpx;
+  margin-bottom: 18rpx;
 }
 
 .pet-card {
   width: 31%;
-  min-height: 184rpx;
+  height: 196rpx;
   border-radius: 28rpx;
   border: 2rpx solid #efe7da;
   background: #ffffff;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 18rpx 12rpx;
   box-sizing: border-box;
+  box-shadow: 0 6rpx 14rpx rgba(45, 37, 26, 0.04);
 }
 
 .pet-card--active {
@@ -169,75 +172,133 @@
   border-color: #ffd86f;
 }
 
-.pet-card-image {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 48rpx;
-  background: #fff4cc;
-}
-
 .pet-card-name,
 .pet-card-add-text {
-  margin-top: 18rpx;
   font-size: 30rpx;
   font-weight: 700;
   color: #2a2a2a;
 }
 
+.section-head--service {
+  margin-top: 14rpx;
+  margin-bottom: 18rpx;
+}
+
 .section-title--service {
-  margin-top: 136rpx;
-  margin-bottom: 8rpx;
+  margin-top: 0;
+  margin-bottom: 0;
   padding-top: 0;
 }
 
 .service-card {
-  min-height: 99rpx;
+  background: linear-gradient(180deg, #ffe89f 0%, #ffd86f 100%);
+  border: 2rpx solid #f2d57f;
+  border-radius: 32rpx;
+  padding: 26rpx 24rpx 24rpx;
+  box-shadow: 0 10rpx 22rpx rgba(255, 214, 107, 0.18);
+}
+
+.service-header {
   display: flex;
   align-items: center;
-  background: #ffffff;
-  border: 2rpx solid #efe5d7;
-  border-radius: 30rpx;
-  padding: 24rpx 24rpx;
-  margin-top: 56rpx;
-  box-shadow: 0 8rpx 18rpx rgba(29, 26, 21, 0.04);
+  justify-content: space-between;
+  gap: 18rpx;
 }
 
-.service-main {
-  flex: 1;
-}
-
-.service-info-chip {
-  min-height: 56rpx;
-  padding: 12rpx 18rpx;
-  border-radius: 28rpx;
-  background: #faf7f1;
-  border: 2rpx solid #f0e8db;
-  display: flex;
-  align-items: center;
-}
-
-.service-info-chip + .service-info-chip {
-  margin-top: 14rpx;
-}
-
-.service-line {
+.service-member-title {
   display: block;
+  font-size: 30rpx;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #2b220f;
+}
+
+.service-member-subtitle {
+  display: block;
+  margin-top: 10rpx;
+  font-size: 20rpx;
+  color: rgba(56, 44, 20, 0.72);
+}
+
+.service-quota-panel {
+  margin-top: 26rpx;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 24rpx;
+  padding: 20rpx 18rpx 18rpx;
+}
+
+.service-quota-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.service-quota-row--device {
+  margin-top: 20rpx;
+}
+
+.service-quota-head {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.service-quota-icon {
+  font-size: 28rpx;
+  color: #7f7463;
+}
+
+.service-quota-label {
+  font-size: 26rpx;
+  color: #35312a;
+  font-weight: 700;
+}
+
+.service-quota-value {
   font-size: 24rpx;
-  color: #565049;
-  line-height: 1.5;
+  line-height: 1.2;
+  color: #ff844d;
+  font-weight: 700;
+}
+
+.service-progress-track {
+  margin-top: 12rpx;
+  width: 100%;
+  height: 12rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 180, 114, 0.2);
+  overflow: hidden;
+}
+
+.service-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.service-progress-fill--avatar {
+  background: linear-gradient(90deg, #ff9147 0%, #ff7c2c 100%);
+}
+
+.service-progress-fill--device {
+  background: linear-gradient(90deg, #ff6254 0%, #ef4337 100%);
 }
 
 .service-upgrade-btn {
-  margin-left: 18rpx;
-  padding: 14rpx 24rpx;
-  border-radius: 24rpx;
-  background: #f2f2f2;
+  min-width: 168rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6rpx 16rpx rgba(232, 190, 74, 0.18);
 }
 
 .service-upgrade-btn-text {
-  font-size: 24rpx;
+  font-size: 30rpx;
   font-weight: 700;
-  color: #3f3f3f;
+  color: #2f2a23;
 }
 
 .logout-btn {

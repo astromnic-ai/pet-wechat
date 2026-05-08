@@ -6,6 +6,7 @@ export default defineAppConfig({
     "pages/devices/index",
     "pages/messages/index",
     "pages/profile/index",
+    "pages/member-center/index",
   ],
   subPackages: [
     { root: "pages/collar-bind", pages: ["index"] },
@@ -19,7 +20,7 @@ export default defineAppConfig({
     { root: "pages/avatar-progress", pages: ["index"] },
     { root: "pages/register", pages: ["index"] },
     { root: "pages/data", pages: ["index"] },
-    { root: "pages/pet-mode", pages: ["index", "custom"] },
+    { root: "pages/pet-mode", pages: ["index", "custom", "schedule"] },
     { root: "pages/invite", pages: ["index"] },
     {
       root: "pages/settings",

@@ -30,6 +30,10 @@ const DOG_SYSTEM_ACTION_FALLBACKS = [
   { label: "睡觉", image: require("./images/dog-action-sleep.png") },
 ];
 
+const AVATAR_PROGRESS_BASE = 12;
+const AVATAR_PROGRESS_TARGET = 90;
+const AVATAR_PROGRESS_TARGET_DAYS = 3;
+
 function calculateAgeLabel(birthday?: string | null) {
   if (!birthday) return "年龄待补充";
 
@@ -47,6 +51,21 @@ function calculateAgeLabel(birthday?: string | null) {
   }
 
   return age >= 0 ? `${age}岁` : "年龄待补充";
+}
+
+function calculateAvatarProgressPercent(status: AvatarStatus | null, createdAt?: string | null) {
+  if (status === "done") return 100;
+  if (status === "failed" || status === "rejected" || !createdAt) return 0;
+  if (status !== "pending" && status !== "processing" && status !== "approved") return 0;
+
+  const createdAtMs = new Date(createdAt).getTime();
+  if (Number.isNaN(createdAtMs)) return AVATAR_PROGRESS_BASE;
+
+  const elapsedMs = Math.max(Date.now() - createdAtMs, 0);
+  const targetMs = AVATAR_PROGRESS_TARGET_DAYS * 24 * 60 * 60 * 1000;
+  const progressRatio = Math.min(elapsedMs / targetMs, 1);
+
+  return Math.round(AVATAR_PROGRESS_BASE + progressRatio * (AVATAR_PROGRESS_TARGET - AVATAR_PROGRESS_BASE));
 }
 
 export default function PetInfo() {
@@ -76,6 +95,7 @@ export default function PetInfo() {
   const [collarDisplayName, setCollarDisplayName] = useState("");
   const [avatarId, setAvatarId] = useState("");
   const [avatarStatus, setAvatarStatus] = useState<AvatarStatus | null>(null);
+  const [avatarCreatedAt, setAvatarCreatedAt] = useState("");
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarActions, setAvatarActions] = useState<PetAvatarAction[]>([]);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState("");
@@ -120,6 +140,7 @@ export default function PetInfo() {
     if (!latestAvatar) {
       setAvatarId("");
       setAvatarStatus(null);
+      setAvatarCreatedAt("");
       setAvatarPreviewUrl("");
       setAvatarActions([]);
       return;
@@ -131,6 +152,7 @@ export default function PetInfo() {
 
     setAvatarId(latestAvatar.id);
     setAvatarStatus(latestAvatar.status);
+    setAvatarCreatedAt(latestAvatar.createdAt);
     setAvatarPreviewUrl(latestActions[0]?.imageUrl || latestAvatar.sourceImageUrl || "");
     setAvatarActions(latestActions);
   };
@@ -215,7 +237,7 @@ export default function PetInfo() {
         return;
       }
 
-      Taro.redirectTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
+      Taro.navigateTo({ url: `/pages/pet-avatar/index?petId=${pet.id}` });
     } catch (e: any) {
       Taro.showToast({ title: e.message || "保存失败", icon: "none" });
     } finally {
@@ -247,9 +269,10 @@ export default function PetInfo() {
   const isAvatarFailed =
     avatarStatus === "failed" ||
     avatarStatus === "rejected";
-  const avatarCardImage = isAvatarGenerating
-    ? fallbackPetImage
-    : selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
+  const isAvatarDone = avatarStatus === "done";
+  const avatarProgressPercent = calculateAvatarProgressPercent(avatarStatus, avatarCreatedAt);
+  const avatarProgressDegrees = `${Math.round((avatarProgressPercent / 100) * 360)}deg`;
+  const avatarCardImage = selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
   const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
   const systemActionFallbacks = species === "dog" ? DOG_SYSTEM_ACTION_FALLBACKS : CAT_SYSTEM_ACTION_FALLBACKS;
@@ -257,8 +280,9 @@ export default function PetInfo() {
     const action = systemActions[index];
     return {
       id: action?.id || `system-${index}`,
-      imageUrl: action?.imageUrl || fallback.image || avatarCardImage,
+      imageUrl: isAvatarDone ? action?.imageUrl || fallback.image || avatarCardImage : "",
       label: normalizePetActionLabel(action?.actionType || fallback.label || "动作"),
+      ready: Boolean(isAvatarDone && (action?.imageUrl || fallback.image)),
     };
   });
   const detailTipText =
@@ -381,9 +405,18 @@ export default function PetInfo() {
   // 避免把系统生成动作或占位内容误展示成自定义动作。
   const customActionItems = useMemo(() => [], []);
 
-  const handlePreviewAction = (imageUrl: string, label: string) => {
+  const handlePreviewAction = (imageUrl: string, label: string, ready: boolean) => {
+    if (!ready || !imageUrl) {
+      Taro.showToast({ title: "定制完成后可预览系统动作", icon: "none" });
+      return;
+    }
+
     setSelectedPreviewUrl(imageUrl);
     setSelectedPreviewLabel(label);
+    void Taro.previewImage({
+      current: imageUrl,
+      urls: [imageUrl],
+    });
   };
 
   const handleResetPreview = () => {
@@ -474,9 +507,12 @@ export default function PetInfo() {
                 {avatarStatus && avatarStatus !== "done" ? (
                   <View className="avatar-progress-box">
                     <View className="avatar-progress-ring">
+                      <View
+                        className="avatar-progress-ring-fill"
+                        style={{ background: `conic-gradient(#9f9f9f ${avatarProgressDegrees}, #d8d8d8 ${avatarProgressDegrees})` }}
+                      />
                       <View className="avatar-progress-inner">
-                        <Image className="avatar-panel-image avatar-panel-image--small" src={avatarCardImage} mode="aspectFit" />
-                        <Text className="avatar-progress-text">82%</Text>
+                        <Text className="avatar-progress-text">{avatarProgressPercent}%</Text>
                       </View>
                     </View>
                   </View>
@@ -488,22 +524,27 @@ export default function PetInfo() {
             </View>
 
             <View className="detail-meta-row">
-              <View className="detail-pill">
-                <Text className="detail-pill-text">{name.trim() || "未设置名称"}</Text>
-              </View>
-              <View className="detail-pill">
-                <Text className="detail-pill-text">{breed.trim() || "未设置品种"}</Text>
-              </View>
-              <View className="detail-pill">
-                <View className="detail-pill-gender">
-                  <Text className="detail-pill-symbol">{gender === "female" ? "♀" : "♂"}</Text>
-                  <Text className="detail-pill-text">{gender === "female" ? "母" : "公"}</Text>
-                  <Text className="detail-pill-separator">·</Text>
-                  <Text className="detail-pill-text">{ageLabel}</Text>
+              <View className="detail-meta-pills">
+                <View className="detail-pill">
+                  <Text className="detail-pill-text">{name.trim() || "未设置名称"}</Text>
+                </View>
+                <View className="detail-pill">
+                  <Text className="detail-pill-text">{breed.trim() || "未设置品种"}</Text>
+                </View>
+                <View className="detail-pill">
+                  <View className="detail-pill-gender">
+                    <View className="detail-pill-gender-main">
+                      <Text className="detail-pill-symbol">{gender === "female" ? "♀" : "♂"}</Text>
+                      <Text className="detail-pill-text">{gender === "female" ? "母" : "公"}</Text>
+                    </View>
+                    <Text className="detail-pill-separator">·</Text>
+                    <Text className="detail-pill-text">{ageLabel}</Text>
+                  </View>
                 </View>
               </View>
               <View className="detail-edit-btn" onClick={() => Taro.navigateTo({ url: `/pages/pet-info/index?petId=${petId}&edit=1` })}>
                 <Text className="detail-edit-icon">✎</Text>
+                <Text className="detail-edit-label">编辑</Text>
               </View>
             </View>
 
@@ -513,11 +554,15 @@ export default function PetInfo() {
                 {displaySystemActions.map((action) => (
                   <View
                     key={action.id}
-                    className="detail-action-item"
-                    onClick={() => handlePreviewAction(action.imageUrl, action.label)}
+                    className={`detail-action-item ${action.ready ? "" : "detail-action-item--disabled"}`}
+                    onClick={() => handlePreviewAction(action.imageUrl, action.label, action.ready)}
                   >
-                    <View className="detail-action-thumb-wrap">
-                      <Image className="detail-action-thumb" src={action.imageUrl} mode="aspectFill" />
+                    <View className={`detail-action-thumb-wrap ${action.ready ? "" : "detail-action-thumb-wrap--placeholder"}`}>
+                      {action.ready ? (
+                        <Image className="detail-action-thumb" src={action.imageUrl} mode="aspectFill" />
+                      ) : (
+                        <Text className="detail-action-placeholder-text">生成中</Text>
+                      )}
                     </View>
                     <Text className="detail-action-label">{action.label}</Text>
                   </View>
@@ -530,7 +575,7 @@ export default function PetInfo() {
                   <View
                     key={action.id}
                     className="detail-action-item detail-action-item--custom"
-                    onClick={() => handlePreviewAction(action.imageUrl, action.actionType)}
+                    onClick={() => handlePreviewAction(action.imageUrl, action.actionType, true)}
                   >
                     <View className="detail-action-thumb-wrap">
                       <Image className="detail-action-thumb" src={action.imageUrl} mode="aspectFill" />

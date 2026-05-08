@@ -1,14 +1,42 @@
 import path from 'node:path'
+import os from 'node:os'
 import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import devConfig from './dev'
 import prodConfig from './prod'
 
+function resolveLocalDevApiBaseUrl() {
+  const networkInterfaces = os.networkInterfaces()
+
+  for (const addresses of Object.values(networkInterfaces)) {
+    for (const address of addresses ?? []) {
+      if (address.family !== 'IPv4' || address.internal) continue
+
+      if (
+        address.address.startsWith('192.168.') ||
+        address.address.startsWith('10.') ||
+        /^172\.(1[6-9]|2\d|3[0-1])\./.test(address.address)
+      ) {
+        return `http://${address.address}:9527`
+      }
+    }
+  }
+
+  return 'http://127.0.0.1:9527'
+}
+
 // https://taro-docs.jd.com/docs/next/config#defineconfig-辅助函数
 export default defineConfig(async (merge, { command, mode }) => {
+  const isWatchMode = process.argv.includes('--watch')
+  const useLocalApi =
+    process.env.USE_LOCAL_API === '1' ||
+    process.env.USE_LOCAL_API === 'true'
+  const defaultApiBaseUrl = useLocalApi
+    ? resolveLocalDevApiBaseUrl()
+    : 'https://pet-wechat.yangl.com.cn'
   const apiBaseUrl =
     process.env.API_BASE_URL ||
-    'https://pet-wechat.yangl.com.cn'
+    defaultApiBaseUrl
 
   const baseConfig: UserConfigExport = {
     projectName: 'pet-wechat-app',

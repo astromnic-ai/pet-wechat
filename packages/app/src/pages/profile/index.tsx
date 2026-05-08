@@ -5,10 +5,16 @@ import type { Pet, User } from "@pet-wechat/shared";
 import { clearToken, request } from "../../utils/request";
 import { disconnectWs } from "../../utils/ws";
 import PageBack from "../../components/PageBack";
-import { getPetDisplayImage } from "../../utils/petVisual";
 import "./index.scss";
 
-const FREE_AVATAR_TOTAL = 2;
+const DEVICE_LIMIT_TOTAL = 3;
+
+function maskPhone(phone?: string | null) {
+  const digits = String(phone || "").replace(/\s+/g, "");
+  if (!digits) return "未绑定";
+  if (digits.length < 7) return digits;
+  return `${digits.slice(0, 3)} **** ${digits.slice(-4)}`;
+}
 
 export default function Profile() {
   const [user, setUser] = useState<User | null>(null);
@@ -60,19 +66,35 @@ export default function Profile() {
   const petCards = pets.slice(0, 2).map((pet) => ({
     id: pet.id,
     name: pet.name,
-    image: getPetDisplayImage(pet),
   }));
 
   const displayName = isPlaceholderNickname(user?.nickname) ? "未设置昵称" : user?.nickname?.trim() || "未设置昵称";
   const displayId = user?.phone?.trim() || user?.id || "--";
-  const displayPhone = user?.phone?.trim() ? user.phone : "未绑定";
+  const displayPhone = maskPhone(user?.phone);
   const displayEmail = user?.email?.trim() ? user.email : "未设置";
   const displayCreatedAt = user?.createdAt
     ? String(user.createdAt).slice(0, 10)
     : "--";
+  const avatarQuotaRemaining = Math.max(
+    0,
+    Number(user?.avatarQuotaRemaining ?? user?.avatarQuota ?? 0),
+  );
+  const avatarQuotaTotal = Math.max(
+    avatarQuotaRemaining,
+    Number(user?.avatarQuotaTotal ?? 0),
+  );
+  const avatarQuotaProgress =
+    avatarQuotaTotal > 0
+      ? Math.max(8, Math.min((avatarQuotaRemaining / avatarQuotaTotal) * 100, 100))
+      : 0;
+  const deviceUsageProgress = Math.max(8, Math.min((deviceCount / DEVICE_LIMIT_TOTAL) * 100, 100));
 
   const handleEditProfile = () => {
     Taro.navigateTo({ url: "/pages/profile-edit/index" });
+  };
+
+  const handleOpenMemberCenter = () => {
+    Taro.navigateTo({ url: "/pages/member-center/index" });
   };
 
   const handleOpenPetList = () => {
@@ -99,7 +121,7 @@ export default function Profile() {
       <ScrollView className="profile-scroll" scrollY>
         <View className="profile-shell">
           <View className="user-card">
-            <View className="user-card-top" onClick={handleEditProfile}>
+            <View className="user-card-top">
               <Image
                 className="user-card-avatar"
                 src={user?.avatarUrl || require("@/assets/images/black cat 3.png")}
@@ -109,13 +131,12 @@ export default function Profile() {
                 <Text className="user-card-name">{displayName}</Text>
                 <Text className="user-card-id">ID: {displayId}</Text>
               </View>
-              <View className="vip-btn">
-                <Text className="vip-btn-text">开通会员</Text>
+              <View className="vip-btn" onClick={handleEditProfile}>
+                <Text className="vip-btn-text">编辑信息</Text>
               </View>
             </View>
 
             <View className="account-box">
-              <Text className="account-title">账户信息</Text>
               <Text className="account-line">手机号：{displayPhone}</Text>
               <Text className="account-line">邮箱：{displayEmail}</Text>
               <Text className="account-line">注册日期：{displayCreatedAt}</Text>
@@ -139,7 +160,6 @@ export default function Profile() {
                 className={`pet-card ${index === 0 ? "pet-card--active" : ""}`}
                 onClick={() => handleOpenPet(pet.id)}
               >
-                <Image className="pet-card-image" src={pet.image} mode="aspectFill" />
                 <Text className="pet-card-name">{pet.name}</Text>
               </View>
             ))}
@@ -151,21 +171,46 @@ export default function Profile() {
             </View>
           </View>
 
-          <Text className="section-title section-title--service">会员服务</Text>
+          <View className="section-head section-head--service">
+            <Text className="section-title section-title--service">会员服务</Text>
+            <Text className="section-more" onClick={handleOpenMemberCenter}>
+              查看详情 〉
+            </Text>
+          </View>
 
-          <View className="service-card">
-            <View className="service-main">
-              <View className="service-info-chip">
-                <Text className="service-line">
-                  定制图像：剩余 {FREE_AVATAR_TOTAL}/{FREE_AVATAR_TOTAL} 次
-                </Text>
+          <View className="service-card" onClick={handleOpenMemberCenter}>
+            <View className="service-header">
+              <View>
+                <Text className="service-member-title">普通会员</Text>
+                <Text className="service-member-subtitle">升级解锁更多权益</Text>
               </View>
-              <View className="service-info-chip">
-                <Text className="service-line">已绑定设备：{deviceCount} 台</Text>
+              <View className="service-upgrade-btn">
+                <Text className="service-upgrade-btn-text">立即升级</Text>
               </View>
             </View>
-            <View className="service-upgrade-btn">
-              <Text className="service-upgrade-btn-text">升级</Text>
+
+            <View className="service-quota-panel">
+              <View className="service-quota-row">
+                <View className="service-quota-head">
+                  <Text className="service-quota-icon">◎</Text>
+                  <Text className="service-quota-label">定制图像</Text>
+                </View>
+                <Text className="service-quota-value">剩余 {avatarQuotaRemaining}/{avatarQuotaTotal} 次</Text>
+              </View>
+              <View className="service-progress-track">
+                <View className="service-progress-fill service-progress-fill--avatar" style={{ width: `${avatarQuotaProgress}%` }} />
+              </View>
+
+              <View className="service-quota-row service-quota-row--device">
+                <View className="service-quota-head">
+                  <Text className="service-quota-icon">⚭</Text>
+                  <Text className="service-quota-label">绑定终端</Text>
+                </View>
+                <Text className="service-quota-value">已用 {Math.min(deviceCount, DEVICE_LIMIT_TOTAL)}/{DEVICE_LIMIT_TOTAL} 个</Text>
+              </View>
+              <View className="service-progress-track">
+                <View className="service-progress-fill service-progress-fill--device" style={{ width: `${deviceUsageProgress}%` }} />
+              </View>
             </View>
           </View>
 

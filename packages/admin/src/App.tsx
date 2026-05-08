@@ -57,6 +57,8 @@ const menuItems: MenuProps["items"] = [
   },
 ];
 
+const menuRouteKeys = ["/", "/schedules", "/image-review", "/customization", "/devices", "/analytics", "/users", "/pets", "/events"];
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -124,6 +126,12 @@ export default function App() {
     setLoginError("");
   };
 
+  const selectedMenuKey = menuRouteKeys.find((key) => (
+    key === "/"
+      ? location.pathname === "/"
+      : location.pathname === key || location.pathname.startsWith(`${key}/`)
+  )) ?? "/";
+
   if (!isAuthed) {
     return (
       <Layout
@@ -164,7 +172,7 @@ export default function App() {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[selectedMenuKey]}
           defaultOpenKeys={["dev-tools"]}
           items={menuItems}
           onClick={({ key }) => navigate(String(key))}
@@ -199,6 +207,7 @@ export default function App() {
               <Route path="/image-review" element={<ImageReviewPage />} />
               <Route path="/customization" element={<CustomizationPage />} />
               <Route path="/devices" element={<DevicesPage />} />
+              <Route path="/devices/:deviceType/:deviceId" element={<DevicesPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/users" element={<UsersPage />} />
               <Route path="/pets" element={<PetsPage />} />

@@ -1,8 +1,9 @@
 import { Hono } from "hono";
 import { db } from "../db";
-import { messages, petAvatars, petAvatarActions, pets } from "../db/schema";
+import { messages, petAvatars, petAvatarActions, pets, users } from "../db/schema";
 import { eq, and, ne, asc } from "drizzle-orm";
 import { broadcast } from "../ws";
+import { getUserAvatarQuotaSummary } from "../utils/avatarQuota";
 import { isManagedStorageUrl } from "../utils/storage";
 
 const avatarsRoute = new Hono();
@@ -26,6 +27,17 @@ avatarsRoute.post("/", async (c) => {
     .from(pets)
     .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
   if (!pet) return c.json({ error: "Pet not found" }, 404);
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, userId));
+  if (!user) return c.json({ error: "User not found" }, 404);
+
+  const quotaSummary = await getUserAvatarQuotaSummary(userId, user.avatarQuota);
+  if (quotaSummary.remainingQuota <= 0) {
+    return c.json({ error: "暂无可用定制次数，请先绑定摆台或购买套餐" }, 400);
+  }
 
   // 校验 additionalImages 中的 URL
   if (body.additionalImages?.some((url) => !isManagedStorageUrl(url))) {

@@ -271,7 +271,7 @@ export default function AvatarProgress() {
             <View className="footer-primary-btn" onClick={handleRetryUpload}>
               <Text className="footer-primary-btn-text">重新上传</Text>
             </View>
-            <Text className="footer-tip">本次不计入免费定制次数</Text>
+            <Text className="footer-tip">失败后本次定制次数不会被占用</Text>
           </View>
         </View>
       ) : (

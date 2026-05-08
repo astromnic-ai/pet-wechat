@@ -64,10 +64,8 @@ describe("E2E Flows", () => {
 
       // Step 3: Upload avatar
       mockDb._reset();
-      // select 1: pet ownership check
-      mockDb._results.select = [[pet]];
-      // update 1: atomic quota deduction (returns updated user)
-      mockDb._results.update = [[user]];
+      // select 1: pet ownership, 2: user, 3: desktop quota count, 4: used quota count
+      mockDb._results.select = [[pet], [user], [{ count: 1 }], [{ count: 0 }]];
       // insert 1: create avatar
       mockDb._results.insert = [[avatar]];
 

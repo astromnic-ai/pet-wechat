@@ -46,18 +46,22 @@
   display: flex;
   align-items: center;
   gap: 16rpx;
+  overflow: hidden;
 }
 
 .pet-tabs-scroll {
   flex: 1;
-  width: auto;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .pet-tabs {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 18rpx;
-  min-width: max-content;
+  gap: 14rpx;
+  width: max-content;
+  padding-right: 0;
 }
 
 .pet-tab {
@@ -67,9 +71,9 @@
 }
 
 .pet-tab--active {
-  width: 420rpx;
-  min-height: 138rpx;
-  padding: 22rpx 26rpx;
+  width: 372rpx;
+  min-height: 130rpx;
+  padding: 20rpx 24rpx;
   box-sizing: border-box;
   background: #4ba0ff;
   border-color: #4ba0ff;
@@ -92,8 +96,8 @@
 }
 
 .pet-tab--small {
-  width: 138rpx;
-  height: 138rpx;
+  width: 124rpx;
+  height: 130rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -107,16 +111,32 @@
 }
 
 .pet-switch-arrow {
-  width: 52rpx;
-  height: 52rpx;
+  width: 76rpx;
+  height: 110rpx;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  border-radius: 26rpx;
+  background: linear-gradient(180deg, rgba(75, 160, 255, 0.18), rgba(75, 160, 255, 0.08));
+  border: 2rpx solid rgba(75, 160, 255, 0.2);
+  box-shadow: 0 10rpx 20rpx rgba(75, 160, 255, 0.12);
+  position: relative;
+}
+
+.pet-switch-arrow::before {
+  content: "";
+  position: absolute;
+  left: -26rpx;
+  top: 0;
+  bottom: 0;
+  width: 32rpx;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(255, 250, 241, 0), #fffaf1 88%);
 }
 
 .pet-switch-arrow-text {
-  font-size: 54rpx;
+  font-size: 44rpx;
   line-height: 1;
   color: #4ba0ff;
   font-weight: 700;

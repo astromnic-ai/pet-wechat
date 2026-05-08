@@ -145,8 +145,11 @@ export default function PetsPage() {
               <Text className="pets-section-title">我的宠物</Text>
               {pets.map((pet) => (
                 <View key={pet.id} className="pet-swipe-row">
-                  <View className={`pet-delete-action ${openDeleteId === pet.id ? "pet-delete-action--open" : ""}`}>
-                    <Text className="pet-delete-action-text" onClick={() => handleDeletePet(pet)}>
+                  <View
+                    className={`pet-delete-action ${openDeleteId === pet.id ? "pet-delete-action--open" : ""}`}
+                    onClick={() => handleDeletePet(pet)}
+                  >
+                    <Text className="pet-delete-action-text">
                       {deletingId === pet.id ? "删除中" : "删除"}
                     </Text>
                   </View>

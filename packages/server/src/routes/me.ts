@@ -3,6 +3,7 @@ import { db } from "../db";
 import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 import { updateMeSchema } from "../validators/user-end";
+import { attachAvatarQuotaSummary, getUserAvatarQuotaSummary } from "../utils/avatarQuota";
 
 const meRoute = new Hono();
 
@@ -11,7 +12,8 @@ meRoute.get("/", async (c) => {
   const userId = c.get("userId" as never) as string;
   const [user] = await db.select().from(users).where(eq(users.id, userId));
   if (!user) return c.json({ error: "User not found" }, 404);
-  return c.json({ user });
+  const quotaSummary = await getUserAvatarQuotaSummary(user.id, user.avatarQuota);
+  return c.json({ user: attachAvatarQuotaSummary(user, quotaSummary) });
 });
 
 // 更新当前用户信息
@@ -35,7 +37,8 @@ meRoute.put("/", async (c) => {
     })
     .where(eq(users.id, userId))
     .returning();
-  return c.json({ user });
+  const quotaSummary = await getUserAvatarQuotaSummary(user.id, user.avatarQuota);
+  return c.json({ user: attachAvatarQuotaSummary(user, quotaSummary) });
 });
 
 export default meRoute;

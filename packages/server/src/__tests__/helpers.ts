@@ -92,7 +92,7 @@ export function fakeUser(overrides: Record<string, unknown> = {}) {
     email: null,
     nickname: "Test User",
     avatarUrl: null,
-    avatarQuota: 2,
+    avatarQuota: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createId } from "../utils/id";
 import { uploadFile } from "../utils/storage";
+import { rewriteLocalAssetUrl } from "../utils/publicUrl";
 
 const uploadRoute = new Hono();
 
@@ -48,7 +49,7 @@ uploadRoute.post("/", async (c) => {
       return c.json({ error: msg }, 503);
     }
 
-    return c.json({ url, fileId }, 201);
+    return c.json({ url: rewriteLocalAssetUrl(url, c.req.url), fileId }, 201);
   } catch (e) {
     console.error("Upload failed:", e);
     return c.json({ error: "文件上传失败，请稍后重试" }, 503);

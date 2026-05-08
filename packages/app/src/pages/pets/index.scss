@@ -95,6 +95,7 @@
   position: relative;
   overflow: hidden;
   border-radius: 30rpx;
+  z-index: 1;
 }
 
 .pet-delete-action {
@@ -107,6 +108,7 @@
   justify-content: center;
   opacity: 0;
   transition: opacity 0.2s ease;
+  z-index: 3;
 }
 
 .pet-delete-action--open {
