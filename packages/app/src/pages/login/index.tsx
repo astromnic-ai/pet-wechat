@@ -77,14 +77,20 @@ export default function Login() {
     Taro.removeStorageSync(LOGIN_DRAFT_KEY);
     setAvatarPromptVisible(false);
     Taro.setStorageSync("userId", userId);
+    Taro.hideLoading();
     Taro.showLoading({
       title: "进入主页中",
-      mask: true,
+      mask: false,
     });
     connectWs().catch(() => {
       // Keep login flow responsive in dev even if websocket connects later.
     });
-    Taro.reLaunch({ url: "/pages/index/index" });
+    Taro.reLaunch({
+      url: "/pages/index/index",
+      success: () => Taro.hideLoading(),
+      fail: () => Taro.hideLoading(),
+      complete: () => Taro.hideLoading(),
+    });
   };
 
   const finishLogin = async (token: string, userId: string) => {
