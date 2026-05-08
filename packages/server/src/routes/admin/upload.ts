@@ -1,37 +1,12 @@
 import { Hono } from "hono";
 import { createId } from "../../utils/id";
-import { uploadFile } from "../../utils/storage";
 import { extractFirstJpegFrame } from "../../utils/mjpeg";
+import { uploadFile } from "../../utils/storage";
 
 const adminUploadRoute = new Hono();
 
-const ALLOWED_MJPEG_TYPES = new Set([
-  "video/mjpeg",
-  "video/x-motion-jpeg",
-  "application/octet-stream",
-  "",
-]);
-const ALLOWED_MJPEG_EXTENSIONS = new Set(["mjpeg", "mjpg"]);
+const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "video/mjpeg", "video/x-motion-jpeg"]);
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
-
-function getFileExtension(filename?: string | null) {
-  const normalized = filename?.trim().toLowerCase() ?? "";
-  const segments = normalized.split(".");
-  return segments.length > 1 ? segments[segments.length - 1] ?? "" : "";
-}
-
-function isAllowedMjpegFile(file: File) {
-  const ext = getFileExtension(file.name);
-  return ALLOWED_MJPEG_EXTENSIONS.has(ext) && ALLOWED_MJPEG_TYPES.has(file.type);
-}
-
-function resolveMjpegContentType(file: File) {
-  if (file.type === "video/mjpeg" || file.type === "video/x-motion-jpeg") {
-    return file.type;
-  }
-
-  return "video/x-motion-jpeg";
-}
 
 adminUploadRoute.post("/upload", async (c) => {
   try {
@@ -44,27 +19,43 @@ adminUploadRoute.post("/upload", async (c) => {
 
     const uploadedFile = file as File;
 
-    if (!isAllowedMjpegFile(uploadedFile)) {
-      return c.json({ error: "仅支持上传 MJPEG 视频文件（.mjpeg / .mjpg）" }, 400);
+    if (!ALLOWED_TYPES.has(uploadedFile.type)) {
+      return c.json({ error: "不支持的文件格式，请上传 JPG/PNG/WEBP/MJPEG 文件" }, 400);
     }
 
     if (uploadedFile.size > MAX_FILE_SIZE) {
-      return c.json({ error: "文件过大，请上传 50MB 以内的 MJPEG 视频" }, 400);
+      return c.json({ error: "文件过大，请上传 50MB 以内的素材" }, 400);
     }
 
     const fileId = createId();
-    const ext = getFileExtension(uploadedFile.name) || "mjpeg";
+    const ext =
+      uploadedFile.type === "image/png"
+        ? "png"
+        : uploadedFile.type === "image/webp"
+          ? "webp"
+          : uploadedFile.type === "video/mjpeg" || uploadedFile.type === "video/x-motion-jpeg"
+            ? "mjpeg"
+            : "jpg";
     const key = `admin/customization/${fileId}.${ext}`;
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
-    const contentType = resolveMjpegContentType(uploadedFile);
-    const firstFrame = extractFirstJpegFrame(buffer);
+    const isMjpeg = uploadedFile.type === "video/mjpeg" || uploadedFile.type === "video/x-motion-jpeg";
+    const thumbnailBuffer = isMjpeg ? extractFirstJpegFrame(buffer) : null;
+
+    if (isMjpeg && !thumbnailBuffer) {
+      return c.json({ error: "无法从 MJPEG 文件中提取首帧" }, 400);
+    }
 
     let url: string;
     let thumbnailUrl: string | null = null;
     try {
-      url = await uploadFile(key, buffer, contentType);
-      if (firstFrame) {
-        thumbnailUrl = await uploadFile(`admin/customization/${fileId}-thumb.jpg`, firstFrame, "image/jpeg");
+      url = await uploadFile(key, buffer, uploadedFile.type);
+
+      if (thumbnailBuffer) {
+        thumbnailUrl = await uploadFile(
+          key.replace(/\.[^.]+$/, "-thumb.jpg"),
+          thumbnailBuffer,
+          "image/jpeg",
+        );
       }
     } catch (error) {
       console.error("Admin storage upload failed:", error);

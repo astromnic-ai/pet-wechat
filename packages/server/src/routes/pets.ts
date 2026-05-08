@@ -10,10 +10,10 @@ import {
   desktopPetBindings,
   deviceAuthorizations,
 } from "../db/schema";
-import { eq, and, isNull, inArray, gte, desc } from "drizzle-orm";
-import type { AvatarStatus, PetLatestBehavior } from "shared";
+import { eq, and, isNull, inArray, gte, lte, desc, sql } from "drizzle-orm";
+import type { PetLatestBehavior } from "shared";
+import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
-import { rewriteLocalAssetUrl } from "../utils/publicUrl";
 
 const petsRoute = new Hono();
 
@@ -67,105 +67,81 @@ async function getLatestBehavior(petId: string) {
   } satisfies PetLatestBehavior;
 }
 
-type LatestAvatarSummary = {
-  avatarId: string;
-  status: AvatarStatus;
-  sourceImageUrl: string;
-  imageUrl: string | null;
-};
+async function getLatestAvatarImageMap(petIds: string[]) {
+  const latestAvatarImageMap = new Map<string, string>();
+  if (petIds.length === 0) return latestAvatarImageMap;
 
-function isVideoAssetUrl(url?: string | null) {
-  if (!url) {
-    return false;
-  }
-
-  try {
-    const pathname = new URL(url).pathname.toLowerCase();
-    return pathname.endsWith(".mjpeg") || pathname.endsWith(".mjpg");
-  } catch {
-    return /\.mjpeg?$/.test(url.toLowerCase());
-  }
-}
-
-async function getLatestAvatarSummaryMap(petIds: string[]) {
-  const latestAvatarSummaryMap = new Map<string, LatestAvatarSummary>();
-  if (petIds.length === 0) return latestAvatarSummaryMap;
-
-  const latestAvatars = await db
+  // 对每个 petId 取最新一条 done avatar（使用 SQL 子查询避免全量扫描）
+  // Drizzle 不支持 DISTINCT ON，改用应用层去重但限制查询量
+  const doneAvatars = await db
     .select({
       id: petAvatars.id,
       petId: petAvatars.petId,
-      status: petAvatars.status,
-      sourceImageUrl: petAvatars.sourceImageUrl,
     })
     .from(petAvatars)
-    .where(inArray(petAvatars.petId, petIds))
-    .orderBy(desc(petAvatars.createdAt));
+    .where(
+      and(
+        inArray(petAvatars.petId, petIds),
+        eq(petAvatars.status, "done"),
+      )
+    )
+    .orderBy(desc(petAvatars.createdAt))
+    .limit(petIds.length); // 最多只取 petIds.length 条，每个宠物最多 1 条
 
-  const latestAvatarByPetId = new Map<string, (typeof latestAvatars)[number]>();
-  for (const avatar of latestAvatars) {
+  const latestAvatarByPetId = new Map<string, string>();
+  for (const avatar of doneAvatars) {
     if (latestAvatarByPetId.has(avatar.petId)) continue;
-    latestAvatarByPetId.set(avatar.petId, avatar);
+    latestAvatarByPetId.set(avatar.petId, avatar.id);
   }
 
-  const latestDoneAvatarIds = Array.from(latestAvatarByPetId.values())
-    .filter((avatar) => avatar.status === "done")
-    .map((avatar) => avatar.id);
+  const latestAvatarIds = Array.from(latestAvatarByPetId.values());
+  if (latestAvatarIds.length === 0) return latestAvatarImageMap;
 
+  // 取每个 avatar 的第一张 action 图片（按 sortOrder 最小的）
+  const primaryActions = await db
+    .select({
+      petAvatarId: petAvatarActions.petAvatarId,
+      imageUrl: petAvatarActions.imageUrl,
+      sortOrder: petAvatarActions.sortOrder,
+    })
+    .from(petAvatarActions)
+    .where(inArray(petAvatarActions.petAvatarId, latestAvatarIds))
+    .orderBy(petAvatarActions.sortOrder);
+
+  // 应用层去重：每个 avatarId 只取 sortOrder 最小的
   const primaryImageByAvatarId = new Map<string, string>();
-
-  if (latestDoneAvatarIds.length > 0) {
-    const primaryActions = await db
-      .select({
-        petAvatarId: petAvatarActions.petAvatarId,
-        imageUrl: petAvatarActions.imageUrl,
-        videoUrl: petAvatarActions.videoUrl,
-        sortOrder: petAvatarActions.sortOrder,
-      })
-      .from(petAvatarActions)
-      .where(inArray(petAvatarActions.petAvatarId, latestDoneAvatarIds))
-      .orderBy(petAvatarActions.sortOrder);
-
-    for (const action of primaryActions) {
-      if (primaryImageByAvatarId.has(action.petAvatarId)) continue;
-      if (!isVideoAssetUrl(action.imageUrl)) {
-        primaryImageByAvatarId.set(action.petAvatarId, action.imageUrl);
-      }
-    }
+  for (const action of primaryActions) {
+    if (primaryImageByAvatarId.has(action.petAvatarId)) continue;
+    primaryImageByAvatarId.set(action.petAvatarId, action.imageUrl);
   }
 
-  for (const [petId, avatar] of latestAvatarByPetId) {
-    latestAvatarSummaryMap.set(petId, {
-      avatarId: avatar.id,
-      status: avatar.status,
-      sourceImageUrl: avatar.sourceImageUrl,
-      imageUrl: primaryImageByAvatarId.get(avatar.id) ?? null,
-    });
+  for (const [petId, avatarId] of latestAvatarByPetId) {
+    const imageUrl = primaryImageByAvatarId.get(avatarId);
+    if (!imageUrl) continue;
+    latestAvatarImageMap.set(petId, imageUrl);
   }
 
-  return latestAvatarSummaryMap;
+  return latestAvatarImageMap;
 }
 
 function attachPetSummary<T extends typeof pets.$inferSelect>(
   petList: T[],
   latestBehaviorMap: Map<string, PetLatestBehavior>,
-  latestAvatarSummaryMap: Map<string, LatestAvatarSummary>,
-  requestUrl: string,
+  latestAvatarImageMap: Map<string, string>,
 ) {
   return petList.map((pet) => ({
     ...pet,
     latestBehavior: latestBehaviorMap.get(pet.id) ?? null,
-    avatarImageUrl: rewriteLocalAssetUrl(
-      latestAvatarSummaryMap.get(pet.id)?.imageUrl ?? null,
-      requestUrl,
-    ),
-    latestAvatarId: latestAvatarSummaryMap.get(pet.id)?.avatarId ?? null,
-    latestAvatarStatus: latestAvatarSummaryMap.get(pet.id)?.status ?? null,
-    latestAvatarSourceImageUrl: rewriteLocalAssetUrl(
-      latestAvatarSummaryMap.get(pet.id)?.sourceImageUrl ?? null,
-      requestUrl,
-    ),
+    avatarImageUrl: latestAvatarImageMap.get(pet.id) ?? null,
   }));
+}
+
+function toPetAvatarActionResponse(action: typeof petAvatarActions.$inferSelect) {
+  return {
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
+  };
 }
 
 function getStartOfLocalDay(date: Date) {
@@ -194,9 +170,8 @@ function parseOccurredAt(occurredAt: Date | string) {
 function buildInteractionBuckets(
   range: "day" | "week" | "month",
   occurredAtList: Date[],
+  now: Date,
 ) {
-  const now = new Date();
-
   if (range === "day") {
     const todayStart = getStartOfLocalDay(now);
     const counts = new Array(24).fill(0);
@@ -299,18 +274,17 @@ petsRoute.get("/", async (c) => {
     ...authorizedPets.map((pet) => pet.id),
   ]);
 
-  const latestAvatarSummaryMap = await getLatestAvatarSummaryMap([
+  const latestAvatarImageMap = await getLatestAvatarImageMap([
     ...ownPets.map((pet) => pet.id),
     ...authorizedPets.map((pet) => pet.id),
   ]);
 
   return c.json({
-    pets: attachPetSummary(ownPets, latestBehaviorMap, latestAvatarSummaryMap, c.req.url),
+    pets: attachPetSummary(ownPets, latestBehaviorMap, latestAvatarImageMap),
     authorizedPets: attachPetSummary(
       authorizedPets,
       latestBehaviorMap,
-      latestAvatarSummaryMap,
-      c.req.url,
+      latestAvatarImageMap,
     ),
   });
 });
@@ -333,20 +307,32 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
   if (!pet) return c.json({ error: "Pet not found" }, 404);
   if (!hasAccess) return c.json({ error: "Unauthorized" }, 403);
 
-  const events = await db
-    .select({
-      occurredAt: interactionEvents.occurredAt,
-    })
-    .from(interactionEvents)
-    .where(eq(interactionEvents.petId, petId));
-
   const now = new Date();
   const todayStart = getStartOfLocalDay(now);
   const weekStart = new Date(todayStart);
   weekStart.setDate(weekStart.getDate() - 6);
   const monthStart = new Date(todayStart);
   monthStart.setDate(monthStart.getDate() - 29);
-  const occurredAtList = events
+  const [countRows, recentEvents] = await Promise.all([
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(interactionEvents)
+      .where(eq(interactionEvents.petId, petId)),
+    db
+      .select({
+        occurredAt: interactionEvents.occurredAt,
+      })
+      .from(interactionEvents)
+      .where(
+        and(
+          eq(interactionEvents.petId, petId),
+          gte(interactionEvents.occurredAt, monthStart),
+          lte(interactionEvents.occurredAt, now),
+        ),
+      ),
+  ]);
+
+  const occurredAtList = recentEvents
     .map((event) => parseOccurredAt(event.occurredAt))
     .filter((occurredAt): occurredAt is Date => occurredAt !== null);
 
@@ -361,13 +347,13 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
   ).length;
 
   return c.json({
-    totalCount: events.length,
+    totalCount: Number(countRows[0]?.count ?? 0),
     todayCount,
     weekCount,
     monthCount,
     ...(range
       ? {
-          buckets: buildInteractionBuckets(range, occurredAtList),
+          buckets: buildInteractionBuckets(range, occurredAtList, now),
         }
       : {}),
   });
@@ -415,7 +401,6 @@ petsRoute.get("/:id", async (c) => {
     .where(eq(petAvatars.petId, petId));
 
   const avatarIds = avatars.map((a) => a.id);
-  const avatarSourceImageMap = new Map(avatars.map((avatar) => [avatar.id, avatar.sourceImageUrl]));
   const actions: (typeof petAvatarActions.$inferSelect)[] =
     avatarIds.length > 0
       ? await db
@@ -436,20 +421,8 @@ petsRoute.get("/:id", async (c) => {
 
   return c.json({
     pet: { ...pet, activityScore, latestBehavior },
-    avatars: avatars.map((avatar) => ({
-      ...avatar,
-      sourceImageUrl: rewriteLocalAssetUrl(avatar.sourceImageUrl, c.req.url),
-    })),
-    actions: actions.map((action) => ({
-      ...action,
-      imageUrl: rewriteLocalAssetUrl(
-        !isVideoAssetUrl(action.imageUrl)
-          ? action.imageUrl
-          : avatarSourceImageMap.get(action.petAvatarId) ?? action.imageUrl,
-        c.req.url,
-      ) ?? action.imageUrl,
-      videoUrl: rewriteLocalAssetUrl(action.videoUrl, c.req.url) ?? action.videoUrl ?? null,
-    })),
+    avatars,
+    actions: actions.map(toPetAvatarActionResponse),
   });
 });
 

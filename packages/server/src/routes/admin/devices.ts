@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { and, asc, desc, eq, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import type {
   AdminDeviceDetail,
   AdminDeviceListItem,
@@ -16,6 +16,7 @@ import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petAvat
 import { createId } from "../../utils/id";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../../utils/mac";
 import { buildPageResponse, parsePagination } from "../../utils/pagination";
+import { normalizePublicFileUrl } from "../../utils/storage";
 import { pick } from "./utils";
 
 function normalizeMacOrError(raw: unknown): { ok: true; mac: string } | { ok: false; error: string } {
@@ -59,7 +60,7 @@ const VALID_DEVICE_TYPES = new Set<DeviceType>(["collar", "desktop"]);
 const VALID_STATUS_FILTERS = new Set(["all", "online", "offline", "pairing"]);
 const VALID_BINDING_FILTERS = new Set(["all", "bound", "unbound"]);
 const VALID_IMAGE_STATUS_FILTERS = new Set(["all", "uploaded", "pending"]);
-const VALID_SPECIES_FILTERS = new Set(["all", "cat", "dog"]);
+const VALID_SPECIES_FILTERS = new Set(["all", "cat", "dog", "other"]);
 const VALID_SORT_FIELDS = new Set(["createdAt", "lastOnlineAt"]);
 const VALID_SORT_ORDERS = new Set(["asc", "desc"]);
 
@@ -89,6 +90,7 @@ type RawDeviceRow = {
   status: DeviceStatus;
   claim_status: DeviceClaimStatus;
   upgrade_status: DeviceUpgradeStatus;
+  firmware_version: string | null;
   user_id: string | null;
   user_nickname: string | null;
   pet_id: string | null;
@@ -129,7 +131,7 @@ type DeviceListFilters = {
   model: string;
   imageStatus: "all" | "uploaded" | "pending";
   bindingStatus: "all" | "bound" | "unbound";
-  species: "all" | Species;
+  species: "all" | Species | "other";
   status: "all" | DeviceStatus;
   sort: "createdAt" | "lastOnlineAt";
   order: "asc" | "desc";
@@ -198,6 +200,37 @@ function calculateCompanionDays(value: Date | string | null | undefined): number
   return Math.max(0, Math.floor((Date.now() - start.getTime()) / DAY_IN_MS));
 }
 
+async function getLatestPetUploadImageMap(petIds: string[]) {
+  const uniquePetIds = Array.from(new Set(petIds.filter(Boolean)));
+  const imageMap = new Map<string, string>();
+
+  if (uniquePetIds.length === 0) {
+    return imageMap;
+  }
+
+  const avatarRows = await db
+    .select({
+      petId: petAvatars.petId,
+      sourceImageUrl: petAvatars.sourceImageUrl,
+    })
+    .from(petAvatars)
+    .where(inArray(petAvatars.petId, uniquePetIds))
+    .orderBy(desc(petAvatars.createdAt));
+
+  for (const row of avatarRows) {
+    if (!row.petId || imageMap.has(row.petId)) {
+      continue;
+    }
+
+    imageMap.set(
+      row.petId,
+      normalizePublicFileUrl(row.sourceImageUrl) ?? row.sourceImageUrl,
+    );
+  }
+
+  return imageMap;
+}
+
 function toAdminDeviceListItem(row: RawDeviceRow): AdminDeviceListItem {
   return {
     type: row.type,
@@ -207,12 +240,13 @@ function toAdminDeviceListItem(row: RawDeviceRow): AdminDeviceListItem {
     status: row.status,
     claimStatus: row.claim_status,
     upgradeStatus: row.upgrade_status,
+    firmwareVersion: row.firmware_version,
     userId: row.user_id,
     userNickname: row.user_nickname,
     petId: row.pet_id,
     petName: row.pet_name,
     petSpecies: row.pet_species,
-    petAvatarUrl: row.pet_avatar_url,
+    petAvatarUrl: normalizePublicFileUrl(row.pet_avatar_url) ?? row.pet_avatar_url,
     battery: toNullableInt(row.battery),
     signal: toNullableInt(row.signal),
     lastOnlineAt: toIsoString(row.last_online_at),
@@ -314,6 +348,7 @@ function getDeviceAggregationCtes() {
         cd.status,
         cd.claim_status,
         cd.upgrade_status,
+        cd.firmware_version,
         cd.user_id,
         u.nickname AS user_nickname,
         cd.pet_id,
@@ -345,6 +380,7 @@ function getDeviceAggregationCtes() {
         dd.status,
         dd.claim_status,
         dd.upgrade_status,
+        dd.firmware_version,
         dd.user_id,
         u.nickname AS user_nickname,
         dlb.pet_id,
@@ -409,7 +445,25 @@ function buildDeviceListWhereClause(filters: DeviceListFilters) {
     conditions.push(sql`merged_devices.binding_count = 0`);
   }
 
-  if (filters.species !== "all") {
+  if (filters.species === "other") {
+    conditions.push(sql`
+      (
+        (merged_devices.type = 'collar' AND merged_devices.pet_species IS NULL)
+        OR
+        (
+          merged_devices.type = 'desktop'
+          AND NOT EXISTS (
+            SELECT 1
+            FROM desktop_pet_bindings b
+            INNER JOIN pets p ON p.id = b.pet_id
+            WHERE b.desktop_device_id = merged_devices.id
+              AND b.unbound_at IS NULL
+              AND p.species IN ('cat', 'dog')
+          )
+        )
+      )
+    `);
+  } else if (filters.species !== "all") {
     conditions.push(sql`
       (
         (merged_devices.type = 'collar' AND merged_devices.pet_species = ${filters.species})
@@ -480,7 +534,7 @@ function getDeviceOrderClause(sort: DeviceListFilters["sort"], order: DeviceList
   return sql.raw(`${primaryColumn} ${direction} NULLS LAST, type ASC, id DESC`);
 }
 
-function mapCollarRows(rows: AdminCollarRow[]) {
+function mapCollarRows(rows: AdminCollarRow[], petImageMap: Map<string, string>) {
   const collars = new Map<
     string,
     typeof collarDevices.$inferSelect & {
@@ -488,13 +542,17 @@ function mapCollarRows(rows: AdminCollarRow[]) {
       petName: string | null;
       petSpecies: string | null;
       hasUploadedImage: boolean;
+      petImageUrl: string | null;
     }
   >();
 
   for (const row of rows) {
+    const petImageUrl =
+      row.collar.petId ? (petImageMap.get(row.collar.petId) ?? null) : null;
     const existing = collars.get(row.collar.id);
     if (existing) {
-      existing.hasUploadedImage = existing.hasUploadedImage || !!row.avatarId;
+      existing.hasUploadedImage = existing.hasUploadedImage || !!row.avatarId || !!petImageUrl;
+      existing.petImageUrl = existing.petImageUrl ?? petImageUrl;
       continue;
     }
 
@@ -503,19 +561,25 @@ function mapCollarRows(rows: AdminCollarRow[]) {
       ownerNickname: row.ownerNickname,
       petName: row.petName,
       petSpecies: row.petSpecies,
-      hasUploadedImage: !!row.avatarId,
+      hasUploadedImage: !!row.avatarId || !!petImageUrl,
+      petImageUrl,
     });
   }
 
   return Array.from(collars.values());
 }
 
-function mapDesktopRows(rows: AdminDesktopRow[]) {
+function mapDesktopRows(rows: AdminDesktopRow[], petImageMap: Map<string, string>) {
   const desktops = new Map<
     string,
     typeof desktopDevices.$inferSelect & {
       ownerNickname: string | null;
       bindingPetNames: string[];
+      bindingPets: Array<{
+        id: string;
+        name: string;
+        avatarImageUrl: string | null;
+      }>;
       bindingPetSpeciesList: string[];
       activeBindingCount: number;
       hasUploadedImage: boolean;
@@ -524,15 +588,29 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
 
   for (const row of rows) {
     const bindingPetLabel = row.bindingPetName ?? row.bindingPetId ?? "已绑定宠物";
+    const bindingPetImageUrl =
+      row.bindingPetId ? (petImageMap.get(row.bindingPetId) ?? null) : null;
     const existing = desktops.get(row.desktop.id);
     if (existing) {
       if (row.bindingId && !existing.bindingPetNames.includes(bindingPetLabel)) {
         existing.bindingPetNames.push(bindingPetLabel);
       }
+      if (
+        row.bindingId &&
+        row.bindingPetId &&
+        !existing.bindingPets.some((pet) => pet.id === row.bindingPetId)
+      ) {
+        existing.bindingPets.push({
+          id: row.bindingPetId,
+          name: bindingPetLabel,
+          avatarImageUrl: bindingPetImageUrl,
+        });
+      }
       if (row.bindingPetSpecies && !existing.bindingPetSpeciesList.includes(row.bindingPetSpecies)) {
         existing.bindingPetSpeciesList.push(row.bindingPetSpecies);
       }
-      existing.hasUploadedImage = existing.hasUploadedImage || !!row.avatarId;
+      existing.hasUploadedImage =
+        existing.hasUploadedImage || !!row.avatarId || !!bindingPetImageUrl;
       continue;
     }
 
@@ -540,9 +618,19 @@ function mapDesktopRows(rows: AdminDesktopRow[]) {
       ...row.desktop,
       ownerNickname: row.ownerNickname,
       bindingPetNames: row.bindingId ? [bindingPetLabel] : [],
+      bindingPets:
+        row.bindingId && row.bindingPetId
+          ? [
+              {
+                id: row.bindingPetId,
+                name: bindingPetLabel,
+                avatarImageUrl: bindingPetImageUrl,
+              },
+            ]
+          : [],
       bindingPetSpeciesList: row.bindingPetSpecies ? [row.bindingPetSpecies] : [],
       activeBindingCount: 0,
-      hasUploadedImage: !!row.avatarId,
+      hasUploadedImage: !!row.avatarId || !!bindingPetImageUrl,
     });
   }
 
@@ -592,8 +680,11 @@ devicesRoute.get("/collars", async (c) => {
     .leftJoin(petAvatars, eq(collarDevices.petId, petAvatars.petId))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
+  const petImageMap = await getLatestPetUploadImageMap(
+    result.map((row) => row.collar.petId).filter((petId): petId is string => !!petId),
+  );
   return c.json({
-    collars: mapCollarRows(result as AdminCollarRow[]),
+    collars: mapCollarRows(result as AdminCollarRow[], petImageMap),
   });
 });
 
@@ -694,8 +785,13 @@ devicesRoute.get("/desktops", async (c) => {
     .leftJoin(petAvatars, eq(desktopPetBindings.petId, petAvatars.petId))
     .where(filters.length > 0 ? and(...filters) : undefined)
     .orderBy(orderBy);
+  const petImageMap = await getLatestPetUploadImageMap(
+    result
+      .map((row) => row.bindingPetId)
+      .filter((petId): petId is string => !!petId),
+  );
   return c.json({
-    desktops: mapDesktopRows(result as AdminDesktopRow[]),
+    desktops: mapDesktopRows(result as AdminDesktopRow[], petImageMap),
   });
 });
 
@@ -882,6 +978,7 @@ devicesRoute.get("/devices", async (c) => {
         merged_devices.status,
         merged_devices.claim_status,
         merged_devices.upgrade_status,
+        merged_devices.firmware_version,
         merged_devices.user_id,
         merged_devices.user_nickname,
         merged_devices.pet_id,
@@ -940,6 +1037,7 @@ devicesRoute.get("/devices/:type/:id/detail", async (c) => {
       merged_devices.status,
       merged_devices.claim_status,
       merged_devices.upgrade_status,
+      merged_devices.firmware_version,
       merged_devices.user_id,
       merged_devices.user_nickname,
       merged_devices.pet_id,
@@ -995,6 +1093,45 @@ devicesRoute.get("/devices/:type/:id/detail", async (c) => {
     : [];
 
   const device = toAdminDeviceListItem(row);
+  const bindingPets =
+    type === "desktop"
+      ? await (async () => {
+          const bindings = await db
+            .select({
+              petId: desktopPetBindings.petId,
+              petName: pets.name,
+              petSpecies: pets.species,
+            })
+            .from(desktopPetBindings)
+            .leftJoin(pets, eq(desktopPetBindings.petId, pets.id))
+            .where(
+              and(
+                eq(desktopPetBindings.desktopDeviceId, id),
+                isNull(desktopPetBindings.unboundAt),
+              ),
+            )
+            .orderBy(desc(desktopPetBindings.createdAt));
+
+          const petImageMap = await getLatestPetUploadImageMap(
+            bindings
+              .map((binding) => binding.petId)
+              .filter((petId): petId is string => !!petId),
+          );
+
+          return bindings
+            .filter((binding) => !!binding.petId)
+            .map((binding) => ({
+              id: binding.petId,
+              name: binding.petName ?? binding.petId,
+              species: binding.petSpecies,
+              speciesLabel: binding.petSpecies ? SPECIES_LABELS[binding.petSpecies] : null,
+              avatarUrl:
+                normalizePublicFileUrl(petImageMap.get(binding.petId) ?? null) ??
+                petImageMap.get(binding.petId) ??
+                null,
+            }));
+        })()
+      : undefined;
   const detail: AdminDeviceDetail = {
     device,
     owner:
@@ -1012,10 +1149,11 @@ devicesRoute.get("/devices/:type/:id/detail", async (c) => {
             name: row.pet_name,
             species: row.pet_species,
             speciesLabel: SPECIES_LABELS[row.pet_species],
-            avatarUrl: row.pet_avatar_url,
+            avatarUrl: normalizePublicFileUrl(row.pet_avatar_url) ?? row.pet_avatar_url,
             companionDays: calculateCompanionDays(row.binding_started_at),
           }
         : null,
+    bindingPets,
     relatedDevices: relatedDevices.map((item) => toAdminDeviceRelationItem(item)),
     avatarProgress: {
       total: toInt(row.avatar_total, TOTAL_ACTION_COUNT),

@@ -1,6 +1,7 @@
 import type { Serve } from "bun";
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { serveStatic } from "hono/bun";
 import { cors } from "hono/cors";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
@@ -21,19 +22,16 @@ import settingsRoute from "./routes/settings";
 import accountRoute from "./routes/account";
 import contentRoute from "./routes/content";
 import debugRoute from "./routes/debug";
+import deviceReportRoute from "./routes/device-report";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
 import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
+import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
-function createFileHeaders(contentType: string, contentLength: number) {
-  return {
-    "Content-Type": contentType,
-    "Content-Length": String(contentLength),
-    "Accept-Ranges": "bytes",
-  };
-}
+const adminDistRoot = path.resolve(process.env.ADMIN_DIST_DIR ?? "../../admin-dist");
+const adminIndexPath = path.join(adminDistRoot, "index.html");
 
 function parseRangeHeader(rangeHeader: string | undefined, fileSize: number) {
   if (!rangeHeader?.startsWith("bytes=")) return null;
@@ -61,24 +59,24 @@ function parseRangeHeader(rangeHeader: string | undefined, fileSize: number) {
     }
   }
 
-  if (start >= fileSize) {
-    return { invalid: true as const };
-  }
+  if (start >= fileSize) return { invalid: true as const };
 
   end = Math.min(end, fileSize - 1);
-  if (end < start) {
-    return { invalid: true as const };
-  }
+  if (end < start) return { invalid: true as const };
 
+  return { invalid: false as const, start, end };
+}
+
+function createFileHeaders(contentType: string, contentLength: number) {
   return {
-    invalid: false as const,
-    start,
-    end,
+    "Content-Type": contentType,
+    "Content-Length": String(contentLength),
+    "Accept-Ranges": "bytes",
   };
 }
 
 async function serveLocalFile(c: Context, rootDir: string, urlPrefix: string) {
-  const relativePath = c.req.path.replace(new RegExp(`^\\/${urlPrefix}\\/`), "");
+  const relativePath = c.req.path.replace(new RegExp(`^/${urlPrefix}/`), "");
   const filePath = path.resolve(process.cwd(), rootDir, relativePath);
   const file = Bun.file(filePath);
 
@@ -87,17 +85,7 @@ async function serveLocalFile(c: Context, rootDir: string, urlPrefix: string) {
   }
 
   const contentType = file.type || "application/octet-stream";
-  const rangeHeader = c.req.header("range");
-  const range = parseRangeHeader(rangeHeader, file.size);
-
-  if (relativePath === "home/pet-waiting-loop.mp4") {
-    console.info(`[static-video] ${c.req.method} ${c.req.path}`, {
-      range: rangeHeader || null,
-      userAgent: c.req.header("user-agent") || "",
-      size: file.size,
-      contentType,
-    });
-  }
+  const range = parseRangeHeader(c.req.header("range"), file.size);
 
   if (range?.invalid) {
     return new Response(null, {
@@ -112,7 +100,6 @@ async function serveLocalFile(c: Context, rootDir: string, urlPrefix: string) {
   if (range) {
     const chunk = file.slice(range.start, range.end + 1);
     const chunkSize = range.end - range.start + 1;
-
     return new Response(chunk, {
       status: 206,
       headers: {
@@ -154,16 +141,36 @@ export function createApp() {
     return c.json({ error: "服务器内部错误" }, 500);
   });
 
-  app.get("/", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
   app.get("/health", (c) => c.json({ status: "ok" }));
   app.get("/static/*", (c) => serveLocalFile(c, "public", "static"));
   app.get("/storage/*", (c) => serveLocalFile(c, "storage", "storage"));
+  app.put("/storage/*", async (c) => {
+    if (process.env.ENABLE_DEV_LOGIN !== "true") {
+      return c.json({ error: "Upload endpoint unavailable" }, 404);
+    }
+
+    const relativePath = c.req.path.replace(/^\/storage\//, "");
+    const body = new Uint8Array(await c.req.arrayBuffer());
+
+    try {
+      await saveLocalDevUpload(relativePath, body);
+    } catch (error) {
+      if (error instanceof Error && error.message === "INVALID_STORAGE_KEY") {
+        return c.json({ error: "Invalid storage path" }, 400);
+      }
+      throw error;
+    }
+
+    return new Response(null, { status: 200 });
+  });
 
   // 公开路由（登录接口 + 邀请预览）
   app.route("/api/auth", authRoute);
   app.route("/api/invite", invitePublicRoute);
   app.route("/api/schedules", schedulesRoute);
+  app.route("/api/device-report", deviceReportRoute);
   app.route("/api/content", contentRoute);
+  app.get("/api", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);
@@ -182,6 +189,29 @@ export function createApp() {
   app.route("/api/debug", debugRoute);
   app.route("/api/settings", settingsRoute);
   app.route("/api/account", accountRoute);
+
+  app.use("*", serveStatic({ root: adminDistRoot }));
+  app.get("*", async (c) => {
+    if (
+      c.req.path.startsWith("/api") ||
+      c.req.path.startsWith("/storage") ||
+      c.req.path === "/health"
+    ) {
+      return c.notFound();
+    }
+
+    const file = Bun.file(adminIndexPath);
+
+    if (!(await file.exists())) {
+      return c.notFound();
+    }
+
+    return new Response(file, {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+      },
+    });
+  });
 
   return app;
 }

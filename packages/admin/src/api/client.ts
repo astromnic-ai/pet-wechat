@@ -1,4 +1,12 @@
-import type { AdminDeviceDetail, AdminDeviceListItem, DeviceType } from "shared";
+import type {
+  AdminDeviceDetail,
+  AdminDeviceListItem,
+  AvatarReviewStats,
+  CustomizationTask,
+  DeviceType,
+  Membership,
+  PresignResponse,
+} from "shared";
 
 type PageResponse<T> = {
   items: T[];
@@ -58,11 +66,70 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-async function uploadAdminFile(path: string, file: File): Promise<{ url: string; thumbnailUrl: string | null; fileId: string }> {
+async function uploadAdminFile(path: string, file: File): Promise<{ url: string; fileId: string }> {
   const formData = new FormData();
   formData.append("file", file);
 
   const res = await fetch(`/api/admin${path}`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": getAdminKey(),
+    },
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("adminKey");
+    window.location.reload();
+    throw new Error("Admin Key 无效");
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+
+  return res.json();
+}
+
+async function uploadAdminAsset(
+  path: string,
+  file: File,
+  contentType?: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+): Promise<{ url: string; fileId: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (contentType) {
+    formData.append("contentType", contentType);
+  }
+
+  const res = await fetch(`/api/admin${path}`, {
+    method: "POST",
+    headers: {
+      "X-Admin-Key": getAdminKey(),
+    },
+    body: formData,
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("adminKey");
+    window.location.reload();
+    throw new Error("Admin Key 无效");
+  }
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error(err.error || res.statusText);
+  }
+
+  return res.json();
+}
+
+async function uploadAvatarActionVideo(avatarId: string, actionId: string, file: File): Promise<{ action: any }> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const res = await fetch(`/api/admin/avatars/${avatarId}/actions/${actionId}/video`, {
     method: "POST",
     headers: {
       "X-Admin-Key": getAdminKey(),
@@ -102,14 +169,12 @@ export const api = {
 
   // Collars
   getCollars: () => request<{ collars: any[] }>("/collars"),
-  getCollar: (id: string) => request<{ collar: any }>(`/collars/${id}`),
   createCollar: (data: any) => request<{ collar: any }>("/collars", { method: "POST", body: JSON.stringify(data) }),
   updateCollar: (id: string, data: any) => request<{ collar: any }>(`/collars/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteCollar: (id: string) => request(`/collars/${id}`, { method: "DELETE" }),
 
   // Desktops
   getDesktops: () => request<{ desktops: any[] }>("/desktops"),
-  getDesktop: (id: string) => request<{ desktop: any }>(`/desktops/${id}`),
   createDesktop: (data: any) => request<{ desktop: any }>("/desktops", { method: "POST", body: JSON.stringify(data) }),
   updateDesktop: (id: string, data: any) => request<{ desktop: any }>(`/desktops/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   deleteDesktop: (id: string) => request(`/desktops/${id}`, { method: "DELETE" }),
@@ -132,9 +197,10 @@ export const api = {
   approveAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/approve`, { method: "PUT" }),
   rejectAvatar: (id: string, reason: string) => request<{ avatar: any }>(`/avatars/${id}/reject`, { method: "PUT", body: JSON.stringify({ reason }) }),
   getAvatarActions: (id: string) => request<{ actions: any[] }>(`/avatars/${id}/actions`),
-  createAvatarAction: (id: string, data: { actionType: string; imageUrl: string; videoUrl?: string | null }) =>
+  createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
     request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
   deleteAvatarAction: (id: string, actionId: string) => request(`/avatars/${id}/actions/${actionId}`, { method: "DELETE" }),
+  uploadAvatarActionVideo,
   updateAvatarMeta: (id: string, data: { petDescription?: string; funFact?: string }) =>
     request<{ avatar: any }>(`/avatars/${id}/meta`, { method: "PUT", body: JSON.stringify(data) }),
   syncAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/sync`, { method: "POST" }),
@@ -149,6 +215,17 @@ export const api = {
   // Enhanced Users
   getEnhancedUsers: () => request<{ users: any[] }>("/users/enhanced"),
   getUserDetail: (id: string) => request<any>(`/users/${id}/detail`),
+  getMembership: (id: string) => request<Membership>(`/users/${id}/membership`),
+  updateMembership: (
+    id: string,
+    data: {
+      level: Membership["level"];
+      status?: Membership["status"];
+      expireAt?: string | null;
+      benefits?: Membership["benefits"];
+      avatarQuotaTotal?: number;
+    },
+  ) => request<Membership>(`/users/${id}/membership`, { method: "PUT", body: JSON.stringify(data) }),
 
   // Enhanced Devices (with filters)
   getFilteredCollars: (params?: Record<string, string>) => {
@@ -163,6 +240,27 @@ export const api = {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     return request<PageResponse<AdminDeviceListItem>>(`/devices${qs}`);
   },
-  getDeviceDetail: (type: DeviceType, id: string) =>
-    request<AdminDeviceDetail>(`/devices/${type}/${id}/detail`),
+  getDeviceDetail: (type: DeviceType, id: string) => request<AdminDeviceDetail>(`/devices/${type}/${id}/detail`),
+
+  // Avatar Review
+  getAvatarReviewStats: () => request<AvatarReviewStats>("/avatar-review/stats"),
+
+  // Customization
+  getCustomizationTasks: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return request<PageResponse<CustomizationTask>>(`/customization/tasks${qs}`);
+  },
+
+  // Uploads
+  createUploadPresign: (
+    contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+  ) =>
+    request<PresignResponse>("/uploads/presign", {
+      method: "POST",
+      body: JSON.stringify({ contentType }),
+    }),
+  uploadAdminMedia: (
+    file: File,
+    contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+  ) => uploadAdminAsset("/uploads", file, contentType),
 };

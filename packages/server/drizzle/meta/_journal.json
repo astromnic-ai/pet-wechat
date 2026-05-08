@@ -61,15 +61,29 @@
     {
       "idx": 8,
       "version": "7",
-      "when": 1777392000000,
-      "tag": "0008_avatar_quota_default_zero",
+      "when": 1776250800000,
+      "tag": "0007_friday_schedule_rule",
       "breakpoints": true
     },
     {
       "idx": 9,
       "version": "7",
-      "when": 1777852800000,
-      "tag": "0009_pet_avatar_action_video_url",
+      "when": 1776441074827,
+      "tag": "0008_empty_sharon_carter",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1777887838570,
+      "tag": "0010_needy_cardiac",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1777993374911,
+      "tag": "0011_pet_avatar_action_backfill_video_url",
       "breakpoints": true
     }
   ]

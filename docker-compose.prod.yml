@@ -38,10 +38,13 @@ services:
       - "9527:9527"
     environment:
       NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET}
+      ADMIN_KEY: ${ADMIN_KEY}
       DATABASE_URL: postgresql://pet:pet123@postgres:5432/pet_wechat
       PORT: "9527"
       WX_APPID: ${WX_APPID}
       WX_SECRET: ${WX_SECRET}
+      DEVICE_REPORT_SECRET: ${DEVICE_REPORT_SECRET}
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
@@ -52,12 +55,24 @@ services:
         condition: service_healthy
       minio:
         condition: service_healthy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
-  admin:
-    image: ghcr.io/thup-jds/pet-wechat/admin:latest
+  watchtower:
+    image: nickfedor/watchtower:latest
     restart: unless-stopped
-    ports:
-      - "9528:80"
+    environment:
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_RESTARTING: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_LABEL_ENABLE: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # 挂载主机的 docker 凭据以便对私有 GHCR 镜像执行 HEAD digest 检查；
+      # 缺失会导致 watchtower 持续 403、updated=0，无法热更新。
+      - ${HOME}/.docker/config.json:/config.json:ro
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
 volumes:
   pg_data:

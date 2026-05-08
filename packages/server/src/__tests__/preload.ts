@@ -22,9 +22,57 @@ mock.module("../db/index.ts", () => ({ db: mockDb }));
 const dbPath = new URL("../db", import.meta.url).pathname;
 mock.module(dbPath, () => ({ db: mockDb }));
 
+const ALLOWED_IMAGE_CONTENT_TYPES = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "video/mjpeg": "mjpeg",
+  "video/x-motion-jpeg": "mjpeg",
+} as const;
+
 const uploadFile = async (key: string) => `https://test-storage.local/${key}`;
-mock.module("../utils/storage", () => ({ uploadFile }));
-mock.module("../utils/storage.ts", () => ({ uploadFile }));
+const createPresignedPutUrl = async (opts: {
+  contentType: keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
+  scope?: string;
+}) => {
+  const ext = ALLOWED_IMAGE_CONTENT_TYPES[opts.contentType];
+  const key = `uploads/${opts.scope ?? "admin"}/mock.${ext}`;
+
+  return {
+    uploadUrl: `http://localhost:9527/storage/${key}`,
+    publicUrl: `http://localhost:9527/storage/${key}`,
+    key,
+    expiresAt: new Date("2026-01-01T00:00:00.000Z").toISOString(),
+  };
+};
+
+const saveLocalDevUpload = async (key: string) => `http://localhost:9527/storage/${key}`;
+const normalizePublicFileUrl = (url: string | null | undefined) => url ?? null;
+const isManagedStorageUrl = (url: string | null | undefined) =>
+  typeof url === "string" && (url.includes("/storage/") || url.includes("/pet-uploads/"));
+mock.module("../utils/storage", () => ({
+  uploadFile,
+  createPresignedPutUrl,
+  saveLocalDevUpload,
+  normalizePublicFileUrl,
+  isManagedStorageUrl,
+  ALLOWED_IMAGE_CONTENT_TYPES,
+}));
+mock.module("../utils/storage.ts", () => ({
+  uploadFile,
+  createPresignedPutUrl,
+  saveLocalDevUpload,
+  normalizePublicFileUrl,
+  isManagedStorageUrl,
+  ALLOWED_IMAGE_CONTENT_TYPES,
+}));
 
 const storagePath = new URL("../utils/storage.ts", import.meta.url).pathname;
-mock.module(storagePath, () => ({ uploadFile }));
+mock.module(storagePath, () => ({
+  uploadFile,
+  createPresignedPutUrl,
+  saveLocalDevUpload,
+  normalizePublicFileUrl,
+  isManagedStorageUrl,
+  ALLOWED_IMAGE_CONTENT_TYPES,
+}));

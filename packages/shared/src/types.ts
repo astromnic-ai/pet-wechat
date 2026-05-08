@@ -1,4 +1,9 @@
-import { SCHEDULE_SPECIES, type ActionType } from "./constants";
+import {
+  DEFAULT_FREE_BENEFITS,
+  MEMBERSHIP_LEVEL_LABELS,
+  SCHEDULE_SPECIES,
+  type ActionType,
+} from "./constants";
 
 // ===== 枚举 =====
 
@@ -15,13 +20,15 @@ export type AvatarStatus =
 export type MessageType = "authorization" | "system";
 export type BindingType = "owner" | "authorized";
 export type AuthorizationStatus = "pending" | "accepted" | "rejected";
-export type ScheduleEffectiveType = "everyday" | "weekday";
+export type ScheduleEffectiveType = "everyday" | "weekday" | "friday";
 export type DeviceType = "collar" | "desktop";
-export type DeviceClaimStatus = "occupied" | "available" | "reset_required";
+export type DeviceClaimStatus = "occupied" | "available" | "unclaimed" | "reset_required";
 export type DeviceUpgradeStatus = "idle" | "pending" | "success" | "failed";
 export type UserSettingTheme = "system" | "light" | "dark" | "blue";
 export type UserSettingLanguage = "zh-CN" | "zh-TW" | "en-US";
 export type ContentSlug = "help" | "about" | "privacy" | "user-agreement";
+export type MembershipLevel = keyof typeof MEMBERSHIP_LEVEL_LABELS;
+export type MembershipStatus = "active" | "expired" | "suspended";
 
 // ===== 用户 =====
 
@@ -33,13 +40,26 @@ export interface User {
   nickname: string;
   avatarUrl: string | null;
   avatarQuota: number;
-  avatarQuotaPurchased?: number;
-  avatarQuotaFromDesktops?: number;
-  avatarQuotaUsed?: number;
-  avatarQuotaTotal?: number;
-  avatarQuotaRemaining?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface MembershipBenefit {
+  key: string;
+  label: string;
+  value: string | number | null;
+  enabled: boolean;
+}
+
+export interface Membership {
+  level: MembershipLevel;
+  levelLabel: (typeof MEMBERSHIP_LEVEL_LABELS)[MembershipLevel];
+  status: MembershipStatus;
+  startAt: string | null;
+  expireAt: string | null;
+  benefits: MembershipBenefit[];
+  avatarQuotaUsed: number;
+  avatarQuotaTotal: number;
 }
 
 // ===== 宠物 =====
@@ -56,9 +76,6 @@ export interface Pet {
   activityScore: number;
   latestBehavior?: PetLatestBehavior | null;
   avatarImageUrl?: string | null;
-  latestAvatarId?: string | null;
-  latestAvatarStatus?: AvatarStatus | null;
-  latestAvatarSourceImageUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -157,6 +174,7 @@ export interface AdminDeviceListItem {
   status: DeviceStatus;
   claimStatus: DeviceClaimStatus;
   upgradeStatus: DeviceUpgradeStatus;
+  firmwareVersion: string | null;
   userId: string | null;
   userNickname: string | null;
   petId: string | null;
@@ -187,6 +205,14 @@ export interface AdminDeviceDetailPet {
   companionDays: number;
 }
 
+export interface AdminDeviceDetailBindingPet {
+  id: string;
+  name: string;
+  species: Species | null;
+  speciesLabel: string | null;
+  avatarUrl: string | null;
+}
+
 export interface AdminDeviceRelationItem {
   type: DeviceType;
   id: string;
@@ -206,6 +232,7 @@ export interface AdminDeviceDetail {
   device: AdminDeviceListItem;
   owner: AdminDeviceDetailOwner | null;
   pet: AdminDeviceDetailPet | null;
+  bindingPets?: AdminDeviceDetailBindingPet[];
   relatedDevices: AdminDeviceRelationItem[];
   avatarProgress: AdminDeviceDetailAvatarProgress;
   lastSyncedAt: string | null;
@@ -244,7 +271,60 @@ export interface PetAvatarAction {
   actionType: string;
   imageUrl: string;
   videoUrl?: string | null;
+  videoHash?: string | null;
   sortOrder: number;
+}
+
+export type CustomizationTaskCategoryStatus =
+  | "empty"
+  | "partial"
+  | "base_done"
+  | "all_done";
+
+export interface CustomizationTask {
+  avatarId: string;
+  petId: string;
+  petName: string;
+  petSpecies: Species;
+  petBreed: string | null;
+  petGender: Gender;
+  petBirthday: string | null;
+  userId: string;
+  userNickname: string;
+  userAvatarUrl: string | null;
+  userPhone: string | null;
+  status: AvatarStatus;
+  defaultPreviewUrl: string | null;
+  baseActionCount: number;
+  funActionCount: number;
+  interactiveActionCount: number;
+  personalizedActionCount: number;
+  totalActionCount: number;
+  baseActionTotal: number;
+  funActionTotal: number;
+  interactiveActionTotal: number;
+  personalizedActionTotal: number;
+  supportsFunActions: boolean;
+  supportsInteractiveActions: boolean;
+  categoryStatus: CustomizationTaskCategoryStatus;
+  isNewToday: boolean;
+  createdAt: string;
+  reviewedAt: string | null;
+}
+
+export interface AvatarReviewStats {
+  pendingReview: number;
+  approvedTotal: number;
+  syncedToDevices: number;
+  todayNewUploads: number;
+  todayCompleted: number;
+}
+
+export interface PresignResponse {
+  uploadUrl: string;
+  publicUrl: string;
+  key: string;
+  expiresAt: string;
 }
 
 export interface BehaviorSchedule {
@@ -295,6 +375,15 @@ export interface WsAvatarDoneMessage {
   };
 }
 
+export interface WsMessageNewMessage {
+  type: "message:new";
+  data: {
+    title: string;
+    content: string;
+    messageType: MessageType;
+  };
+}
+
 export interface WsPingMessage {
   type: "ping";
 }
@@ -306,6 +395,7 @@ export interface WsPongMessage {
 export type WsMessage =
   | WsBehaviorNewMessage
   | WsAvatarDoneMessage
+  | WsMessageNewMessage
   | WsPingMessage
   | WsPongMessage;
 
@@ -317,6 +407,8 @@ export interface InvitePayload {
   petName: string;
   fromNickname: string;
 }
+
+export type DefaultFreeBenefit = (typeof DEFAULT_FREE_BENEFITS)[number];
 
 // ===== 用户设置 =====
 

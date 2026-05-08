@@ -4,17 +4,9 @@ import { messages, petAvatars, petAvatarActions, pets, users } from "../db/schem
 import { eq, and, ne, asc } from "drizzle-orm";
 import { broadcast } from "../ws";
 import { getUserAvatarQuotaSummary } from "../utils/avatarQuota";
+import { isManagedStorageUrl } from "../utils/storage";
 
 const avatarsRoute = new Hono();
-
-function isSafeImageUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 // 上传图片，创建定制任务
 avatarsRoute.post("/", async (c) => {
@@ -25,7 +17,7 @@ avatarsRoute.post("/", async (c) => {
     additionalImages?: string[];
   }>();
 
-  if (!isSafeImageUrl(body.sourceImageUrl)) {
+  if (!isManagedStorageUrl(body.sourceImageUrl)) {
     return c.json({ error: "Invalid sourceImageUrl" }, 400);
   }
 
@@ -48,7 +40,7 @@ avatarsRoute.post("/", async (c) => {
   }
 
   // 校验 additionalImages 中的 URL
-  if (body.additionalImages?.some((url) => !isSafeImageUrl(url))) {
+  if (body.additionalImages?.some((url) => !isManagedStorageUrl(url))) {
     return c.json({ error: "Invalid additionalImages URL" }, 400);
   }
 
@@ -103,7 +95,7 @@ avatarsRoute.post("/:id/actions", async (c) => {
   if (!Array.isArray(body.actions) || body.actions.length === 0) {
     return c.json({ error: "actions is required" }, 400);
   }
-  if (body.actions.some((action) => !isSafeImageUrl(action.imageUrl))) {
+  if (body.actions.some((action) => !isManagedStorageUrl(action.imageUrl))) {
     return c.json({ error: "Invalid action imageUrl" }, 400);
   }
 
@@ -176,6 +168,14 @@ avatarsRoute.post("/:id/actions", async (c) => {
   });
 
   if (shouldNotify) {
+    broadcast(pet.userId, {
+      type: "message:new",
+      data: {
+        title: "形象已就绪",
+        content: `${pet.name} 的新形象已生成，快去主页看看吧。`,
+        messageType: "system",
+      },
+    });
     broadcast(pet.userId, {
       type: "avatar:done",
       data: {

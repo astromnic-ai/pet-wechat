@@ -1,8 +1,22 @@
-import { useEffect, useState, type CSSProperties, type MouseEvent } from "react";
-import { Badge, Button, Card, Input, InputNumber, Modal, Select, Space, Tabs, Tag, message } from "antd";
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  Divider,
+  InputNumber,
+  Modal,
+  Select,
+  Space,
+  Tag,
+  message,
+} from "antd";
 import {
   ACTION_LABELS,
   ALL_ACTIONS,
+  BASIC_ACTIONS,
+  FUN_ACTIONS,
+  INTERACTIVE_ACTIONS,
   SCHEDULE_SPECIES,
   type ActionType,
   type BehaviorSchedule,
@@ -11,7 +25,7 @@ import {
 import { api } from "../api/client";
 
 type ScheduleSpecies = (typeof SCHEDULE_SPECIES)[number];
-type ScheduleEffectiveType = "everyday" | "weekday";
+type ScheduleEffectiveType = "everyday" | "weekday" | "friday";
 type BlockModalMode = "create" | "edit";
 type BlockFormState = {
   actionType: ActionType;
@@ -21,28 +35,88 @@ type BlockFormState = {
   endMinute: number | null;
 };
 
+type DragState = {
+  blockId: string;
+  pointerOffsetMinutes: number;
+  durationMinutes: number;
+};
+
+type PendingBlockPointerState = {
+  blockId: string;
+  startClientY: number;
+  pointerOffsetMinutes: number;
+  durationMinutes: number;
+};
+
 const speciesLabels: Record<ScheduleSpecies, string> = {
   cat: "猫",
   dog: "狗",
   other: "其他",
 };
 
+const speciesEnglishLabels: Record<ScheduleSpecies, string> = {
+  cat: "Cat",
+  dog: "Dog",
+  other: "Other",
+};
+
 const effectiveTypeLabels: Record<ScheduleEffectiveType, string> = {
   everyday: "每天",
   weekday: "仅工作日",
+  friday: "仅美好的周五",
 };
 
-const timelineHours = Array.from({ length: 25 }, (_, index) => index);
+const effectiveTypeEnglishLabels: Record<ScheduleEffectiveType, string> = {
+  everyday: "Daily",
+  weekday: "Weekdays Only",
+  friday: "Beauty Friday Only",
+};
+
+const actionEnglishLabels: Record<ActionType, string> = {
+  sit: "Sitting",
+  eat: "Eating",
+  sleep: "Sleeping",
+  lie: "Resting",
+  run: "Running",
+  walk: "Walking",
+  stand: "Standing",
+  jump: "Jumping",
+  play_ball: "Playing",
+  poop: "Pooping",
+  drink_water: "Drinking",
+  chase_tail: "Chasing",
+  butterfly: "Catching",
+  dream: "Dreaming",
+  lick_paw: "Licking",
+  spin: "Spinning",
+  dizzy: "Dizzy",
+  get_closer: "Approaching",
+  run_fast: "Sprinting",
+  woken_up: "Responding",
+  eat_shrimp: "Eating Treat",
+  well_behaved: "Behaving",
+  confused: "Confused",
+  walk_left: "Walking Side",
+};
+
+const MINUTES_PER_DAY = 24 * 60;
+const TIMELINE_SEGMENT_MINUTES = 3 * 60;
+const TIMELINE_SEGMENT_HEIGHT = 110;
+const verticalTimelineHours = Array.from({ length: 8 }, (_, index) => index * 3);
+const TIMELINE_CANVAS_HEIGHT = verticalTimelineHours.length * TIMELINE_SEGMENT_HEIGHT;
+const DRAG_SNAP_MINUTES = 15;
+const DRAG_START_THRESHOLD_PX = 6;
 
 const timelineStyles: Record<string, CSSProperties> = {
   page: {
-    display: "flex",
+    display: "grid",
+    gridTemplateColumns: "220px minmax(0, 1fr) 300px",
     gap: 16,
     minHeight: "calc(100vh - 140px)",
+    alignItems: "stretch",
   },
   sidebar: {
-    width: 300,
-    minWidth: 300,
+    minWidth: 0,
     display: "flex",
     flexDirection: "column",
     background: "#fff",
@@ -55,20 +129,16 @@ const timelineStyles: Record<string, CSSProperties> = {
     minHeight: 0,
     display: "flex",
     flexDirection: "column",
+    gap: 12,
   },
-  cardList: {
-    flex: 1,
-    minHeight: 0,
-    overflowY: "auto",
-    paddingRight: 4,
-  },
-  scheduleCard: {
+  speciesItem: {
     cursor: "pointer",
-    marginBottom: 12,
     borderRadius: 10,
+    padding: 14,
+    border: "1px solid #f0f0f0",
+    background: "#fff",
   },
   main: {
-    flex: 1,
     minWidth: 0,
     display: "flex",
     flexDirection: "column",
@@ -78,9 +148,25 @@ const timelineStyles: Record<string, CSSProperties> = {
     background: "#fff",
     border: "1px solid #f0f0f0",
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
   },
   timelineCard: {
+    background: "#fff",
+    border: "1px solid #f0f0f0",
+    borderRadius: 12,
+    padding: 16,
+  },
+  actionLibraryCard: {
+    background: "#fff",
+    border: "1px solid #f0f0f0",
+    borderRadius: 12,
+    padding: 16,
+  },
+  attributePanel: {
+    minWidth: 0,
+    display: "flex",
+    flexDirection: "column",
+    gap: 16,
     background: "#fff",
     border: "1px solid #f0f0f0",
     borderRadius: 12,
@@ -113,7 +199,91 @@ const timelineStyles: Record<string, CSSProperties> = {
     textAlign: "center",
     padding: 24,
   },
+  scheduleBoard: {
+    display: "grid",
+    gridTemplateColumns: "72px minmax(0, 1fr)",
+    gap: 16,
+    alignItems: "start",
+  },
+  timeRail: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 0,
+    position: "relative",
+  },
+  timeRailItem: {
+    height: TIMELINE_SEGMENT_HEIGHT,
+    position: "relative",
+    color: "#98a2b3",
+    fontSize: 12,
+    fontWeight: 600,
+    paddingLeft: 6,
+    borderLeft: "1px solid #e8edf5",
+  },
+  scheduleColumn: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  },
+  scheduleCanvas: {
+    position: "relative",
+    height: TIMELINE_CANVAS_HEIGHT,
+    borderRadius: 16,
+    background: "#fff",
+    overflow: "hidden",
+    userSelect: "none",
+  },
+  scheduleGridLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    background: "#eef2f7",
+    pointerEvents: "none",
+  },
+  scheduleGridBand: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    borderRadius: 14,
+    background: "#fafcff",
+    border: "1px dashed #e7edf6",
+    pointerEvents: "none",
+  },
+  addBehaviorButton: {
+    width: "100%",
+    height: 62,
+    borderRadius: 14,
+    border: "1px solid #d7e3f5",
+    background: "#f9fbff",
+    color: "#9aa9bf",
+    fontWeight: 600,
+  },
 };
+
+const actionGroupMeta = [
+  {
+    key: "basic",
+    title: "基础动作",
+    description: "八种基础动作，用于日常主行为配置。",
+    color: "#1677ff",
+    actions: BASIC_ACTIONS,
+  },
+  {
+    key: "fun",
+    title: "趣味动作",
+    description: "八种趣味动作，用于穿插在主行为之间。",
+    color: "#722ed1",
+    actions: FUN_ACTIONS,
+  },
+  {
+    key: "interactive",
+    title: "交互动作",
+    description: "八种交互动作，用于响应用户主动互动。",
+    color: "#13c2c2",
+    actions: INTERACTIVE_ACTIONS,
+  },
+] as const;
 
 function cloneSchedule(schedule: BehaviorSchedule): BehaviorSchedule {
   return {
@@ -209,9 +379,93 @@ function getDefaultBlockRange(clickedMinutes: number) {
   return { startMinutes, endMinutes };
 }
 
+function snapMinutes(minutes: number) {
+  return Math.round(minutes / DRAG_SNAP_MINUTES) * DRAG_SNAP_MINUTES;
+}
+
+function minutesToTimelineOffset(minutes: number) {
+  return (Math.max(0, Math.min(MINUTES_PER_DAY, minutes)) / TIMELINE_SEGMENT_MINUTES) * TIMELINE_SEGMENT_HEIGHT;
+}
+
+function timelineOffsetToMinutes(offset: number, canvasHeight: number) {
+  return Math.round((Math.max(0, Math.min(canvasHeight, offset)) / Math.max(canvasHeight, 1)) * MINUTES_PER_DAY);
+}
+
+function getNextSequentialBlockRange(blocks: BehaviorScheduleBlock[]) {
+  const normalizedBlocks = normalizeBlocks(blocks);
+  const latestBlock = normalizedBlocks[normalizedBlocks.length - 1];
+  if (!latestBlock) {
+    return null;
+  }
+
+  const startMinutes = latestBlock.endMinutes;
+  if (startMinutes >= 1440) {
+    return null;
+  }
+
+  const endMinutes = Math.min(1440, startMinutes + 60);
+  return { startMinutes, endMinutes };
+}
+
 function actionColor(actionType: string) {
   const hash = actionType.split("").reduce((value, char) => value + char.charCodeAt(0), 0);
   return `hsl(${hash % 360}deg 72% 62%)`;
+}
+
+function getActionVisual(actionType: ActionType) {
+  const defaults = {
+    dot: "#7c8aa5",
+    border: "#d7e0ef",
+    background: "#f8fbff",
+    text: "#2f3f57",
+  };
+
+  const map: Partial<Record<ActionType, typeof defaults>> = {
+    sleep: {
+      dot: "#5b5ce9",
+      border: "#2f3952",
+      background: "#253247",
+      text: "#f4f6fb",
+    },
+    lie: {
+      dot: "#6f71f4",
+      border: "#7d83ff",
+      background: "#eef0ff",
+      text: "#4c57cb",
+    },
+    eat: {
+      dot: "#22c55e",
+      border: "#2ed573",
+      background: "#eafbf0",
+      text: "#26b45b",
+    },
+    play_ball: {
+      dot: "#f59e0b",
+      border: "#ffa31a",
+      background: "#fff5d6",
+      text: "#cc7a00",
+    },
+    run: {
+      dot: "#f59e0b",
+      border: "#ffa31a",
+      background: "#fff5d6",
+      text: "#cc7a00",
+    },
+    walk: {
+      dot: "#3b82f6",
+      border: "#6ea8ff",
+      background: "#edf5ff",
+      text: "#2c71dd",
+    },
+  };
+
+  return map[actionType] ?? {
+    ...defaults,
+    dot: actionColor(actionType),
+    border: `${actionColor(actionType)}55`,
+    background: `${actionColor(actionType)}12`,
+    text: "#334155",
+  };
 }
 
 function isDraftSchedule(scheduleId: string) {
@@ -230,6 +484,15 @@ function hasBlockOverlap(
   });
 }
 
+function pickDefaultSchedule(
+  schedules: BehaviorSchedule[],
+  draftSchedule: BehaviorSchedule | null,
+  species: ScheduleSpecies,
+) {
+  const speciesSchedules = getSchedulesForSpecies(schedules, draftSchedule, species);
+  return speciesSchedules.find((schedule) => schedule.isActive) ?? speciesSchedules[0] ?? null;
+}
+
 export default function Schedules() {
   const [messageApi, contextHolder] = message.useMessage();
   const [loading, setLoading] = useState(false);
@@ -245,9 +508,12 @@ export default function Schedules() {
   const [blockModalMode, setBlockModalMode] = useState<BlockModalMode>("create");
   const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
   const [blockForm, setBlockForm] = useState<BlockFormState>(() => buildBlockForm(0, 60));
-
-  const schedulesForActiveSpecies = getSchedulesForSpecies(schedules, draftSchedule, activeSpecies);
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const scheduleCanvasRef = useRef<HTMLDivElement | null>(null);
+  const pendingBlockPointerRef = useRef<PendingBlockPointerState | null>(null);
+  const activeDraggedBlockIdRef = useRef<string | null>(null);
   const selectedBlock = editorSchedule?.blocks?.find((block) => block.id === selectedBlockId) ?? null;
+  const sortedBlocks = normalizeBlocks(editorSchedule?.blocks ?? []);
 
   const refreshSchedules = async (
     preferredId: string | null = selectedScheduleId,
@@ -284,6 +550,103 @@ export default function Schedules() {
     setSelectedBlockId(null);
   }, [draftSchedule, schedules, selectedScheduleId]);
 
+  useEffect(() => {
+    if (!dragState) {
+      return;
+    }
+
+    const handlePointerMove = (event: globalThis.MouseEvent) => {
+      if (!editorSchedule || !scheduleCanvasRef.current) {
+        return;
+      }
+
+      let currentDragState = dragState;
+      if (!dragState && pendingBlockPointerRef.current) {
+        const pendingState = pendingBlockPointerRef.current;
+        if (Math.abs(event.clientY - pendingState.startClientY) >= DRAG_START_THRESHOLD_PX) {
+          activeDraggedBlockIdRef.current = pendingState.blockId;
+          currentDragState = {
+            blockId: pendingState.blockId,
+            pointerOffsetMinutes: pendingState.pointerOffsetMinutes,
+            durationMinutes: pendingState.durationMinutes,
+          };
+          setDragState({
+            blockId: pendingState.blockId,
+            pointerOffsetMinutes: pendingState.pointerOffsetMinutes,
+            durationMinutes: pendingState.durationMinutes,
+          });
+          pendingBlockPointerRef.current = null;
+        } else {
+          return;
+        }
+      }
+
+      if (!currentDragState && !activeDraggedBlockIdRef.current) {
+        return;
+      }
+
+      if (!currentDragState) {
+        return;
+      }
+
+      const rect = scheduleCanvasRef.current.getBoundingClientRect();
+      const rawMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
+      const snappedStart = snapMinutes(rawMinutes - currentDragState.pointerOffsetMinutes);
+      const startMinutes = Math.max(0, Math.min(MINUTES_PER_DAY - currentDragState.durationMinutes, snappedStart));
+      const endMinutes = startMinutes + currentDragState.durationMinutes;
+
+      const editorBlocks = editorSchedule.blocks ?? [];
+      const movingBlock = editorBlocks.find((block) => block.id === currentDragState.blockId);
+      if (!movingBlock) {
+        return;
+      }
+
+      const nextBlock = {
+        ...movingBlock,
+        startMinutes,
+        endMinutes,
+      };
+
+      if (hasBlockOverlap(editorBlocks, nextBlock)) {
+        return;
+      }
+
+      updateEditorSchedule((current) => ({
+        ...current,
+        blocks: (current.blocks ?? []).map((block) => (block.id === currentDragState.blockId ? nextBlock : block)),
+      }));
+      setSelectedBlockId(currentDragState.blockId);
+    };
+
+    const handlePointerUp = () => {
+      if (pendingBlockPointerRef.current) {
+        const { blockId } = pendingBlockPointerRef.current;
+        pendingBlockPointerRef.current = null;
+        activeDraggedBlockIdRef.current = null;
+        setSelectedBlockId(blockId);
+        setEditingBlockId(blockId);
+        const block = (editorSchedule?.blocks ?? []).find((item) => item.id === blockId);
+        if (block) {
+          setBlockModalMode("edit");
+          setBlockForm(buildBlockForm(block.startMinutes, block.endMinutes, block.actionType));
+          setBlockModalOpen(true);
+        }
+        return;
+      }
+
+      activeDraggedBlockIdRef.current = null;
+      setDragState(null);
+    };
+
+    window.addEventListener("mousemove", handlePointerMove);
+    window.addEventListener("mouseup", handlePointerUp);
+
+    return () => {
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("mouseup", handlePointerUp);
+    };
+  }, [dragState, editorSchedule]);
+
   const updateEditorSchedule = (updater: (current: BehaviorSchedule) => BehaviorSchedule) => {
     setEditorSchedule((current) => {
       if (!current) {
@@ -311,8 +674,20 @@ export default function Schedules() {
     setSelectedBlockId(null);
   };
 
-  const openCreateBlockModal = (clickedMinutes: number) => {
-    const { startMinutes, endMinutes } = getDefaultBlockRange(clickedMinutes);
+  const handleAddBehavior = () => {
+    const nextRange = getNextSequentialBlockRange(sortedBlocks);
+    if (nextRange) {
+      openCreateBlockModal(nextRange.startMinutes, nextRange.endMinutes);
+      return;
+    }
+    openCreateBlockModal(9 * 60);
+  };
+
+  const openCreateBlockModal = (clickedMinutes: number, defaultEndMinutes?: number) => {
+    const { startMinutes, endMinutes } =
+      typeof defaultEndMinutes === "number"
+        ? { startMinutes: clickedMinutes, endMinutes: defaultEndMinutes }
+        : getDefaultBlockRange(clickedMinutes);
     setBlockModalMode("create");
     setEditingBlockId(null);
     setBlockForm(buildBlockForm(startMinutes, endMinutes));
@@ -329,13 +704,28 @@ export default function Schedules() {
     setBlockModalOpen(true);
   };
 
+  const deleteBlockById = (blockId: string | null) => {
+    if (!blockId) {
+      return;
+    }
+
+    updateEditorSchedule((current) => ({
+      ...current,
+      blocks: (current.blocks ?? []).filter((block) => block.id !== blockId),
+    }));
+    setSelectedBlockId((current) => (current === blockId ? null : current));
+    if (editingBlockId === blockId) {
+      closeBlockModal();
+    }
+  };
+
   const handleTimelineClick = (event: MouseEvent<HTMLDivElement>) => {
     if (!editorSchedule) {
       return;
     }
     const rect = event.currentTarget.getBoundingClientRect();
-    const relativeX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
-    const clickedMinutes = Math.round((relativeX / Math.max(rect.width, 1)) * 1440);
+    const relativeY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const clickedMinutes = Math.round((relativeY / Math.max(rect.height, 1)) * MINUTES_PER_DAY);
     openCreateBlockModal(clickedMinutes);
   };
 
@@ -423,25 +813,18 @@ export default function Schedules() {
   };
 
   const handleDeleteSelectedBlock = () => {
-    if (!selectedBlockId) {
-      return;
-    }
-    updateEditorSchedule((current) => ({
-      ...current,
-      blocks: (current.blocks ?? []).filter((block) => block.id !== selectedBlockId),
-    }));
-    setSelectedBlockId(null);
+    deleteBlockById(selectedBlockId);
   };
 
-  const handleSaveSchedule = async () => {
+  const persistSchedule = async () => {
     if (!editorSchedule) {
-      return;
+      return null;
     }
 
     const name = editorSchedule.name.trim();
     if (!name) {
       messageApi.error("请输入日程名称");
-      return;
+      return null;
     }
 
     const payload = {
@@ -461,16 +844,25 @@ export default function Schedules() {
       if (isDraftSchedule(editorSchedule.id)) {
         const response = await api.createSchedule(payload);
         await refreshSchedules(response.schedule.id, null, editorSchedule.species);
+        return response.schedule.id as string;
       } else {
         const response = await api.updateSchedule(editorSchedule.id, payload);
         await refreshSchedules(response.schedule.id, draftSchedule, editorSchedule.species);
+        return response.schedule.id as string;
       }
-      messageApi.success("日程已保存");
     } catch (error) {
       const text = error instanceof Error ? error.message : "保存失败";
       messageApi.error(text);
+      return null;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveSchedule = async () => {
+    const scheduleId = await persistSchedule();
+    if (scheduleId) {
+      messageApi.success("日程已保存");
     }
   };
 
@@ -500,63 +892,40 @@ export default function Schedules() {
         <div style={timelineStyles.sidebar}>
           <div style={{ marginBottom: 12, fontSize: 16, fontWeight: 600 }}>行为日程</div>
           <div style={timelineStyles.sidebarBody}>
-            <Tabs
-              activeKey={activeSpecies}
-              onChange={handleSpeciesChange}
-              items={SCHEDULE_SPECIES.map((species) => ({
-                key: species,
-                label: speciesLabels[species],
-                children: (
-                  <div style={timelineStyles.cardList}>
-                    {schedulesForActiveSpecies.length === 0 ? (
-                      <div
-                        style={{
-                          padding: "40px 12px",
-                          textAlign: "center",
-                          color: "#8c8c8c",
-                        }}
-                      >
-                        {loading ? "正在加载日程..." : "当前类型暂无日程"}
-                      </div>
-                    ) : null}
+            <div style={{ color: "#8c8c8c", fontSize: 13 }}>宠物类型</div>
+            {SCHEDULE_SPECIES.map((species) => {
+              const schedule = pickDefaultSchedule(schedules, draftSchedule, species);
+              const selected = species === activeSpecies;
 
-                    {schedulesForActiveSpecies.map((schedule) => {
-                      const selected = schedule.id === selectedScheduleId;
-                      return (
-                        <Card
-                          key={schedule.id}
-                          size="small"
-                          hoverable
-                          onClick={() => {
-                            setSelectedScheduleId(schedule.id);
-                            setSelectedBlockId(null);
-                          }}
-                          style={{
-                            ...timelineStyles.scheduleCard,
-                            border: selected ? "1px solid #1677ff" : "1px solid #f0f0f0",
-                            boxShadow: selected ? "0 0 0 2px rgba(22,119,255,0.12)" : "none",
-                          }}
-                        >
-                          <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                            <div style={{ fontWeight: 600, color: "#262626" }}>{schedule.name}</div>
-                            <Space size={8} wrap>
-                              <Tag color="blue">
-                                {effectiveTypeLabels[schedule.effectiveType as ScheduleEffectiveType] ?? schedule.effectiveType}
-                              </Tag>
-                              {schedule.isActive ? <Badge status="success" text="已激活" /> : null}
-                              {isDraftSchedule(schedule.id) ? <Tag>未保存</Tag> : null}
-                            </Space>
-                          </Space>
-                        </Card>
-                      );
-                    })}
+              return (
+                <div
+                  key={species}
+                  onClick={() => handleSpeciesChange(species)}
+                  style={{
+                    ...timelineStyles.speciesItem,
+                    border: selected ? "1px solid #1677ff" : "1px solid #f0f0f0",
+                    boxShadow: selected ? "0 0 0 2px rgba(22,119,255,0.12)" : "none",
+                    background: selected ? "#f7fbff" : "#fff",
+                  }}
+                >
+                  <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 6 }}>{speciesLabels[species]}</div>
+                  <div style={{ fontSize: 12, color: "#8c8c8c", marginBottom: 8 }}>
+                    {schedule ? schedule.name : loading ? "加载中..." : "暂无配置"}
                   </div>
-                ),
-              }))}
-            />
+                  <Space size={6} wrap>
+                    {schedule ? (
+                      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                        {effectiveTypeLabels[schedule.effectiveType as ScheduleEffectiveType] ?? schedule.effectiveType}
+                      </Tag>
+                    ) : null}
+                    {schedule?.isActive ? <Badge status="success" text="已应用" /> : null}
+                  </Space>
+                </div>
+              );
+            })}
 
-            <Button type="primary" block style={{ marginTop: 12 }} onClick={handleCreateSchedule}>
-              新建日程
+            <Button type="primary" block onClick={handleCreateSchedule}>
+              新建当前类型配置
             </Button>
           </div>
         </div>
@@ -571,175 +940,285 @@ export default function Schedules() {
             </div>
           ) : (
             <>
-              <div style={timelineStyles.editorHeader}>
-                <Space size={16} align="start" wrap style={{ width: "100%" }}>
-                  <div style={{ minWidth: 280, flex: 1 }}>
-                    <div style={{ marginBottom: 8, color: "#595959" }}>日程名称</div>
-                    <Input
-                      value={editorSchedule.name}
-                      onChange={(event) =>
-                        updateEditorSchedule((current) => ({
-                          ...current,
-                          name: event.target.value,
-                        }))
-                      }
-                      placeholder="请输入日程名称"
-                    />
-                  </div>
-                  <div style={{ width: 220 }}>
-                    <div style={{ marginBottom: 8, color: "#595959" }}>生效策略</div>
-                    <Select
-                      value={editorSchedule.effectiveType}
-                      style={{ width: "100%" }}
-                      onChange={(value: ScheduleEffectiveType) =>
-                        updateEditorSchedule((current) => ({
-                          ...current,
-                          effectiveType: value,
-                        }))
-                      }
-                      options={[
-                        { label: "每天", value: "everyday" },
-                        { label: "仅工作日", value: "weekday" },
-                        { label: "仅节假日（待支持）", value: "holiday", disabled: true },
-                      ]}
-                    />
-                  </div>
-                </Space>
-              </div>
-
               <div style={timelineStyles.timelineCard}>
                 <Space direction="vertical" size={16} style={{ width: "100%" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     <div>
-                      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>24 小时时间轴</div>
+                      <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>日程名称与时间区间</div>
                       <div style={{ color: "#8c8c8c" }}>
-                        点击空白区域新增时间块，点击时间块后可编辑或删除。
+                        点击空白日历区域选择时间段，下方按钮可快速添加行为。
                       </div>
                     </div>
-                    <Space wrap>
-                      <Button disabled={!selectedBlock} onClick={openEditBlockModal}>
-                        编辑选中时间块
+                    <Tag color="blue" style={{ marginInlineEnd: 0 }}>
+                      {editorSchedule.name}
+                    </Tag>
+                  </div>
+
+                  <div style={timelineStyles.scheduleBoard}>
+                    <div style={timelineStyles.timeRail}>
+                      {verticalTimelineHours.map((hour) => (
+                        <div key={hour} style={timelineStyles.timeRailItem}>
+                          <div style={{ position: "absolute", top: 0, left: -22 }}>{String(hour).padStart(2, "0")}:00</div>
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 8,
+                              left: -1,
+                              width: 1,
+                              height: 44,
+                              background: hour === 12 ? "#3b82f6" : "#dfe6f2",
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={timelineStyles.scheduleColumn}>
+                      <div
+                        ref={scheduleCanvasRef}
+                        style={{
+                          ...timelineStyles.scheduleCanvas,
+                          cursor: dragState ? "grabbing" : "default",
+                        }}
+                        onClick={handleTimelineClick}
+                      >
+                        {verticalTimelineHours.map((hour, index) => {
+                          const top = index * TIMELINE_SEGMENT_HEIGHT;
+                          return (
+                            <div key={hour}>
+                              <div style={{ ...timelineStyles.scheduleGridLine, top }} />
+                              <div
+                                style={{
+                                  ...timelineStyles.scheduleGridBand,
+                                  top: top + 10,
+                                  height: TIMELINE_SEGMENT_HEIGHT - 20,
+                                }}
+                              />
+                            </div>
+                          );
+                        })}
+
+                        {sortedBlocks.length > 0 ? (
+                          sortedBlocks.map((block) => {
+                            const isSelected = selectedBlockId === block.id;
+                            const visual = getActionVisual(block.actionType);
+                            const top = minutesToTimelineOffset(block.startMinutes);
+                            const blockHeight = Math.max(
+                              40,
+                              minutesToTimelineOffset(block.endMinutes) - minutesToTimelineOffset(block.startMinutes),
+                            );
+                            const compact = blockHeight < 72;
+
+                            return (
+                              <div
+                                key={block.id}
+                                onMouseDown={(event) => {
+                                  event.stopPropagation();
+                                  if (!scheduleCanvasRef.current) {
+                                    return;
+                                  }
+
+                                  const rect = scheduleCanvasRef.current.getBoundingClientRect();
+                                  const pointerMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
+                                  pendingBlockPointerRef.current = {
+                                    blockId: block.id,
+                                    startClientY: event.clientY,
+                                    pointerOffsetMinutes: Math.max(0, pointerMinutes - block.startMinutes),
+                                    durationMinutes: block.endMinutes - block.startMinutes,
+                                  };
+                                  setSelectedBlockId(block.id);
+                                }}
+                                style={{
+                                  position: "absolute",
+                                  top,
+                                  left: 12,
+                                  right: 12,
+                                  height: blockHeight,
+                                  borderRadius: 14,
+                                  border: `2px solid ${isSelected ? visual.dot : visual.border}`,
+                                  background: visual.background,
+                                  padding: compact ? "10px 14px" : "16px 18px",
+                                  display: "flex",
+                                  alignItems: "flex-start",
+                                  gap: 14,
+                                  cursor: dragState?.blockId === block.id ? "grabbing" : "grab",
+                                  boxShadow: isSelected ? `0 0 0 2px ${visual.border}` : "none",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: compact ? 16 : 20,
+                                    height: compact ? 16 : 20,
+                                    borderRadius: "50%",
+                                    background: visual.dot,
+                                    flexShrink: 0,
+                                    marginTop: 2,
+                                  }}
+                                  />
+                                <div style={{ minWidth: 0 }}>
+                                  <div
+                                    style={{
+                                      fontSize: compact ? 12 : 13,
+                                      fontWeight: 700,
+                                      color: visual.text,
+                                      lineHeight: 1.3,
+                                      whiteSpace: "nowrap",
+                                      overflow: "hidden",
+                                      textOverflow: "ellipsis",
+                                    }}
+                                  >
+                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]} ·{" "}
+                                    {formatTime(block.startMinutes)}-{formatTime(block.endMinutes)}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 12,
+                              left: 12,
+                              right: 12,
+                              borderRadius: 14,
+                              border: "1px dashed #d7e3f5",
+                              background: "#fafcff",
+                              padding: 32,
+                              textAlign: "center",
+                              color: "#98a2b3",
+                            }}
+                          >
+                            当前还没有行为，请点击空白区域或下方按钮添加。
+                          </div>
+                        )}
+                      </div>
+
+                      <Button style={timelineStyles.addBehaviorButton} onClick={handleAddBehavior}>
+                        + 点击添加宠物行为
                       </Button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ color: "#8c8c8c", fontSize: 12 }}>
+                      已添加 {(editorSchedule.blocks ?? []).length} 个行为时间段
+                    </div>
+                    <Space wrap>
                       <Button danger disabled={!selectedBlock} onClick={handleDeleteSelectedBlock}>
-                        删除选中时间块
+                        删除行为
                       </Button>
                     </Space>
                   </div>
-
-                  <div style={timelineStyles.timelineScale}>
-                    {timelineHours.map((hour) => (
-                      <div
-                        key={hour}
-                        style={{
-                          position: "absolute",
-                          left: `${(hour / 24) * 100}%`,
-                          transform: "translateX(-50%)",
-                          top: 0,
-                          fontSize: 12,
-                          color: "#8c8c8c",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {hour}:00
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={timelineStyles.timelineLane} onClick={handleTimelineClick}>
-                    {timelineHours.map((hour) => (
-                      <div
-                        key={`grid-${hour}`}
-                        style={{
-                          position: "absolute",
-                          left: `${(hour / 24) * 100}%`,
-                          top: 0,
-                          bottom: 0,
-                          width: 1,
-                          background: hour === 0 || hour === 24 ? "#d9d9d9" : "#f0f0f0",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    ))}
-
-                    {(editorSchedule.blocks ?? []).map((block) => {
-                      const left = (block.startMinutes / 1440) * 100;
-                      const width = ((block.endMinutes - block.startMinutes) / 1440) * 100;
-                      const isSelected = selectedBlockId === block.id;
-                      return (
-                        <div
-                          key={block.id}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setSelectedBlockId(block.id);
-                          }}
-                          style={{
-                            position: "absolute",
-                            left: `${left}%`,
-                            width: `${width}%`,
-                            top: 24,
-                            height: 40,
-                            borderRadius: 8,
-                            background: actionColor(block.actionType),
-                            border: isSelected ? "2px solid #262626" : "1px solid rgba(0,0,0,0.08)",
-                            boxSizing: "border-box",
-                            color: "#fff",
-                            fontSize: 12,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            padding: "0 10px",
-                            overflow: "hidden",
-                            cursor: "pointer",
-                            boxShadow: isSelected ? "0 8px 18px rgba(0,0,0,0.18)" : "0 4px 10px rgba(0,0,0,0.1)",
-                          }}
-                        >
-                          <span
-                            style={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              fontWeight: 600,
-                            }}
-                          >
-                            {ACTION_LABELS[block.actionType] ?? block.actionType}
-                          </span>
-                          <span
-                            style={{
-                              marginLeft: 8,
-                              opacity: 0.92,
-                              whiteSpace: "nowrap",
-                              fontVariantNumeric: "tabular-nums",
-                            }}
-                          >
-                            {formatTime(block.startMinutes)} - {formatTime(block.endMinutes)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </Space>
-              </div>
-
-              <div
-                style={{
-                  background: "#fff",
-                  border: "1px solid #f0f0f0",
-                  borderRadius: 12,
-                  padding: 16,
-                }}
-              >
-                <Space wrap>
-                  <Button type="primary" loading={saving} onClick={() => void handleSaveSchedule()}>
-                    保存
-                  </Button>
-                  <Button loading={activating} onClick={() => void handleActivateSchedule()}>
-                    激活
-                  </Button>
-                  {editorSchedule.isActive ? <Badge status="success" text="当前日程已激活" /> : null}
                 </Space>
               </div>
             </>
           )}
+        </div>
+
+        <div style={timelineStyles.attributePanel}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>行为属性</div>
+            <div style={{ color: "#8c8c8c", fontSize: 13 }}>
+              配置循环规则后，先保存配置，再应用当前配置。
+            </div>
+          </div>
+
+          <div>
+            <div style={{ marginBottom: 8, color: "#595959", fontSize: 13 }}>循环规则</div>
+            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+              {(["everyday", "weekday", "friday"] as ScheduleEffectiveType[]).map((rule) => {
+                const selected = editorSchedule?.effectiveType === rule;
+                return (
+                  <div
+                    key={rule}
+                    onClick={() =>
+                      updateEditorSchedule((current) => ({
+                        ...current,
+                        effectiveType: rule,
+                      }))
+                    }
+                    style={{
+                      borderRadius: 12,
+                      border: selected ? "1px solid #6aa0ff" : "1px solid #e5e7eb",
+                      background: selected ? "#eef5ff" : "#fff",
+                      padding: "14px 16px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        background: selected ? "#3b82f6" : "#e2e8f0",
+                        boxShadow: selected ? "inset 0 0 0 4px #eef5ff" : "none",
+                        flexShrink: 0,
+                      }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, color: "#1f2937" }}>
+                        {effectiveTypeLabels[rule]} {effectiveTypeEnglishLabels[rule]}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </Space>
+          </div>
+
+          <div style={timelineStyles.actionLibraryCard}>
+            <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>动作参考</div>
+                    <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                      {actionGroupMeta.map((group) => (
+                        <div key={group.key}>
+                          <div style={{ color: group.color, fontWeight: 700, marginBottom: 6 }}>{group.title}</div>
+                          <div style={{ color: "#8c8c8c", fontSize: 12, marginBottom: 6 }}>{group.description}</div>
+                          <Space size={[6, 6]} wrap>
+                            {group.actions.map((action) => (
+                              <Tag
+                                key={action}
+                                color={group.key === "basic" ? "blue" : group.key === "fun" ? "purple" : "cyan"}
+                                style={{ marginInlineEnd: 0, borderRadius: 999 }}
+                              >
+                                {ACTION_LABELS[action]}
+                              </Tag>
+                    ))}
+                  </Space>
+                </div>
+              ))}
+            </Space>
+          </div>
+
+          <div
+            style={{
+              marginTop: "auto",
+              background: "#fafafa",
+              border: "1px solid #f0f0f0",
+              borderRadius: 12,
+              padding: 12,
+            }}
+          >
+            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+              <Button block loading={saving} disabled={!editorSchedule} onClick={() => void handleSaveSchedule()}>
+                保存配置
+              </Button>
+              <Button
+                type="primary"
+                block
+                loading={activating}
+                disabled={!editorSchedule || isDraftSchedule(editorSchedule.id)}
+                onClick={() => void handleActivateSchedule()}
+              >
+                应用当前配置
+              </Button>
+              {editorSchedule?.isActive ? <Badge status="success" text="当前配置已应用" /> : null}
+            </Space>
+          </div>
         </div>
       </div>
 
@@ -748,6 +1227,21 @@ export default function Schedules() {
         open={blockModalOpen}
         onOk={handleSubmitBlock}
         onCancel={closeBlockModal}
+        footer={(_, { OkBtn, CancelBtn }) => (
+          <Space style={{ width: "100%", justifyContent: "space-between" }}>
+            <Button
+              danger
+              disabled={blockModalMode !== "edit" || !editingBlockId}
+              onClick={() => deleteBlockById(editingBlockId)}
+            >
+              删除时间块
+            </Button>
+            <Space>
+              <CancelBtn />
+              <OkBtn />
+            </Space>
+          </Space>
+        )}
         destroyOnHidden
       >
         <Space direction="vertical" size={16} style={{ width: "100%" }}>
@@ -756,9 +1250,12 @@ export default function Schedules() {
             <Select<ActionType>
               value={blockForm.actionType}
               style={{ width: "100%" }}
-              options={ALL_ACTIONS.map((actionType) => ({
-                label: ACTION_LABELS[actionType] ?? actionType,
-                value: actionType,
+              options={actionGroupMeta.map((group) => ({
+                label: group.title,
+                options: group.actions.map((actionType) => ({
+                  label: ACTION_LABELS[actionType] ?? actionType,
+                  value: actionType,
+                })),
               }))}
               onChange={(value) =>
                 setBlockForm((current) => ({
@@ -767,6 +1264,30 @@ export default function Schedules() {
                 }))
               }
             />
+            <Divider style={{ margin: "12px 0" }} />
+            <Space size={[8, 8]} wrap>
+              {ALL_ACTIONS.map((action) => (
+                <Tag
+                  key={action}
+                  color={blockForm.actionType === action ? "processing" : "default"}
+                  onClick={() =>
+                    setBlockForm((current) => ({
+                      ...current,
+                      actionType: action,
+                    }))
+                  }
+                  style={{
+                    marginInlineEnd: 0,
+                    cursor: "pointer",
+                    borderRadius: 999,
+                    paddingInline: 10,
+                    userSelect: "none",
+                  }}
+                >
+                  {ACTION_LABELS[action]}
+                </Tag>
+              ))}
+            </Space>
           </div>
 
           <div>

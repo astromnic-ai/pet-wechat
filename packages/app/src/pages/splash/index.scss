@@ -25,39 +25,22 @@
 }
 
 .hero-badge {
-  width: 320rpx;
-  height: 320rpx;
-  border-radius: 160rpx;
+  width: 360rpx;
+  height: 360rpx;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .hero-image {
-  width: 320rpx;
-  height: 320rpx;
-  border-radius: 160rpx;
-}
-
-.title-badge {
-  margin-top: 32rpx;
-  padding: 12rpx 28rpx;
-  border-radius: 999rpx;
-  border: 2rpx solid #ffd671;
-  background: #ffffff;
-}
-
-.logo-text {
-  font-size: 34rpx;
-  font-weight: 600;
-  color: #ffd671;
-  letter-spacing: 6rpx;
+  width: 360rpx;
+  height: 360rpx;
 }
 
 .progress-bar {
   width: 300rpx;
   height: 10rpx;
-  margin-top: 52rpx;
+  margin-top: 44rpx;
   border-radius: 999rpx;
   background: #eaeaea;
   overflow: hidden;

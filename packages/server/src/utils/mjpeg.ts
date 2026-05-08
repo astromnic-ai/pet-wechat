@@ -1,23 +1,22 @@
-function findMarker(buffer: Buffer, first: number, second: number, startIndex: number) {
-  for (let index = startIndex; index < buffer.length - 1; index += 1) {
-    if (buffer[index] === first && buffer[index + 1] === second) {
-      return index;
+export function extractFirstJpegFrame(buffer: Buffer): Buffer | null {
+  let start = -1;
+
+  for (let index = 0; index < buffer.length - 1; index += 1) {
+    if (buffer[index] === 0xff && buffer[index + 1] === 0xd8) {
+      start = index;
+      break;
     }
   }
 
-  return -1;
-}
-
-export function extractFirstJpegFrame(buffer: Buffer) {
-  const start = findMarker(buffer, 0xff, 0xd8, 0);
-  if (start < 0) {
+  if (start === -1) {
     return null;
   }
 
-  const end = findMarker(buffer, 0xff, 0xd9, start + 2);
-  if (end < 0) {
-    return null;
+  for (let index = start + 2; index < buffer.length - 1; index += 1) {
+    if (buffer[index] === 0xff && buffer[index + 1] === 0xd9) {
+      return buffer.subarray(start, index + 2);
+    }
   }
 
-  return buffer.subarray(start, end + 2);
+  return null;
 }

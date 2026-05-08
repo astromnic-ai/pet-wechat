@@ -10,6 +10,13 @@ import {
 
 const app = createApp();
 
+function getStableTodayEventTime(now: Date) {
+  const todayStart = new Date(now);
+  todayStart.setHours(0, 0, 0, 0);
+  const elapsedTodayMs = now.getTime() - todayStart.getTime();
+  return new Date(now.getTime() - Math.min(60 * 60 * 1000, Math.max(0, elapsedTodayMs)));
+}
+
 describe("Pet Routes", () => {
   beforeEach(() => {
     mockDb._reset();
@@ -95,14 +102,22 @@ describe("Pet Routes", () => {
     it("returns aggregated counts and buckets for owner", async () => {
       const now = new Date();
       const todayEvent = fakeInteractionEvent({
-        occurredAt: new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0),
+        occurredAt: getStableTodayEventTime(now),
       });
       const weekEvent = fakeInteractionEvent({
         id: "interaction-2",
         occurredAt: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 2, 12, 0, 0),
       });
+      const oldEvent = fakeInteractionEvent({
+        id: "interaction-3",
+        occurredAt: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45, 8, 0, 0),
+      });
 
-      mockDb._results.select = [[fakePet()], [todayEvent, weekEvent]];
+      mockDb._results.select = [
+        [fakePet()],
+        [{ count: 3 }],
+        [todayEvent, weekEvent, oldEvent],
+      ];
 
       const headers = await authHeader("user-1");
       const res = await app.request(
@@ -111,23 +126,28 @@ describe("Pet Routes", () => {
 
       expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.totalCount).toBe(2);
+      expect(json.totalCount).toBe(3);
       expect(json.todayCount).toBe(1);
       expect(json.weekCount).toBe(2);
+      expect(json.monthCount).toBe(2);
       expect(json.buckets).toHaveLength(7);
     });
 
     it("excludes future events from day and rolling window counts", async () => {
       const now = new Date();
       const todayEvent = fakeInteractionEvent({
-        occurredAt: new Date(now.getTime() - 60 * 60 * 1000),
+        occurredAt: getStableTodayEventTime(now),
       });
       const futureEvent = fakeInteractionEvent({
         id: "interaction-future",
         occurredAt: new Date(now.getTime() + 5 * 60 * 1000),
       });
 
-      mockDb._results.select = [[fakePet()], [todayEvent, futureEvent]];
+      mockDb._results.select = [
+        [fakePet()],
+        [{ count: 2 }],
+        [todayEvent, futureEvent],
+      ];
 
       const headers = await authHeader("user-1");
       const res = await app.request(

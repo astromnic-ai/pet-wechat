@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { Hono } from "hono";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
-import { rewriteLocalAssetUrl } from "../../utils/publicUrl";
+import { extractFirstJpegFrame } from "../../utils/mjpeg";
+import { isManagedStorageUrl, normalizePublicFileUrl, uploadFile } from "../../utils/storage";
 import { broadcast } from "../../ws";
 
 const avatarsRoute = new Hono();
@@ -18,7 +20,11 @@ const VALID_AVATAR_STATUSES = new Set([
 ]);
 const EDITABLE_ACTION_STATUSES = new Set(["approved", "processing"]);
 const VALID_ACTIONS = new Set<string>(ALL_ACTIONS);
+const ADMIN_TIME_ZONE = "Asia/Shanghai";
+const MAX_ACTION_VIDEO_SIZE = 50 * 1024 * 1024;
+const ACTION_VIDEO_TYPES = new Set(["video/mjpeg", "video/x-motion-jpeg"]);
 type AvatarStatus = (typeof petAvatars.$inferSelect)["status"];
+type AvatarAction = typeof petAvatarActions.$inferSelect;
 
 type AvatarRow = {
   avatar: typeof petAvatars.$inferSelect;
@@ -36,18 +42,31 @@ type AvatarRow = {
   userPhone: string | null;
 };
 
-function isSafeAssetUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
 function toAvatarResponse(row: AvatarRow) {
+  const normalizedAdditionalImages = row.avatar.additionalImageUrls
+    ? (() => {
+        try {
+          const parsed = JSON.parse(row.avatar.additionalImageUrls);
+          if (!Array.isArray(parsed)) {
+            return row.avatar.additionalImageUrls;
+          }
+
+          return JSON.stringify(
+            parsed.map((item) =>
+              typeof item === "string" ? normalizePublicFileUrl(item) ?? item : item,
+            ),
+          );
+        } catch {
+          return row.avatar.additionalImageUrls;
+        }
+      })()
+    : null;
+
   return {
     ...row.avatar,
+    sourceImageUrl:
+      normalizePublicFileUrl(row.avatar.sourceImageUrl) ?? row.avatar.sourceImageUrl,
+    additionalImageUrls: normalizedAdditionalImages,
     pet: row.petId
       ? {
           id: row.petId,
@@ -68,6 +87,14 @@ function toAvatarResponse(row: AvatarRow) {
           phone: row.userPhone,
         }
       : null,
+  };
+}
+
+function toActionResponse(action: AvatarAction) {
+  return {
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
   };
 }
 
@@ -103,7 +130,19 @@ async function getAvatarActions(avatarId: string) {
     .where(eq(petAvatarActions.petAvatarId, avatarId))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
 
-  return actions;
+  return actions.map(toActionResponse);
+}
+
+function resolveActionVideoContentType(file: File) {
+  if (ACTION_VIDEO_TYPES.has(file.type)) {
+    return file.type;
+  }
+
+  if (/\.(mjpeg|mjpg)$/i.test(file.name)) {
+    return "video/mjpeg";
+  }
+
+  return null;
 }
 
 function getAvatarOwnerContext(row: AvatarRow) {
@@ -116,6 +155,59 @@ function getAvatarOwnerContext(row: AvatarRow) {
     petName: row.petName,
     userId: row.userId,
   };
+}
+
+function buildApprovalMessage() {
+  return {
+    title: "进度更新：您的宝贝数字影像开始“加载”啦！",
+    content:
+      "您的宠物图像已通过审核，现在正式进入【24组动态影像定制】阶段。请耐心等待，您的桌面小精灵正在赶来的路上。",
+  };
+}
+
+function buildRejectMessage(reason: string) {
+  switch (reason) {
+    case "该图片不是宠物图片":
+      return {
+        title: "图像审核未通过：未检测到宠物形象",
+        content:
+          "抱歉，您上传的图片中似乎没有发现可爱的宠物身影。本产品暂仅支持【猫/狗】的宠物专项影像定制，请重新上传一张宠物的清晰美照吧。",
+      };
+    case "宠物形象有遮挡":
+      return {
+        title: "图像审核未通过：宠物身体存在遮挡",
+        content:
+          "宠物照片被其他物体遮挡住了一部分。为了保证定制出的动作（如扑、跳、滚）足够完整自然，请上传一张【全身无遮挡】的宠物全身或半身照。",
+      };
+    case "宠物面部不完全":
+      return {
+        title: "图像审核未通过：面部识别不完整",
+        content:
+          "您上传的图片中，宠物的面部五官不完整，请重新上传一张【正面】的照片。",
+      };
+    case "光线过暗":
+      return {
+        title: "图像审核未通过：环境光线太暗啦",
+        content:
+          "图片光线不足影响宠物定制细节效果，建议您在【光线充足的白天】或【明亮的室内】为宝贝重新拍一张照片哦。",
+      };
+    default:
+      return {
+        title: "图像审核未通过",
+        content: `抱歉，您上传的宠物图片未通过审核：${reason}。请根据提示调整后重新上传。`,
+      };
+  }
+}
+
+function broadcastSystemMessage(userId: string, payload: { title: string; content: string }) {
+  broadcast(userId, {
+    type: "message:new",
+    data: {
+      title: payload.title,
+      content: payload.content,
+      messageType: "system",
+    },
+  });
 }
 
 avatarsRoute.get("/avatars", async (c) => {
@@ -167,11 +259,7 @@ avatarsRoute.get("/avatars/:id", async (c) => {
   return c.json({
     avatar: {
       ...toAvatarResponse(row),
-      actions: actions.map((action) => ({
-        ...action,
-        imageUrl: rewriteLocalAssetUrl(action.imageUrl, c.req.url) ?? action.imageUrl,
-        videoUrl: rewriteLocalAssetUrl(action.videoUrl, c.req.url) ?? action.videoUrl ?? null,
-      })),
+      actions,
     },
   });
 });
@@ -198,6 +286,7 @@ avatarsRoute.put("/avatars/:id/approve", async (c) => {
   }
 
   const reviewedAt = new Date();
+  const approvalMessage = buildApprovalMessage();
 
   const [avatar] = await db.transaction(async (tx) => {
     const [updatedAvatar] = await tx
@@ -213,12 +302,14 @@ avatarsRoute.put("/avatars/:id/approve", async (c) => {
     await tx.insert(messages).values({
       userId: ownerContext.userId,
       type: "system",
-      title: "图像审核通过",
-      content: `您的宠物 ${ownerContext.petName} 的图像已通过审核`,
+      title: approvalMessage.title,
+      content: approvalMessage.content,
     });
 
     return [updatedAvatar];
   });
+
+  broadcastSystemMessage(ownerContext.userId, approvalMessage);
 
   return c.json({
     avatar: toAvatarResponse({
@@ -262,6 +353,7 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
   }
 
   const nextReviewedAt = row.avatar.status === "pending" ? new Date() : row.avatar.reviewedAt;
+  const rejectMessage = buildRejectMessage(reason);
 
   const [avatar] = await db.transaction(async (tx) => {
     const [updatedAvatar] = await tx
@@ -283,12 +375,14 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
     await tx.insert(messages).values({
       userId: ownerContext.userId,
       type: "system",
-      title: "图像审核未通过",
-      content: `您的宠物 ${ownerContext.petName} 的图像审核未通过：${reason}`,
+      title: rejectMessage.title,
+      content: rejectMessage.content,
     });
 
     return [updatedAvatar];
   });
+
+  broadcastSystemMessage(ownerContext.userId, rejectMessage);
 
   return c.json({
     avatar: toAvatarResponse({
@@ -320,13 +414,7 @@ avatarsRoute.get("/avatars/:id/actions", async (c) => {
 
   const actions = await getAvatarActions(avatarId);
 
-  return c.json({
-    actions: actions.map((action) => ({
-      ...action,
-      imageUrl: rewriteLocalAssetUrl(action.imageUrl, c.req.url) ?? action.imageUrl,
-      videoUrl: rewriteLocalAssetUrl(action.videoUrl, c.req.url) ?? action.videoUrl ?? null,
-    })),
-  });
+  return c.json({ actions });
 });
 
 avatarsRoute.put("/avatars/:id/meta", async (c) => {
@@ -367,17 +455,18 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
   const body = await c.req.json<{ actionType?: string; imageUrl?: string; videoUrl?: string | null }>();
   const actionType = body.actionType;
   const imageUrl = body.imageUrl;
-  const videoUrl = typeof body.videoUrl === "string" ? body.videoUrl : null;
+  const hasVideoUrl = Object.prototype.hasOwnProperty.call(body, "videoUrl");
+  const videoUrl = body.videoUrl ?? null;
 
   if (typeof actionType !== "string" || !VALID_ACTIONS.has(actionType)) {
     return c.json({ error: "Invalid actionType" }, 400);
   }
 
-  if (typeof imageUrl !== "string" || !isSafeAssetUrl(imageUrl)) {
+  if (typeof imageUrl !== "string" || !isManagedStorageUrl(imageUrl)) {
     return c.json({ error: "Invalid imageUrl" }, 400);
   }
 
-  if (videoUrl !== null && !isSafeAssetUrl(videoUrl)) {
+  if (hasVideoUrl && videoUrl !== null && (typeof videoUrl !== "string" || !isManagedStorageUrl(videoUrl))) {
     return c.json({ error: "Invalid videoUrl" }, 400);
   }
 
@@ -415,7 +504,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
           .update(petAvatarActions)
           .set({
             imageUrl,
-            videoUrl,
+            ...(hasVideoUrl ? { videoUrl } : {}),
           })
           .where(eq(petAvatarActions.id, existingAction.id))
           .returning()
@@ -444,7 +533,7 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
   });
 
   return c.json({
-    action,
+    action: toActionResponse(action),
     avatarStatus: avatar?.status ?? (row.avatar.status === "approved" ? "processing" : row.avatar.status),
   });
 });
@@ -491,6 +580,83 @@ avatarsRoute.delete("/avatars/:id/actions/:actionId", async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {
+  const avatarId = c.req.param("id");
+  const actionId = c.req.param("actionId");
+  const row = await getAvatarRow(avatarId);
+
+  if (!row) {
+    return c.json({ error: "Avatar not found" }, 404);
+  }
+
+  const [action] = await db
+    .select()
+    .from(petAvatarActions)
+    .where(and(eq(petAvatarActions.id, actionId), eq(petAvatarActions.petAvatarId, avatarId)))
+    .limit(1);
+
+  if (!action) {
+    return c.json({ error: "Action not found" }, 404);
+  }
+
+  try {
+    const body = await c.req.parseBody();
+    const file = body.file;
+
+    if (!file || typeof file === "string" || Array.isArray(file)) {
+      return c.json({ error: "未检测到上传文件" }, 400);
+    }
+
+    const uploadedFile = file as File;
+    const contentType = resolveActionVideoContentType(uploadedFile);
+
+    if (!contentType) {
+      return c.json({ error: "不支持的文件格式，请上传 MJPEG 文件" }, 400);
+    }
+
+    if (uploadedFile.size > MAX_ACTION_VIDEO_SIZE) {
+      return c.json({ error: "文件过大，请上传 50MB 以内的视频" }, 400);
+    }
+
+    const buffer = Buffer.from(await uploadedFile.arrayBuffer());
+    const thumbnailBuffer = extractFirstJpegFrame(buffer);
+
+    if (!thumbnailBuffer) {
+      return c.json({ error: "无法从 MJPEG 文件中提取首帧" }, 400);
+    }
+
+    const videoHash = createHash("sha256").update(buffer).digest("hex");
+    const videoUrl = await uploadFile(
+      `avatars/${avatarId}/${action.actionType}.mjpeg`,
+      buffer,
+      contentType,
+    );
+    const imageUrl = await uploadFile(
+      `avatars/${avatarId}/${action.actionType}-thumb.jpg`,
+      thumbnailBuffer,
+      "image/jpeg",
+    );
+
+    const [updatedAction] = await db
+      .update(petAvatarActions)
+      .set({ imageUrl, videoUrl, videoHash })
+      .where(and(eq(petAvatarActions.id, actionId), eq(petAvatarActions.petAvatarId, avatarId)))
+      .returning();
+
+    return c.json({
+      action: toActionResponse({
+        ...(updatedAction ?? action),
+        imageUrl,
+        videoUrl,
+        videoHash,
+      }),
+    });
+  } catch (error) {
+    console.error("Admin action video upload failed:", error);
+    return c.json({ error: "视频上传失败，请稍后重试" }, 503);
+  }
 });
 
 avatarsRoute.post("/avatars/:id/sync", async (c) => {
@@ -540,6 +706,14 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
     return [updatedAvatar];
   });
 
+  broadcastSystemMessage(ownerContext.userId, {
+    title: "形象已就绪",
+    content:
+      row.avatar.petDescription || row.avatar.funFact
+        ? `${ownerContext.petName} 的新形象和定制描述已同步完成，快去主页看看吧。`
+        : `${ownerContext.petName} 的新形象已生成，快去主页看看吧。`,
+  });
+
   broadcast(ownerContext.userId, {
     type: "avatar:done",
     data: {
@@ -557,6 +731,42 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
         status: "done",
       },
     }),
+  });
+});
+
+avatarsRoute.get("/avatar-review/stats", async (c) => {
+  const [row] = await db.execute<{
+    pending_review: number | string;
+    approved_total: number | string;
+    synced_to_devices: number | string;
+    today_new_uploads: number | string;
+    today_completed: number | string;
+  }>(sql`
+    SELECT
+      COUNT(*) FILTER (WHERE pa.status = 'pending')::int AS pending_review,
+      COUNT(*) FILTER (
+        WHERE pa.status IN ('approved', 'processing', 'done')
+      )::int AS approved_total,
+      COUNT(*) FILTER (
+        WHERE pa.reviewed_at IS NOT NULL
+          AND pa.status IN ('approved', 'processing', 'done', 'rejected')
+      )::int AS synced_to_devices,
+      COUNT(*) FILTER (
+        WHERE (pa.created_at AT TIME ZONE ${ADMIN_TIME_ZONE})::date = (now() AT TIME ZONE ${ADMIN_TIME_ZONE})::date
+      )::int AS today_new_uploads,
+      COUNT(*) FILTER (
+        WHERE pa.reviewed_at IS NOT NULL
+          AND (pa.reviewed_at AT TIME ZONE ${ADMIN_TIME_ZONE})::date = (now() AT TIME ZONE ${ADMIN_TIME_ZONE})::date
+      )::int AS today_completed
+    FROM pet_avatars pa
+  `);
+
+  return c.json({
+    pendingReview: Number(row?.pending_review ?? 0),
+    approvedTotal: Number(row?.approved_total ?? 0),
+    syncedToDevices: Number(row?.synced_to_devices ?? 0),
+    todayNewUploads: Number(row?.today_new_uploads ?? 0),
+    todayCompleted: Number(row?.today_completed ?? 0),
   });
 });
 

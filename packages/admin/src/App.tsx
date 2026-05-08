@@ -40,9 +40,9 @@ const menuItems: MenuProps["items"] = [
       { key: "/schedules", icon: <CalendarOutlined />, label: "行为日程" },
       { key: "/image-review", icon: <PictureOutlined />, label: "图像审核" },
       { key: "/customization", icon: <ScissorOutlined />, label: "定制中心" },
-      { key: "/devices", icon: <MobileOutlined />, label: "设备管理" },
       { key: "/analytics", icon: <BarChartOutlined />, label: "数据看板" },
-      { key: "/users", icon: <UserOutlined />, label: "用户管理" },
+      { key: "/devices", icon: <MobileOutlined />, label: "设备管理" },
+      { key: "/users", icon: <UserOutlined />, label: "用户会员" },
     ],
   },
   {
@@ -50,6 +50,8 @@ const menuItems: MenuProps["items"] = [
     label: "开发工具",
     children: [
       { key: "/pets", icon: <HeartOutlined />, label: "宠物管理" },
+      { key: "/collars", icon: <MobileOutlined />, label: "项圈管理" },
+      { key: "/desktops", icon: <MobileOutlined />, label: "桌面端管理" },
       { key: "/events", icon: <ThunderboltOutlined />, label: "模拟事件" },
     ],
   },

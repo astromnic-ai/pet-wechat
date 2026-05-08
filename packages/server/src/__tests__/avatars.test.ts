@@ -10,6 +10,8 @@ import {
 } from "./helpers";
 
 const app = createApp();
+const VALID_SOURCE_IMAGE_URL = "http://localhost:9527/storage/uploads/test/photo.jpg";
+const VALID_ACTION_IMAGE_URL = "http://localhost:9527/storage/uploads/test/action.jpg";
 
 describe("Avatar Routes", () => {
   beforeEach(() => {
@@ -18,7 +20,7 @@ describe("Avatar Routes", () => {
 
   it("returns 401 without token", async () => {
     const res = await app.request(
-      jsonReq("POST", "/api/avatars", { body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" } })
+      jsonReq("POST", "/api/avatars", { body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL } })
     );
     expect(res.status).toBe(401);
   });
@@ -39,12 +41,23 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars", {
           headers,
-          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+          body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL },
         })
       );
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.avatar.id).toBe("avatar-1");
+    });
+
+    it("rejects placeholder external source image urls", async () => {
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/avatars", {
+          headers,
+          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+        })
+      );
+      expect(res.status).toBe(400);
     });
 
     it("returns 404 when pet not owned by user", async () => {
@@ -54,7 +67,7 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars", {
           headers,
-          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+          body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL },
         })
       );
       expect(res.status).toBe(404);
@@ -69,7 +82,7 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars", {
           headers,
-          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+          body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL },
         })
       );
       expect(res.status).toBe(400);
@@ -88,7 +101,7 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars", {
           headers,
-          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+          body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL },
         })
       );
       expect(res.status).toBe(201);
@@ -105,7 +118,7 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars", {
           headers,
-          body: { petId: "pet-1", sourceImageUrl: "https://example.com/photo.jpg" },
+          body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL },
         })
       );
       expect(res.status).toBe(201);
@@ -122,7 +135,7 @@ describe("Avatar Routes", () => {
         id: "action-1",
         petAvatarId: "avatar-1",
         actionType: "idle",
-        imageUrl: "https://example.com/action.jpg",
+        imageUrl: VALID_ACTION_IMAGE_URL,
         sortOrder: 0,
       };
       // select 1: avatar by id, select 2: pet ownership, select 3: actions
@@ -185,7 +198,7 @@ describe("Avatar Routes", () => {
           headers,
           body: {
             actions: [
-              { actionType: "idle", imageUrl: "https://example.com/action.jpg", sortOrder: 0 },
+              { actionType: "idle", imageUrl: VALID_ACTION_IMAGE_URL, sortOrder: 0 },
             ],
           },
         })
@@ -193,6 +206,17 @@ describe("Avatar Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.actions).toHaveLength(1);
+    });
+
+    it("rejects placeholder external action image urls", async () => {
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/avatars/avatar-1/actions", {
+          headers,
+          body: { actions: [{ actionType: "idle", imageUrl: "https://example.com/action.jpg", sortOrder: 0 }] },
+        })
+      );
+      expect(res.status).toBe(400);
     });
 
     it("returns 403 when pet not owned by user", async () => {
@@ -204,7 +228,7 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars/avatar-1/actions", {
           headers,
-          body: { actions: [{ actionType: "idle", imageUrl: "https://example.com/action.jpg", sortOrder: 0 }] },
+          body: { actions: [{ actionType: "idle", imageUrl: VALID_ACTION_IMAGE_URL, sortOrder: 0 }] },
         })
       );
       expect(res.status).toBe(403);
@@ -217,7 +241,7 @@ describe("Avatar Routes", () => {
       const res = await app.request(
         jsonReq("POST", "/api/avatars/nonexistent/actions", {
           headers,
-          body: { actions: [{ actionType: "idle", imageUrl: "https://example.com/a.jpg", sortOrder: 0 }] },
+          body: { actions: [{ actionType: "idle", imageUrl: VALID_ACTION_IMAGE_URL, sortOrder: 0 }] },
         })
       );
       expect(res.status).toBe(404);

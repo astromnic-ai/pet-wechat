@@ -2,19 +2,19 @@ import { describe, expect, it } from "bun:test";
 import { extractFirstJpegFrame } from "../utils/mjpeg";
 
 describe("extractFirstJpegFrame", () => {
-  it("extracts the first jpeg frame from an mjpeg buffer", () => {
-    const jpegFrame = Buffer.from([0xff, 0xd8, 0x01, 0x02, 0x03, 0xff, 0xd9]);
-    const secondFrame = Buffer.from([0xff, 0xd8, 0x09, 0x08, 0xff, 0xd9]);
-    const buffer = Buffer.concat([Buffer.from("header"), jpegFrame, Buffer.from("middle"), secondFrame]);
+  it("extracts the first complete JPEG frame from multipart-like MJPEG bytes", () => {
+    const frame = Buffer.from([0xff, 0xd8, 1, 2, 3, 0xff, 0xd9]);
+    const buffer = Buffer.concat([
+      Buffer.from("--frame\r\nContent-Type: image/jpeg\r\n\r\n"),
+      frame,
+      Buffer.from("\r\n--frame\r\n"),
+      Buffer.from([0xff, 0xd8, 4, 5, 0xff, 0xd9]),
+    ]);
 
-    const result = extractFirstJpegFrame(buffer);
-
-    expect(result).not.toBeNull();
-    expect(Buffer.compare(result!, jpegFrame)).toBe(0);
+    expect(extractFirstJpegFrame(buffer)?.equals(frame)).toBe(true);
   });
 
-  it("returns null when no jpeg markers exist", () => {
-    const result = extractFirstJpegFrame(Buffer.from("not-a-jpeg-stream"));
-    expect(result).toBeNull();
+  it("returns null when no complete JPEG frame exists", () => {
+    expect(extractFirstJpegFrame(Buffer.from([0xff, 0xd8, 1, 2, 3]))).toBeNull();
   });
 });
