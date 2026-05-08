@@ -175,6 +175,7 @@ export default function Index() {
   const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
   const [isWaitingVideoRequested, setIsWaitingVideoRequested] = useState(false);
   const [isWaitingVideoVisible, setIsWaitingVideoVisible] = useState(false);
+  const [isWaitingVideoFrameReady, setIsWaitingVideoFrameReady] = useState(false);
   const [processingPreviewFailedMap, setProcessingPreviewFailedMap] = useState<Record<string, boolean>>({});
   const skipNextDidShowRef = useRef(true);
 
@@ -446,6 +447,7 @@ export default function Index() {
   useEffect(() => {
     setIsWaitingVideoRequested(false);
     setIsWaitingVideoVisible(false);
+    setIsWaitingVideoFrameReady(false);
   }, [currentPet?.id, homeHeroState]);
 
   useEffect(() => {
@@ -540,6 +542,7 @@ export default function Index() {
     if (homeHeroState === "processing") {
       setIsWaitingVideoRequested(true);
       setIsWaitingVideoVisible(true);
+      setIsWaitingVideoFrameReady(false);
 
       try {
         const context = Taro.createVideoContext(waitingVideoId);
@@ -553,6 +556,20 @@ export default function Index() {
     }
 
     handleOpenPetAvatar();
+  };
+
+  const handlePauseWaitingVideo = () => {
+    if (!isWaitingVideoVisible) return;
+
+    try {
+      Taro.createVideoContext(waitingVideoId).pause();
+    } catch {
+      // Hiding the layer below is enough to restore the swipe gesture.
+    }
+
+    setIsWaitingVideoRequested(false);
+    setIsWaitingVideoVisible(false);
+    setIsWaitingVideoFrameReady(false);
   };
 
   const modeLabelMap = {
@@ -639,7 +656,7 @@ export default function Index() {
 {pet?.id === currentPet?.id && homeHeroState === "processing" ? (
                           <View className="pet-showcase-media-stage">
                             <Image
-                              className={`pet-showcase ${isWaitingVideoVisible ? "pet-showcase--hidden" : ""}`}
+                              className={`pet-showcase ${isWaitingVideoFrameReady ? "pet-showcase--hidden" : ""}`}
                               src={getSlideImage(pet)}
                               mode="widthFix"
                               onError={() => {
@@ -669,11 +686,14 @@ export default function Index() {
                   ))}
                 </Swiper>
                 {homeHeroState === "processing" && currentPet?.id ? (
-                  <View className="pet-video-layer">
+                  <View
+                    className={`pet-video-layer ${isWaitingVideoVisible ? "pet-video-layer--active" : ""}`}
+                    onClick={handlePauseWaitingVideo}
+                  >
                     <Video
                       id={waitingVideoId}
                       className={`pet-showcase-video ${
-                        isWaitingVideoVisible ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
+                        isWaitingVideoFrameReady ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
                       }`}
                       src={HOME_WAITING_VIDEO}
                       poster={waitingVideoPoster}
@@ -694,6 +714,7 @@ export default function Index() {
                             } catch {
                               setIsWaitingVideoRequested(false);
                               setIsWaitingVideoVisible(false);
+                              setIsWaitingVideoFrameReady(false);
                             }
                           }, 0);
                         }
@@ -705,11 +726,18 @@ export default function Index() {
                       onEnded={() => {
                         setIsWaitingVideoRequested(false);
                         setIsWaitingVideoVisible(false);
+                        setIsWaitingVideoFrameReady(false);
                       }}
                       onError={() => {
                         setIsWaitingVideoRequested(false);
                         setIsWaitingVideoVisible(false);
+                        setIsWaitingVideoFrameReady(false);
                         Taro.showToast({ title: "等待动画播放失败", icon: "none" });
+                      }}
+                      onTimeUpdate={(event) => {
+                        if (Number(event.detail?.currentTime ?? 0) > 0) {
+                          setIsWaitingVideoFrameReady(true);
+                        }
                       }}
                     />
                   </View>
