@@ -15,6 +15,7 @@ const HOME_PET_SIT_IMAGE = require("@/assets/home/pet-sit.png");
 const HOME_PET_LIE_IMAGE = require("@/assets/home/pet-lie.png");
 const HOME_WAITING_VIDEO = `${BASE_URL}/static/home/pet-waiting-loop.mp4`;
 const HOME_WAITING_POSTER = `${BASE_URL}/static/home/pet-waiting-poster.png`;
+const WAITING_VIDEO_LOG_KEY = "homeWaitingVideoDebugLogs";
 
 type DesktopDeviceWithBindings = DesktopDevice & {
   bindings?: Array<{
@@ -22,6 +23,12 @@ type DesktopDeviceWithBindings = DesktopDevice & {
     petId: string;
     bindingType: string;
   }>;
+};
+
+type WaitingVideoDebugEntry = {
+  event: string;
+  time: string;
+  [key: string]: unknown;
 };
 
 const ACTION_LABELS: Record<string, string> = {
@@ -128,6 +135,30 @@ function matchActionsByKeyword(actions: PetAvatarAction[], action?: string | nul
   });
 }
 
+function logWaitingVideo(
+  level: "info" | "warn" | "error",
+  event: string,
+  data: Record<string, unknown>,
+) {
+  const payload = {
+    event,
+    time: new Date().toISOString(),
+    ...data,
+  };
+
+  console[level](`[home-waiting-video] ${event}`, payload);
+
+  try {
+    const previous = Taro.getStorageSync(WAITING_VIDEO_LOG_KEY);
+    const logs = Array.isArray(previous) ? previous : [];
+    Taro.setStorageSync(WAITING_VIDEO_LOG_KEY, [...logs, payload].slice(-30));
+  } catch {
+    // Debug logging must never affect the home page interaction.
+  }
+
+  return payload;
+}
+
 function getCurrentCustomAction(petId?: string) {
   const plans = getPetModePlans(petId);
   const now = new Date();
@@ -176,9 +207,12 @@ export default function Index() {
   const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
   const [isWaitingVideoRequested, setIsWaitingVideoRequested] = useState(false);
   const [isWaitingVideoVisible, setIsWaitingVideoVisible] = useState(false);
-  const [waitingVideoPlayToken, setWaitingVideoPlayToken] = useState(0);
+  const [waitingVideoDebugLogs, setWaitingVideoDebugLogs] = useState<WaitingVideoDebugEntry[]>([]);
+  const [waitingVideoCurrentTime, setWaitingVideoCurrentTime] = useState(0);
+  const [waitingVideoSystemText, setWaitingVideoSystemText] = useState("");
   const [processingPreviewFailedMap, setProcessingPreviewFailedMap] = useState<Record<string, boolean>>({});
   const skipNextDidShowRef = useRef(true);
+  const waitingVideoLastTimeLogRef = useRef(0);
 
   useDidShow(() => {
     Taro.hideTabBar();
@@ -207,6 +241,17 @@ export default function Index() {
 
   useEffect(() => {
     void loadPets();
+  }, []);
+
+  useEffect(() => {
+    try {
+      const systemInfo = Taro.getSystemInfoSync();
+      setWaitingVideoSystemText(
+        `${systemInfo.platform || "unknown"} / ${systemInfo.model || "unknown"} / SDK ${systemInfo.SDKVersion || "unknown"}`,
+      );
+    } catch {
+      setWaitingVideoSystemText("system info unavailable");
+    }
   }, []);
 
   useEffect(() => {
@@ -417,9 +462,7 @@ export default function Index() {
         ? currentPet?.latestAvatarSourceImageUrl || HOME_PET_LIE_IMAGE
         : HOME_PET_SIT_IMAGE;
   const waitingVideoId = `home-waiting-video-${currentPet?.id || "default"}`;
-  const waitingVideoPoster = hasWaitingPreviewImage
-    ? currentPet?.latestAvatarSourceImageUrl || HOME_WAITING_POSTER
-    : HOME_WAITING_POSTER;
+  const waitingVideoPoster = HOME_WAITING_POSTER;
   const currentPetDescription = currentPet?.id ? petDescriptionMap[currentPet.id] : "";
   const petSubtitle = getPetSubtitle(currentPet, currentPetDescription);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
@@ -450,6 +493,7 @@ export default function Index() {
   useEffect(() => {
     setIsWaitingVideoRequested(false);
     setIsWaitingVideoVisible(false);
+    waitingVideoLastTimeLogRef.current = 0;
   }, [currentPet?.id, homeHeroState]);
 
   useEffect(() => {
@@ -464,12 +508,30 @@ export default function Index() {
   useEffect(() => {
     if (!isWaitingVideoRequested) return;
 
-    console.info("waiting video play requested", {
+    recordWaitingVideo("info", "play requested state observed", {
       waitingVideoId,
       src: HOME_WAITING_VIDEO,
       petId: currentPet?.id || "",
     });
-  }, [isWaitingVideoRequested, waitingVideoId, currentPet?.id]);
+
+    const timer = setTimeout(() => {
+      recordWaitingVideo("warn", "play request timeout", {
+        waitingVideoId,
+        src: HOME_WAITING_VIDEO,
+        petId: currentPet?.id || "",
+        visible: isWaitingVideoVisible,
+        currentTime: waitingVideoCurrentTime,
+      });
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [
+    isWaitingVideoRequested,
+    waitingVideoId,
+    currentPet?.id,
+    isWaitingVideoVisible,
+    waitingVideoCurrentTime,
+  ]);
 
   useEffect(() => {
     if (currentModeFrames.length <= 1) return;
@@ -485,6 +547,15 @@ export default function Index() {
     homeHeroState === "done"
       ? currentModeFrames[frameIndex]?.imageUrl || petHeroImage
       : petHeroImage;
+
+  const recordWaitingVideo = (
+    level: "info" | "warn" | "error",
+    event: string,
+    data: Record<string, unknown>,
+  ) => {
+    const payload = logWaitingVideo(level, event, data) as WaitingVideoDebugEntry;
+    setWaitingVideoDebugLogs((prev) => [...prev, payload].slice(-8));
+  };
 
   const handleOpenPetInfo = () => {
     if (currentPet?.id) {
@@ -551,10 +622,40 @@ export default function Index() {
   };
 
   const handlePetStageClick = () => {
+    recordWaitingVideo("info", "pet stage clicked", {
+      petId: currentPet?.id || "",
+      homeHeroState,
+      isAvatarGenerating,
+      waitingVideoId,
+      src: HOME_WAITING_VIDEO,
+      isWaitingVideoRequested,
+      isWaitingVideoVisible,
+    });
+
     if (homeHeroState === "processing") {
-      setWaitingVideoPlayToken((prev) => prev + 1);
       setIsWaitingVideoRequested(true);
-      setIsWaitingVideoVisible(false);
+      setIsWaitingVideoVisible(true);
+      setWaitingVideoCurrentTime(0);
+
+      try {
+        const context = Taro.createVideoContext(waitingVideoId);
+        recordWaitingVideo("info", "user-triggered play", {
+          waitingVideoId,
+          src: HOME_WAITING_VIDEO,
+          petId: currentPet?.id || "",
+        });
+        context.seek(0);
+        context.play();
+      } catch (error) {
+        recordWaitingVideo("error", "user-triggered play failed", {
+          waitingVideoId,
+          src: HOME_WAITING_VIDEO,
+          petId: currentPet?.id || "",
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setIsWaitingVideoRequested(false);
+        setIsWaitingVideoVisible(false);
+      }
       return;
     }
 
@@ -674,25 +775,24 @@ export default function Index() {
                     </SwiperItem>
                   ))}
                 </Swiper>
-                {homeHeroState === "processing" && currentPet?.id && (isWaitingVideoRequested || isWaitingVideoVisible) ? (
+                {homeHeroState === "processing" && currentPet?.id ? (
                   <View className="pet-video-layer">
                     <Video
-                      key={`${waitingVideoId}-${waitingVideoPlayToken}`}
                       id={waitingVideoId}
                       className={`pet-showcase-video ${
                         isWaitingVideoVisible ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
                       }`}
                       src={HOME_WAITING_VIDEO}
                       poster={waitingVideoPoster}
-                      autoplay={false}
+                      autoplay={isWaitingVideoRequested}
                       loop={false}
                       muted
-                      controls={false}
-                      showCenterPlayBtn={false}
+                      controls={isWaitingVideoRequested && !isWaitingVideoVisible}
+                      showCenterPlayBtn={isWaitingVideoRequested && !isWaitingVideoVisible}
                       enableProgressGesture={false}
                       objectFit="contain"
                       onLoadedMetaData={(event) => {
-                        console.info("waiting video metadata loaded", {
+                        recordWaitingVideo("info", "metadata loaded", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                           detail: event.detail,
@@ -701,14 +801,19 @@ export default function Index() {
                           setTimeout(() => {
                             try {
                               const context = Taro.createVideoContext(waitingVideoId);
-                              context.seek(0);
-                              context.play();
-                            } catch (error) {
-                              console.error("waiting video metadata-triggered play failed", {
+                              recordWaitingVideo("info", "metadata-triggered play", {
                                 waitingVideoId,
                                 src: HOME_WAITING_VIDEO,
                                 petId: currentPet?.id || "",
-                                error,
+                              });
+                              context.seek(0);
+                              context.play();
+                            } catch (error) {
+                              recordWaitingVideo("error", "metadata-triggered play failed", {
+                                waitingVideoId,
+                                src: HOME_WAITING_VIDEO,
+                                petId: currentPet?.id || "",
+                                error: error instanceof Error ? error.message : String(error),
                               });
                               setIsWaitingVideoRequested(false);
                               setIsWaitingVideoVisible(false);
@@ -717,21 +822,37 @@ export default function Index() {
                         }
                       }}
                       onLoad={(event) => {
-                        console.info("waiting video loaded", {
+                        recordWaitingVideo("info", "loaded", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                           detail: event.detail,
                         });
                       }}
                       onWaiting={(event) => {
-                        console.info("waiting video buffering", {
+                        recordWaitingVideo("warn", "buffering", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                           detail: event.detail,
                         });
                       }}
+                      onTimeUpdate={(event) => {
+                        const currentTime = Number(event.detail?.currentTime ?? 0);
+                        setWaitingVideoCurrentTime(currentTime);
+                        if (
+                          currentTime >= 0.5 &&
+                          currentTime - waitingVideoLastTimeLogRef.current >= 1
+                        ) {
+                          waitingVideoLastTimeLogRef.current = currentTime;
+                          recordWaitingVideo("info", "timeupdate", {
+                            src: HOME_WAITING_VIDEO,
+                            petId: currentPet?.id || "",
+                            currentTime,
+                            duration: event.detail?.duration,
+                          });
+                        }
+                      }}
                       onPlay={() => {
-                        console.info("waiting video started", {
+                        recordWaitingVideo("info", "started", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                         });
@@ -739,30 +860,51 @@ export default function Index() {
                         setIsWaitingVideoVisible(true);
                       }}
                       onEnded={() => {
-                        console.info("waiting video ended", {
+                        recordWaitingVideo("info", "ended", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                         });
                         setIsWaitingVideoRequested(false);
                         setIsWaitingVideoVisible(false);
+                        setWaitingVideoCurrentTime(0);
                       }}
                       onPause={() => {
-                        console.info("waiting video paused", {
+                        recordWaitingVideo("info", "paused", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                         });
                       }}
                       onError={(event) => {
-                        console.error("waiting video play error", {
+                        recordWaitingVideo("error", "play error", {
                           src: HOME_WAITING_VIDEO,
                           petId: currentPet?.id || "",
                           detail: event.detail,
                         });
                         setIsWaitingVideoRequested(false);
                         setIsWaitingVideoVisible(false);
+                        setWaitingVideoCurrentTime(0);
                         Taro.showToast({ title: "等待动画播放失败", icon: "none" });
                       }}
                     />
+                  </View>
+                ) : null}
+                {homeHeroState === "processing" && currentPet?.id ? (
+                  <View className="waiting-video-debug-panel">
+                    <Text className="waiting-video-debug-title">等待动画调试</Text>
+                    <Text className="waiting-video-debug-line">
+                      state={homeHeroState} visible={String(isWaitingVideoVisible)} requested={String(isWaitingVideoRequested)}
+                    </Text>
+                    <Text className="waiting-video-debug-line">
+                      time={waitingVideoCurrentTime.toFixed(2)}s id={waitingVideoId}
+                    </Text>
+                    <Text className="waiting-video-debug-line">{waitingVideoSystemText}</Text>
+                    <Text className="waiting-video-debug-line">src={HOME_WAITING_VIDEO}</Text>
+                    {waitingVideoDebugLogs.slice(-5).map((item, index) => (
+                      <Text className="waiting-video-debug-line" key={`${item.time}-${index}`}>
+                        {item.time.slice(11, 19)} {item.event}
+                        {typeof item.currentTime === "number" ? ` ${Number(item.currentTime).toFixed(2)}s` : ""}
+                      </Text>
+                    ))}
                   </View>
                 ) : null}
               </View>
@@ -790,6 +932,58 @@ export default function Index() {
             </View>
           )}
         </View>
+
+        {homeHeroState === "processing" ? (
+          <View className="video-test-card">
+            <Text className="video-test-title">视频播放测试</Text>
+            <Text className="video-test-src">{HOME_WAITING_VIDEO}</Text>
+            <Video
+              id="home-waiting-video-standalone-test"
+              className="video-test-player"
+              src={HOME_WAITING_VIDEO}
+              poster={waitingVideoPoster}
+              controls
+              showCenterPlayBtn
+              autoplay={false}
+              loop={false}
+              muted={false}
+              objectFit="contain"
+              onLoadedMetaData={(event) => {
+                recordWaitingVideo("info", "standalone metadata loaded", {
+                  src: HOME_WAITING_VIDEO,
+                  detail: event.detail,
+                });
+              }}
+              onPlay={() => {
+                recordWaitingVideo("info", "standalone started", {
+                  src: HOME_WAITING_VIDEO,
+                });
+              }}
+              onTimeUpdate={(event) => {
+                const currentTime = Number(event.detail?.currentTime ?? 0);
+                if (currentTime >= 0.5) {
+                  recordWaitingVideo("info", "standalone timeupdate", {
+                    src: HOME_WAITING_VIDEO,
+                    currentTime,
+                    duration: event.detail?.duration,
+                  });
+                }
+              }}
+              onWaiting={(event) => {
+                recordWaitingVideo("warn", "standalone buffering", {
+                  src: HOME_WAITING_VIDEO,
+                  detail: event.detail,
+                });
+              }}
+              onError={(event) => {
+                recordWaitingVideo("error", "standalone error", {
+                  src: HOME_WAITING_VIDEO,
+                  detail: event.detail,
+                });
+              }}
+            />
+          </View>
+        ) : null}
 
         <View className="mode-card" onClick={handleOpenPetMode}>
           <Text className="mode-card-title">宠物活动模式</Text>

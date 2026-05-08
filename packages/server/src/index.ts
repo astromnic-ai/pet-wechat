@@ -98,7 +98,8 @@ async function serveLocalFile(c: Context, rootDir: string, urlPrefix: string) {
   }
 
   if (range) {
-    const chunk = file.slice(range.start, range.end + 1);
+    const fileBuffer = await file.arrayBuffer();
+    const chunk = fileBuffer.slice(range.start, range.end + 1);
     const chunkSize = range.end - range.start + 1;
     return new Response(chunk, {
       status: 206,
