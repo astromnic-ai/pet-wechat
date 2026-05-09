@@ -4,7 +4,7 @@ import ContentPage from "./ContentPage";
 
 export default function AboutPage() {
   return (
-    <ContentPage slug="about" fallbackTitle="关于 YEHEY" hideContentBody>
+    <ContentPage slug="about" fallbackTitle="关于 YEHEY">
       <View className="about-link-list">
         <View className="about-link-card" onClick={() => Taro.navigateTo({ url: "/pages/settings/user-agreement" })}>
           <Text className="about-link-label">用户协议</Text>
