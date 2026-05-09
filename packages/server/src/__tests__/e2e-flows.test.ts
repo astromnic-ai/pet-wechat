@@ -38,6 +38,13 @@ describe("E2E Flows", () => {
       mockDb._results.select = [[]]; // no existing user
       mockDb._results.insert = [[user]];
 
+      const codeRes = await app.request(
+        jsonReq("POST", "/api/auth/phone/send-code", {
+          body: { phone: "13900139000" },
+        })
+      );
+      expect(codeRes.status).toBe(200);
+
       const authRes = await app.request(
         jsonReq("POST", "/api/auth/phone", {
           body: { phone: "13900139000", code: "123456" },

@@ -87,6 +87,27 @@ describe("Auth Routes", () => {
   // ===== POST /api/auth/phone =====
 
   describe("POST /api/auth/phone", () => {
+    it("sends a mock verification code", async () => {
+      const res = await app.request(
+        jsonReq("POST", "/api/auth/phone/send-code", {
+          body: { phone: "13800138000" },
+        })
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.accepted).toBe(true);
+      expect(json.mockCode).toBe("123456");
+    });
+
+    it("returns 400 when sending code to invalid phone", async () => {
+      const res = await app.request(
+        jsonReq("POST", "/api/auth/phone/send-code", {
+          body: { phone: "123" },
+        })
+      );
+      expect(res.status).toBe(400);
+    });
+
     it("returns 400 when phone or code is missing", async () => {
       const res = await app.request(
         jsonReq("POST", "/api/auth/phone", { body: { phone: "13800138000" } })
@@ -109,6 +130,12 @@ describe("Auth Routes", () => {
       const user = fakeUser({ phone: "13800138000" });
       // upsert uses insert().onConflictDoUpdate().returning()
       mockDb._results.insert = [[user]];
+
+      await app.request(
+        jsonReq("POST", "/api/auth/phone/send-code", {
+          body: { phone: "13800138000" },
+        })
+      );
 
       const res = await app.request(
         jsonReq("POST", "/api/auth/phone", {
