@@ -86,6 +86,7 @@ type RawDeviceRow = {
   type: DeviceType;
   id: string;
   name: string;
+  chip_id: string | null;
   mac_address: string;
   status: DeviceStatus;
   claim_status: DeviceClaimStatus;
@@ -236,6 +237,7 @@ function toAdminDeviceListItem(row: RawDeviceRow): AdminDeviceListItem {
     type: row.type,
     id: row.id,
     name: row.name,
+    chipId: row.chip_id,
     macAddress: row.mac_address,
     status: row.status,
     claimStatus: row.claim_status,
@@ -344,6 +346,7 @@ function getDeviceAggregationCtes() {
         'collar'::text AS type,
         cd.id,
         cd.name,
+        cd.chip_id,
         cd.mac_address,
         cd.status,
         cd.claim_status,
@@ -376,6 +379,7 @@ function getDeviceAggregationCtes() {
         'desktop'::text AS type,
         dd.id,
         dd.name,
+        dd.chip_id,
         dd.mac_address,
         dd.status,
         dd.claim_status,
@@ -421,6 +425,7 @@ function buildDeviceListWhereClause(filters: DeviceListFilters) {
     conditions.push(sql`
       (
         merged_devices.name ILIKE ${keyword}
+        OR COALESCE(merged_devices.chip_id, '') ILIKE ${keyword}
         OR merged_devices.mac_address ILIKE ${keyword}
         OR COALESCE(merged_devices.user_nickname, '') ILIKE ${keyword}
       )
@@ -974,6 +979,7 @@ devicesRoute.get("/devices", async (c) => {
         merged_devices.type,
         merged_devices.id,
         merged_devices.name,
+        merged_devices.chip_id,
         merged_devices.mac_address,
         merged_devices.status,
         merged_devices.claim_status,
@@ -1033,6 +1039,7 @@ devicesRoute.get("/devices/:type/:id/detail", async (c) => {
       merged_devices.type,
       merged_devices.id,
       merged_devices.name,
+      merged_devices.chip_id,
       merged_devices.mac_address,
       merged_devices.status,
       merged_devices.claim_status,

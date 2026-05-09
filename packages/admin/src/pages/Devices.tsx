@@ -335,6 +335,13 @@ export default function DevicesPage() {
       render: (value: string | null) => value || "-",
     },
     {
+      title: "Chip ID",
+      dataIndex: "chipId",
+      key: "chipId",
+      width: 190,
+      render: (value: string | null) => value || "-",
+    },
+    {
       title: "设备型号",
       dataIndex: "type",
       key: "type",
@@ -537,6 +544,9 @@ export default function DevicesPage() {
                         <Text type="secondary">MAC地址</Text> <Text strong>{device.macAddress || "-"}</Text>
                       </div>
                       <div>
+                        <Text type="secondary">Chip ID</Text> <Text strong>{device.chipId || "-"}</Text>
+                      </div>
+                      <div>
                         <Text type="secondary">最后同步</Text> <Text strong>{formatRelativeTime(detail.lastSyncedAt)}</Text>
                       </div>
                     </Space>
@@ -544,7 +554,7 @@ export default function DevicesPage() {
                   <Col xs={24} md={12} xl={6}>
                     <Space direction="vertical" size={10}>
                       <div>
-                        <Text type="secondary">固件版本</Text> <Text strong>-</Text>
+                        <Text type="secondary">固件版本</Text> <Text strong>{device.firmwareVersion || "-"}</Text>
                       </div>
                       <div>
                         <Text type="secondary">激活时间</Text> <Text strong>{formatTime(detail.activatedAt)}</Text>
@@ -783,7 +793,7 @@ export default function DevicesPage() {
             allowClear
             value={keyword}
             prefix={<SearchOutlined />}
-            placeholder="搜索ID设备、型号、用户..."
+            placeholder="搜索设备ID、Chip ID、Mac、型号、用户..."
             onChange={(event) => setKeyword(event.target.value)}
             style={{ width: 360, maxWidth: "100%" }}
           />
@@ -833,7 +843,7 @@ export default function DevicesPage() {
             dataSource={devices}
             columns={columns}
             rowKey={(record) => `${record.type}-${record.id}`}
-            scroll={{ x: 1440 }}
+            scroll={{ x: 1580 }}
             pagination={{ pageSize: 10, showSizeChanger: false }}
           />
         </Spin>

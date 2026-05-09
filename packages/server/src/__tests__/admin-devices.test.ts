@@ -105,6 +105,7 @@ describe("Admin Device Routes", () => {
           type: "desktop",
           id: "desktop-1",
           name: "Lobby Display",
+          chip_id: "desktop-chip-1",
           mac_address: "11:22:33:44:55:66",
           status: "offline",
           claim_status: "occupied",
@@ -139,6 +140,7 @@ describe("Admin Device Routes", () => {
     expect(json.items).toHaveLength(1);
     expect(json.items[0].petSpecies).toBeNull();
     expect(json.items[0].firmwareVersion).toBe("2.1.0");
+    expect(json.items[0].chipId).toBe("desktop-chip-1");
   });
 
   it("returns firmwareVersion in device detail", async () => {
@@ -148,6 +150,7 @@ describe("Admin Device Routes", () => {
           type: "collar",
           id: "collar-1",
           name: "Mimi Collar",
+          chip_id: "collar-chip-1",
           mac_address: "AA:BB:CC:DD:EE:FF",
           status: "online",
           claim_status: "occupied",
@@ -181,5 +184,6 @@ describe("Admin Device Routes", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     expect(json.device.firmwareVersion).toBe("1.2.3");
+    expect(json.device.chipId).toBe("collar-chip-1");
   });
 });

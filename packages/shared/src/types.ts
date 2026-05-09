@@ -171,6 +171,7 @@ export interface AdminDeviceListItem {
   type: DeviceType;
   id: string;
   name: string;
+  chipId: string | null;
   macAddress: string;
   status: DeviceStatus;
   claimStatus: DeviceClaimStatus;
