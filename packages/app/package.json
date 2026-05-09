@@ -21,6 +21,7 @@
     "dev:qq": "npm run build:qq -- --watch",
     "dev:vk-weapp": "npm run build:vk-weapp -- --watch",
     "dev:jd": "npm run build:jd -- --watch",
+    "pretest:e2e": "node scripts/check-e2e-env.js",
     "test:e2e": "bun test tests/e2e/ --timeout 30000"
   },
   "browserslist": [

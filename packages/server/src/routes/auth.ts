@@ -65,11 +65,11 @@ async function getWechatAccessToken(appid: string, secret: string) {
 }
 
 function generateSmsCode() {
-  if (process.env.SMS_MOCK_CODE?.trim()) {
+  if (process.env.NODE_ENV !== "production" && process.env.SMS_MOCK_CODE?.trim()) {
     return process.env.SMS_MOCK_CODE.trim();
   }
 
-  if (process.env.NODE_ENV !== "production" || process.env.ENABLE_DEV_LOGIN === "true") {
+  if (process.env.NODE_ENV !== "production") {
     return DEFAULT_SMS_CODE;
   }
 
@@ -277,7 +277,7 @@ auth.post("/phone/send-code", async (c) => {
   return c.json({
     accepted: true,
     expiresIn: Math.floor(SMS_CODE_TTL_MS / 1000),
-    ...(shouldUseMockSms() || process.env.SMS_MOCK_CODE?.trim()
+    ...(process.env.NODE_ENV !== "production" && (shouldUseMockSms() || process.env.SMS_MOCK_CODE?.trim())
       ? { mockCode: code }
       : {}),
   });
@@ -368,7 +368,7 @@ auth.post("/phone/wechat", async (c) => {
   }
 });
 
-if (process.env.ENABLE_DEV_LOGIN === "true") {
+if (process.env.NODE_ENV !== "production" && process.env.ENABLE_DEV_LOGIN === "true") {
   auth.post("/dev-login", async (c) => {
     const { phone } = await c.req.json<{ phone: string }>();
     const normalizedPhone = phone?.trim();

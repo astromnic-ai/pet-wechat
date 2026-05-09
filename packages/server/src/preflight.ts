@@ -56,6 +56,14 @@ export function checkEnvVars(): void {
     return;
   }
 
+  if (process.env.ENABLE_DEV_LOGIN === "true") {
+    throw new Error("❌ 生产环境禁止启用 ENABLE_DEV_LOGIN");
+  }
+
+  if (process.env.SMS_MOCK_CODE?.trim()) {
+    throw new Error("❌ 生产环境禁止配置 SMS_MOCK_CODE");
+  }
+
   const missing = REQUIRED_ENV_VARS.filter((name) => !process.env[name]?.trim());
   if (missing.length > 0) {
     throw new Error(`❌ 缺少环境变量: ${missing.join(", ")}`);
