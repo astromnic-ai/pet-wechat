@@ -109,6 +109,7 @@ export function fakePet(overrides: Record<string, unknown> = {}) {
     gender: "unknown",
     birthday: null,
     weight: null,
+    draftAvatarSourceImageUrl: null,
     activityScore: 0,
     createdAt: new Date(),
     updatedAt: new Date(),

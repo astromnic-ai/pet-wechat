@@ -85,6 +85,13 @@
       "when": 1777993374911,
       "tag": "0011_pet_avatar_action_backfill_video_url",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1778348400000,
+      "tag": "0012_pet_avatar_draft_source",
+      "breakpoints": true
     }
   ]
 }

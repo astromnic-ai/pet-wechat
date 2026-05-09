@@ -145,6 +145,7 @@ export const pets = pgTable("pets", {
   gender: genderEnum("gender").notNull().default("unknown"),
   birthday: text("birthday"),
   weight: real("weight"),
+  draftAvatarSourceImageUrl: text("draft_avatar_source_image_url"),
   activityScore: integer("activity_score").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()

@@ -56,6 +56,7 @@ export default function PetAvatar() {
   const [previewImage, setPreviewImage] = useState("");
   const [localImagePath, setLocalImagePath] = useState("");
   const [existingImageUrl, setExistingImageUrl] = useState("");
+  const [draftImageUrl, setDraftImageUrl] = useState("");
   const [selectedImageSize, setSelectedImageSize] = useState<number | null>(null);
   const [pet, setPet] = useState<Pet | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -67,6 +68,7 @@ export default function PetAvatar() {
       setPreviewImage("");
       setLocalImagePath("");
       setExistingImageUrl("");
+      setDraftImageUrl("");
       setSelectedImageSize(null);
       setUser(null);
       return;
@@ -77,6 +79,7 @@ export default function PetAvatar() {
     setPreviewImage("");
     setLocalImagePath("");
     setExistingImageUrl("");
+    setDraftImageUrl("");
     setSelectedImageSize(null);
     setUser(null);
 
@@ -87,9 +90,11 @@ export default function PetAvatar() {
       .then(([res, userRes]) => {
         if (cancelled) return;
         const latestAvatar = resolveLatestAvatar(res.avatars);
-        const latestImageUrl = latestAvatar?.sourceImageUrl || "";
+        const draftImage = res.pet.draftAvatarSourceImageUrl || "";
+        const latestImageUrl = draftImage || latestAvatar?.sourceImageUrl || "";
         setPet(res.pet);
         setExistingImageUrl(latestImageUrl);
+        setDraftImageUrl(draftImage);
         setPreviewImage(latestImageUrl);
         setUser(userRes.user);
       })
@@ -97,6 +102,7 @@ export default function PetAvatar() {
         if (cancelled) return;
         setPet(null);
         setExistingImageUrl("");
+        setDraftImageUrl("");
         setPreviewImage("");
         setUser(null);
       });
@@ -128,6 +134,38 @@ export default function PetAvatar() {
       setSelectedImageSize(nextImageSize);
       setLocalImagePath(nextPath);
       setPreviewImage(nextPath);
+
+      if (!petId) return;
+
+      setLoading(true);
+      try {
+        const uploadData = await uploadFile<{ url: string; fileId: string }>({
+          url: "/api/upload",
+          filePath: nextPath,
+          name: "file",
+        });
+
+        await request<{ pet: Pet }>({
+          url: `/api/pets/${petId}`,
+          method: "PUT",
+          data: {
+            draftAvatarSourceImageUrl: uploadData.url,
+          },
+        });
+
+        setExistingImageUrl(uploadData.url);
+        setDraftImageUrl(uploadData.url);
+        setPreviewImage(uploadData.url);
+        setLocalImagePath("");
+        setSelectedImageSize(null);
+      } catch (error: any) {
+        setPreviewImage(existingImageUrl);
+        setLocalImagePath("");
+        setSelectedImageSize(null);
+        Taro.showToast({ title: error?.message || "照片保存失败，请重试", icon: "none" });
+      } finally {
+        setLoading(false);
+      }
     } catch (error) {
       const errorMessage = getChooseImageErrorMessage(error);
       if (errorMessage) {
@@ -211,6 +249,7 @@ export default function PetAvatar() {
           },
         });
         avatar = res.avatar;
+        setDraftImageUrl("");
       } catch (e: any) {
         Taro.showToast({ title: e.message || "创建定制任务失败", icon: "none" });
         return;
@@ -227,16 +266,12 @@ export default function PetAvatar() {
   };
 
   const handleBack = () => {
-    Taro.navigateBack({
-      fail: () => {
-        if (petId) {
-          Taro.reLaunch({ url: `/pages/pet-info/index?petId=${petId}` });
-          return;
-        }
+    if (petId && draftImageUrl) {
+      Taro.redirectTo({ url: `/pages/pet-info/index?petId=${petId}&avatarDraft=1` });
+      return;
+    }
 
-        Taro.switchTab({ url: "/pages/index/index" });
-      },
-    });
+    Taro.switchTab({ url: "/pages/index/index" });
   };
 
   const avatarQuotaRemaining = Math.max(

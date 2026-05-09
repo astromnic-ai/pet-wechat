@@ -49,6 +49,28 @@ describe("Avatar Routes", () => {
       expect(json.avatar.id).toBe("avatar-1");
     });
 
+    it("clears pet draft image after creating avatar", async () => {
+      const pet = fakePet({ draftAvatarSourceImageUrl: VALID_SOURCE_IMAGE_URL });
+      const user = fakeUser({ avatarQuota: 1 });
+      const avatar = fakeAvatar();
+      mockDb._results.select = [[pet], [user], [{ count: 0 }], [{ count: 0 }]];
+      mockDb._results.insert = [[avatar]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/avatars", {
+          headers,
+          body: { petId: "pet-1", sourceImageUrl: VALID_SOURCE_IMAGE_URL },
+        })
+      );
+
+      expect(res.status).toBe(201);
+      expect(mockDb._calls.update).toHaveLength(1);
+      expect((mockDb._calls.update[0] as any).set).toMatchObject({
+        draftAvatarSourceImageUrl: null,
+      });
+    });
+
     it("rejects placeholder external source image urls", async () => {
       const headers = await authHeader("user-1");
       const res = await app.request(

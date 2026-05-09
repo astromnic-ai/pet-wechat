@@ -9,6 +9,7 @@ import {
 } from "./helpers";
 
 const app = createApp();
+const VALID_SOURCE_IMAGE_URL = "http://localhost:9527/storage/uploads/test/photo.jpg";
 
 function getStableTodayEventTime(now: Date) {
   const todayStart = new Date(now);
@@ -64,7 +65,7 @@ describe("Pet Routes", () => {
 
   describe("GET /api/pets/:id", () => {
     it("returns pet details with avatars and actions", async () => {
-      const pet = fakePet();
+      const pet = fakePet({ draftAvatarSourceImageUrl: VALID_SOURCE_IMAGE_URL });
       // select 1: pet query, select 2: latest behavior, select 3: avatars, select 4+: actions/recent behaviors
       mockDb._results.select = [
         [pet],
@@ -81,6 +82,7 @@ describe("Pet Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.pet.id).toBe("pet-1");
+      expect(json.pet.draftAvatarSourceImageUrl).toBe(VALID_SOURCE_IMAGE_URL);
       expect(json.pet.latestBehavior.actionType).toBe("walking");
       expect(json.avatars).toHaveLength(1);
       expect(json.actions).toHaveLength(1);

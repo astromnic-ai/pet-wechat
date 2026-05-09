@@ -133,6 +133,7 @@ function attachPetSummary<T extends typeof pets.$inferSelect>(
     ...pet,
     latestBehavior: latestBehaviorMap.get(pet.id) ?? null,
     avatarImageUrl: latestAvatarImageMap.get(pet.id) ?? null,
+    draftAvatarSourceImageUrl: normalizePublicFileUrl(pet.draftAvatarSourceImageUrl) ?? pet.draftAvatarSourceImageUrl,
   }));
 }
 
@@ -420,7 +421,13 @@ petsRoute.get("/:id", async (c) => {
   const activityScore = Math.min(100, recentCount * 10);
 
   return c.json({
-    pet: { ...pet, activityScore, latestBehavior },
+    pet: {
+      ...pet,
+      activityScore,
+      latestBehavior,
+      draftAvatarSourceImageUrl:
+        normalizePublicFileUrl(pet.draftAvatarSourceImageUrl) ?? pet.draftAvatarSourceImageUrl,
+    },
     avatars,
     actions: actions.map(toPetAvatarActionResponse),
   });
@@ -468,6 +475,10 @@ petsRoute.put("/:id", async (c) => {
       gender: body.gender ?? existing.gender,
       birthday: body.birthday ?? existing.birthday,
       weight: body.weight ?? existing.weight,
+      draftAvatarSourceImageUrl:
+        body.draftAvatarSourceImageUrl === undefined
+          ? existing.draftAvatarSourceImageUrl
+          : body.draftAvatarSourceImageUrl || null,
       updatedAt: new Date(),
     })
     .where(eq(pets.id, petId))

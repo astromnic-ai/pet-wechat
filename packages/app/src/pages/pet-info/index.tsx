@@ -74,7 +74,8 @@ export default function PetInfo() {
   const routeCollarId = router.params.collarId || router.params.deviceId || "";
   const bindDeviceType = router.params.bindDeviceType as "collar" | "desktop" | undefined;
   const bindDeviceId = router.params.bindDeviceId || "";
-  const isEditFormMode = Boolean(petId && router.params.edit === "1");
+  const isAvatarDraftConfirmMode = Boolean(petId && router.params.avatarDraft === "1");
+  const isEditFormMode = Boolean(petId && (router.params.edit === "1" || isAvatarDraftConfirmMode));
 
   const [species, setSpecies] = useState<Species>("cat");
   const [name, setName] = useState("");
@@ -224,6 +225,10 @@ export default function PetInfo() {
 
       if (petId) {
         Taro.showToast({ title: "保存成功", icon: "success" });
+        if (isAvatarDraftConfirmMode) {
+          Taro.redirectTo({ url: `/pages/pet-avatar/index?petId=${petId}` });
+          return;
+        }
         Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
         return;
       }
@@ -709,7 +714,15 @@ export default function PetInfo() {
 
         {isDetailMode ? null : (
           <View className={`submit-btn ${canSubmit ? "" : "submit-btn--disabled"}`} onClick={handleSubmit}>
-            <Text className="submit-btn-text">{loading ? "保存中..." : isEditFormMode ? "保存信息" : "保存宠物信息，下一步"}</Text>
+            <Text className="submit-btn-text">
+              {loading
+                ? "保存中..."
+                : isAvatarDraftConfirmMode
+                  ? "保存修改信息，进入下一步"
+                  : isEditFormMode
+                    ? "保存信息"
+                    : "保存宠物信息，下一步"}
+            </Text>
           </View>
         )}
       </View>

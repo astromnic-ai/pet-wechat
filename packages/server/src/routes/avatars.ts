@@ -57,6 +57,11 @@ avatarsRoute.post("/", async (c) => {
     })
     .returning();
 
+  await db
+    .update(pets)
+    .set({ draftAvatarSourceImageUrl: null, updatedAt: new Date() })
+    .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
+
   return c.json({ avatar }, 201);
 });
 

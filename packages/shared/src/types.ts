@@ -73,6 +73,7 @@ export interface Pet {
   gender: Gender;
   birthday: string | null;
   weight: number | null;
+  draftAvatarSourceImageUrl?: string | null;
   activityScore: number;
   latestBehavior?: PetLatestBehavior | null;
   avatarImageUrl?: string | null;
