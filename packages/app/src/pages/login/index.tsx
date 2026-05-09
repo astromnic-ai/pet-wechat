@@ -1,4 +1,4 @@
-import { View, Text, Button, Input } from "@tarojs/components";
+import { View, Text, Button } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import type { User } from "@pet-wechat/shared";
@@ -15,7 +15,6 @@ interface AuthResponse {
 const LOGIN_DRAFT_KEY = "loginAgreementDraft";
 const DEV_LOGIN_PHONE = "13800000000";
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
-const PHONE_PATTERN = /^1[3-9]\d{9}$/;
 
 function getChooseImageErrorMessage(error?: unknown) {
   const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
@@ -34,28 +33,11 @@ export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [loadingType, setLoadingType] = useState<"wechat" | "phone" | null>(null);
-  const [smsPhone, setSmsPhone] = useState("");
-  const [smsCode, setSmsCode] = useState("");
-  const [smsCountdown, setSmsCountdown] = useState(0);
   const [agreementShaking, setAgreementShaking] = useState(false);
   const [avatarPromptVisible, setAvatarPromptVisible] = useState(false);
   const [avatarPromptLoading, setAvatarPromptLoading] = useState<"wechat" | "custom" | null>(null);
 
   const hasAcceptedAgreements = agreedTerms && agreedPrivacy;
-  const normalizedSmsPhone = smsPhone.trim();
-  const normalizedSmsCode = smsCode.trim();
-  const canSubmitSmsLogin =
-    PHONE_PATTERN.test(normalizedSmsPhone) && normalizedSmsCode.length === 6 && loadingType === null;
-
-  useEffect(() => {
-    if (smsCountdown <= 0) return;
-
-    const timer = setTimeout(() => {
-      setSmsCountdown((prev) => Math.max(prev - 1, 0));
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [smsCountdown]);
 
   const triggerAgreementShake = () => {
     setAgreementShaking(false);
@@ -286,78 +268,6 @@ export default function Login() {
     }
   };
 
-  const handleSendSmsCode = async () => {
-    if (!ensureAgreementsAccepted() || loadingType || smsCountdown > 0) {
-      return;
-    }
-
-    if (!PHONE_PATTERN.test(normalizedSmsPhone)) {
-      Taro.showToast({ title: "请输入正确的11位手机号", icon: "none" });
-      return;
-    }
-
-    setLoadingType("phone");
-    try {
-      const res = await request<{ accepted: boolean; expiresIn?: number; mockCode?: string }>({
-        url: "/api/auth/phone/send-code",
-        method: "POST",
-        data: { phone: normalizedSmsPhone },
-        needAuth: false,
-      });
-
-      setSmsCountdown(60);
-      Taro.showToast({
-        title: res.mockCode ? `验证码 ${res.mockCode}` : "验证码已发送",
-        icon: "none",
-      });
-    } catch (error: any) {
-      Taro.showToast({
-        title: error?.message ?? "验证码发送失败",
-        icon: "none",
-      });
-    } finally {
-      setLoadingType(null);
-    }
-  };
-
-  const handleSmsLogin = async () => {
-    if (!ensureAgreementsAccepted() || loadingType) {
-      return;
-    }
-
-    if (!PHONE_PATTERN.test(normalizedSmsPhone)) {
-      Taro.showToast({ title: "请输入正确的11位手机号", icon: "none" });
-      return;
-    }
-
-    if (normalizedSmsCode.length !== 6) {
-      Taro.showToast({ title: "请输入6位验证码", icon: "none" });
-      return;
-    }
-
-    setLoadingType("phone");
-    try {
-      clearToken();
-      Taro.removeStorageSync("userId");
-
-      const { token, user } = await request<AuthResponse>({
-        url: "/api/auth/phone",
-        method: "POST",
-        data: { phone: normalizedSmsPhone, code: normalizedSmsCode },
-        needAuth: false,
-      });
-
-      await finishLogin(token, user.id);
-    } catch (error: any) {
-      Taro.showToast({
-        title: error?.message ?? "手机号登录失败",
-        icon: "none",
-      });
-    } finally {
-      setLoadingType(null);
-    }
-  };
-
   const handleWechatLogin = async () => {
     if (!ensureAgreementsAccepted() || loadingType) {
       return;
@@ -416,49 +326,8 @@ export default function Login() {
         <Text className="welcome-title">欢迎回来</Text>
 
         <View className="btn-box">
-          <View className="sms-login-box">
-            <View className="phone-field">
-              <Text className="phone-prefix">+86</Text>
-              <Input
-                className="phone-input"
-                type="number"
-                maxlength={11}
-                placeholder="请输入手机号"
-                value={smsPhone}
-                onInput={(e) => setSmsPhone(e.detail.value.replace(/\D/g, "").slice(0, 11))}
-              />
-            </View>
-            <View className="code-row">
-              <Input
-                className="code-input"
-                type="number"
-                maxlength={6}
-                placeholder="请输入验证码"
-                value={smsCode}
-                onInput={(e) => setSmsCode(e.detail.value.replace(/\D/g, "").slice(0, 6))}
-              />
-              <Button
-                className="code-btn"
-                loading={loadingType === "phone" && smsCountdown === 0}
-                disabled={loadingType !== null || smsCountdown > 0}
-                onClick={handleSendSmsCode}
-              >
-                {smsCountdown > 0 ? `${smsCountdown}s` : "获取验证码"}
-              </Button>
-            </View>
-          </View>
-
           <Button
             className="btn btn-primary"
-            loading={loadingType === "phone"}
-            disabled={!canSubmitSmsLogin}
-            onClick={handleSmsLogin}
-          >
-            手机号登录
-          </Button>
-
-          <Button
-            className="btn btn-secondary"
             openType={hasAcceptedAgreements ? "getPhoneNumber" : undefined}
             loading={loadingType === "phone"}
             disabled={loadingType !== null}
