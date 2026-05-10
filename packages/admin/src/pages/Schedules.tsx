@@ -694,14 +694,77 @@ export default function Schedules() {
     setBlockModalOpen(true);
   };
 
-  const openEditBlockModal = () => {
-    if (!selectedBlock) {
+  const openEditBlockModal = (block: BehaviorScheduleBlock | null = selectedBlock) => {
+    if (!block) {
       return;
     }
     setBlockModalMode("edit");
-    setEditingBlockId(selectedBlock.id);
-    setBlockForm(buildBlockForm(selectedBlock.startMinutes, selectedBlock.endMinutes, selectedBlock.actionType));
+    setEditingBlockId(block.id);
+    setBlockForm(buildBlockForm(block.startMinutes, block.endMinutes, block.actionType));
     setBlockModalOpen(true);
+  };
+
+  const handleBlockMouseDown = (event: MouseEvent<HTMLDivElement>, block: BehaviorScheduleBlock) => {
+    event.stopPropagation();
+    if (!scheduleCanvasRef.current || !editorSchedule) {
+      return;
+    }
+
+    const rect = scheduleCanvasRef.current.getBoundingClientRect();
+    const startClientY = event.clientY;
+    const pointerMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
+    const pointerOffsetMinutes = Math.max(0, pointerMinutes - block.startMinutes);
+    const durationMinutes = block.endMinutes - block.startMinutes;
+    let dragging = false;
+
+    setSelectedBlockId(block.id);
+
+    const handleMouseMove = (moveEvent: globalThis.MouseEvent) => {
+      if (!scheduleCanvasRef.current) {
+        return;
+      }
+
+      if (!dragging && Math.abs(moveEvent.clientY - startClientY) < DRAG_START_THRESHOLD_PX) {
+        return;
+      }
+
+      dragging = true;
+      activeDraggedBlockIdRef.current = block.id;
+
+      const currentRect = scheduleCanvasRef.current.getBoundingClientRect();
+      const rawMinutes = timelineOffsetToMinutes(moveEvent.clientY - currentRect.top, currentRect.height);
+      const snappedStart = snapMinutes(rawMinutes - pointerOffsetMinutes);
+      const startMinutes = Math.max(0, Math.min(MINUTES_PER_DAY - durationMinutes, snappedStart));
+      const endMinutes = startMinutes + durationMinutes;
+      const nextBlock = {
+        ...block,
+        startMinutes,
+        endMinutes,
+      };
+
+      if (hasBlockOverlap(editorSchedule.blocks ?? [], nextBlock)) {
+        return;
+      }
+
+      updateEditorSchedule((current) => ({
+        ...current,
+        blocks: (current.blocks ?? []).map((item) => (item.id === block.id ? nextBlock : item)),
+      }));
+      setSelectedBlockId(block.id);
+    };
+
+    const handleMouseUp = () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      activeDraggedBlockIdRef.current = null;
+
+      if (!dragging) {
+        openEditBlockModal(block);
+      }
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
   };
 
   const deleteBlockById = (blockId: string | null) => {
@@ -1012,22 +1075,7 @@ export default function Schedules() {
                             return (
                               <div
                                 key={block.id}
-                                onMouseDown={(event) => {
-                                  event.stopPropagation();
-                                  if (!scheduleCanvasRef.current) {
-                                    return;
-                                  }
-
-                                  const rect = scheduleCanvasRef.current.getBoundingClientRect();
-                                  const pointerMinutes = timelineOffsetToMinutes(event.clientY - rect.top, rect.height);
-                                  pendingBlockPointerRef.current = {
-                                    blockId: block.id,
-                                    startClientY: event.clientY,
-                                    pointerOffsetMinutes: Math.max(0, pointerMinutes - block.startMinutes),
-                                    durationMinutes: block.endMinutes - block.startMinutes,
-                                  };
-                                  setSelectedBlockId(block.id);
-                                }}
+                                onMouseDown={(event) => handleBlockMouseDown(event, block)}
                                 style={{
                                   position: "absolute",
                                   top,
