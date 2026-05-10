@@ -72,8 +72,7 @@ const statusMeta: Record<
   done: { label: "已同步", color: "blue" },
 };
 
-const REVIEW_GRID_IMAGE_SIZE = 96;
-const REVIEW_DETAIL_IMAGE_HEIGHT = 180;
+const REVIEW_DETAIL_IMAGE_HEIGHT = 520;
 
 function isSameDay(value: string | null | undefined, date: Dayjs) {
   return !!value && dayjs(value).isValid() && dayjs(value).isSame(date, "day");
@@ -506,9 +505,10 @@ export default function ImageReview() {
                               alt={petName}
                               src={avatar.sourceImageUrl}
                               width="100%"
-                              height={REVIEW_GRID_IMAGE_SIZE}
+                              height="100%"
                               preview={false}
-                              style={{ objectFit: "cover" }}
+                              wrapperStyle={{ width: "100%", height: "100%", display: "block" }}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                             />
                           </div>
 
@@ -554,18 +554,30 @@ export default function ImageReview() {
                     <Col xs={24} lg={12}>
                       <div
                         style={{
-                          minHeight: REVIEW_DETAIL_IMAGE_HEIGHT,
+                          height: REVIEW_DETAIL_IMAGE_HEIGHT,
+                          maxHeight: "70vh",
                           borderRadius: 16,
-                          overflow: "hidden",
-                          background: "#f5f5f5",
+                          overflow: "auto",
+                          background: "#f5f7fb",
+                          border: "1px solid #eef2f7",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 12,
                         }}
                       >
                         <Image
                           alt={selectedAvatarDetail.pet?.name ?? "宠物图片"}
                           src={selectedAvatarDetail.sourceImageUrl}
-                          width="100%"
-                          height={REVIEW_DETAIL_IMAGE_HEIGHT}
-                          style={{ objectFit: "cover" }}
+                          style={{
+                            display: "block",
+                            maxWidth: "100%",
+                            maxHeight: "100%",
+                            width: "auto",
+                            height: "auto",
+                            objectFit: "contain",
+                            borderRadius: 12,
+                          }}
                         />
                       </div>
                     </Col>
