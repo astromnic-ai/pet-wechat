@@ -59,6 +59,7 @@ export default function ProfileEdit() {
   const [gender, setGender] = useState<ProfileGender>("female");
   const [birthday, setBirthday] = useState("2002-08-15");
   const [saving, setSaving] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
 
   const loadUser = async () => {
     const res = await request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null }));
@@ -77,6 +78,35 @@ export default function ProfileEdit() {
     void loadUser();
   });
 
+  const persistAvatarPath = async (avatarPath: string) => {
+    if (avatarSaving) return;
+
+    setAvatarSaving(true);
+    try {
+      const uploadRes = await uploadFile<{ url: string }>({
+        url: "/api/upload",
+        filePath: avatarPath,
+        name: "file",
+      });
+
+      const res = await request<{ user: User }>({
+        url: "/api/me",
+        method: "PUT",
+        data: { avatarUrl: uploadRes.url },
+      });
+
+      setUser(res.user);
+      setUserInfo(res.user);
+      setAvatarPreview(res.user.avatarUrl || uploadRes.url);
+      setLocalAvatarPath("");
+      Taro.showToast({ title: "头像已更新", icon: "success" });
+    } catch (error: any) {
+      Taro.showToast({ title: error?.message || "头像保存失败，请稍后重试", icon: "none" });
+    } finally {
+      setAvatarSaving(false);
+    }
+  };
+
   const handleChooseAvatar = async () => {
     try {
       const res = await Taro.chooseImage({
@@ -94,6 +124,7 @@ export default function ProfileEdit() {
       if (!nextPath) return;
       setAvatarPreview(nextPath);
       setLocalAvatarPath(nextPath);
+      await persistAvatarPath(nextPath);
     } catch (error) {
       const errorMessage = getChooseImageErrorMessage(error);
       if (errorMessage) {
@@ -117,11 +148,12 @@ export default function ProfileEdit() {
     }
   };
 
-  const handleWechatAvatarChosen = (event: any) => {
+  const handleWechatAvatarChosen = async (event: any) => {
     const avatarPath = event?.detail?.avatarUrl?.trim?.() || "";
     if (!avatarPath) return;
     setAvatarPreview(avatarPath);
     setLocalAvatarPath(avatarPath);
+    await persistAvatarPath(avatarPath);
   };
 
   const handleSave = async () => {
@@ -225,9 +257,11 @@ export default function ProfileEdit() {
             <Button
               className="avatar-change-link"
               openType="chooseAvatar"
+              loading={avatarSaving}
+              disabled={avatarSaving}
               onChooseAvatar={handleWechatAvatarChosen}
             >
-              更换头像
+              {avatarSaving ? "更新中" : "更换头像"}
             </Button>
           </View>
 
