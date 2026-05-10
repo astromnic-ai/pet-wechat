@@ -74,6 +74,31 @@ describe("Device Routes", () => {
       const json = await res.json();
       expect(json.collar.id).toBe("collar-1");
     });
+
+    it("finds an existing collar by chipId when BLE device id changes", async () => {
+      const collar = fakeCollar({
+        chipId: "chip-001",
+        macAddress: "AABBCCDDEEFF",
+        userId: "user-1",
+      });
+      mockDb._results.select = [[collar]];
+      mockDb._results.update = [[collar]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("POST", "/api/devices/collars/register", {
+          headers,
+          body: { chipId: "chip-001", macAddress: "volatile-ble-id" },
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.collar.id).toBe("collar-1");
+      expect((mockDb._calls.update[0] as any).set).toMatchObject({
+        chipId: "chip-001",
+      });
+    });
   });
 
   describe("POST /api/devices/collars", () => {
@@ -124,6 +149,47 @@ describe("Device Routes", () => {
         })
       );
       expect(res.status).toBe(404);
+    });
+
+    it("requires explicit replace when binding a collar to another pet", async () => {
+      mockDb._results.select = [
+        [fakeCollar({ petId: "pet-1" })],
+        [fakePet({ id: "pet-2" })],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("PUT", "/api/devices/collars/collar-1", {
+          headers,
+          body: { petId: "pet-2" },
+        })
+      );
+
+      expect(res.status).toBe(409);
+      expect(mockDb._calls.update).toHaveLength(0);
+      const json = await res.json();
+      expect(json.requiresReplace).toBe(true);
+    });
+
+    it("allows replacing a collar pet when explicitly confirmed", async () => {
+      const updated = fakeCollar({ petId: "pet-2" });
+      mockDb._results.select = [
+        [fakeCollar({ petId: "pet-1" })],
+        [fakePet({ id: "pet-2" })],
+      ];
+      mockDb._results.update = [[updated]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("PUT", "/api/devices/collars/collar-1", {
+          headers,
+          body: { petId: "pet-2", replace: true },
+        })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.collar.petId).toBe("pet-2");
     });
   });
 

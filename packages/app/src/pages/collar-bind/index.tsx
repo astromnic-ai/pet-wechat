@@ -11,6 +11,7 @@ type BleDevice = {
   localName?: string;
   RSSI?: number;
   isTarget?: boolean;
+  chipId?: string;
 };
 
 function getRawDeviceName(device: any) {
@@ -44,6 +45,7 @@ function normalizeDevice(device: any): BleDevice | null {
 
   const name = getRawDeviceName(device);
   const resolvedName = name || "未命名设备";
+  const chipId = resolveChipId(device);
 
   return {
     deviceId,
@@ -51,7 +53,26 @@ function normalizeDevice(device: any): BleDevice | null {
     localName: device?.localName || "",
     RSSI: typeof device?.RSSI === "number" ? device.RSSI : undefined,
     isTarget: isTargetBleDevice(device),
+    chipId,
   };
+}
+
+function arrayBufferToHex(buffer?: ArrayBuffer) {
+  if (!buffer) return "";
+  return Array.from(new Uint8Array(buffer))
+    .map((item) => item.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function resolveChipId(device: any) {
+  const text = `${device?.name || ""} ${device?.localName || ""}`;
+  const explicit = text.match(/(?:chip|chipid|id)[:_-]?([a-zA-Z0-9]{6,32})/i)?.[1];
+  if (explicit) return explicit;
+
+  const advertised = arrayBufferToHex(device?.advertisData);
+  if (advertised.length >= 12) return advertised;
+
+  return device?.deviceId || "";
 }
 
 function getSignalText(rssi?: number) {
@@ -225,7 +246,7 @@ export default function CollarBind() {
         Taro.navigateTo({
           url: `/pages/wifi-config/index?deviceType=${deviceType}&bleDeviceId=${encodeURIComponent(
             device.deviceId
-          )}&deviceName=${encodeURIComponent(device.name)}`,
+          )}&chipId=${encodeURIComponent(device.chipId || device.deviceId)}&deviceName=${encodeURIComponent(device.name)}`,
         });
       } catch (error) {
         Taro.showToast({ title: getBluetoothErrorMessage(error), icon: "none" });

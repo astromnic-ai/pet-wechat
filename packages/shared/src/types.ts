@@ -93,6 +93,7 @@ export interface CollarDevice {
   userId: string | null;
   petId: string | null;
   name: string;
+  chipId: string | null;
   macAddress: string;
   status: DeviceStatus;
   battery: number | null;

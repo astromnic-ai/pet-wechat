@@ -58,10 +58,31 @@ export default function BindPet() {
           },
         });
       } else {
+        const res = await request<{ collars: Array<{ id: string; petId: string | null }> }>({
+          url: "/api/devices/collars",
+        });
+        const currentCollar = res.collars.find((item) => item.id === deviceId);
+        const shouldReplace =
+          Boolean(currentCollar?.petId && currentCollar.petId !== selectedPetId) &&
+          (await new Promise<boolean>((resolve) => {
+            Taro.showModal({
+              title: "更换绑定宠物",
+              content: "该项圈已绑定过宠物，继续后会更换为当前选择的宠物。",
+              confirmText: "确认更换",
+              cancelText: "取消",
+              success: (modalRes) => resolve(Boolean(modalRes.confirm)),
+              fail: () => resolve(false),
+            });
+          }));
+
+        if (currentCollar?.petId && currentCollar.petId !== selectedPetId && !shouldReplace) {
+          return;
+        }
+
         await request({
           url: `/api/devices/collars/${deviceId}`,
           method: "PUT",
-          data: { petId: selectedPetId },
+          data: { petId: selectedPetId, replace: shouldReplace },
         });
       }
 

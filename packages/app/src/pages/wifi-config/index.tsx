@@ -34,6 +34,7 @@ function inferDeviceType(name?: string): DeviceType {
 export default function WifiConfig() {
   const router = useRouter();
   const bleDeviceId = decodeURIComponent(router.params.bleDeviceId || "");
+  const chipId = decodeURIComponent(router.params.chipId || "") || bleDeviceId;
   const deviceName = decodeURIComponent(router.params.deviceName || "");
   const deviceType = ((router.params.deviceType as DeviceType | undefined) || inferDeviceType(deviceName)) as DeviceType;
 
@@ -84,33 +85,35 @@ export default function WifiConfig() {
   const ensureDeviceRecord = async () => {
     if (deviceType === "desktop") {
       const existing = await request<{ desktops: Array<DesktopDevice & { bindings?: any[] }> }>({ url: "/api/devices/desktops" });
-      const matched = existing.desktops.find((item) => item.macAddress === bleDeviceId);
+      const matched = existing.desktops.find((item) => item.chipId === chipId || item.macAddress === bleDeviceId);
       if (matched) return matched;
 
-      const created = await request<{ desktop: DesktopDevice }>({
-        url: "/api/devices/desktops",
+      const registered = await request<{ desktop: DesktopDevice }>({
+        url: "/api/devices/desktops/register",
         method: "POST",
         data: {
           name: displayDeviceName,
           macAddress: bleDeviceId,
+          chipId,
         },
       });
-      return created.desktop;
+      return registered.desktop;
     }
 
     const existing = await request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" });
-    const matched = existing.collars.find((item) => item.macAddress === bleDeviceId);
+    const matched = existing.collars.find((item) => item.chipId === chipId || item.macAddress === bleDeviceId);
     if (matched) return matched;
 
-    const created = await request<{ collar: CollarDevice }>({
-      url: "/api/devices/collars",
+    const registered = await request<{ collar: CollarDevice }>({
+      url: "/api/devices/collars/register",
       method: "POST",
       data: {
         name: displayDeviceName,
         macAddress: bleDeviceId,
+        chipId,
       },
     });
-    return created.collar;
+    return registered.collar;
   };
 
   const handleConnectWifi = async () => {

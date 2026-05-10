@@ -40,6 +40,15 @@ async function findCollarByMac(macAddress: string) {
   return collar;
 }
 
+async function findCollarByChipId(chipId: string) {
+  const [collar] = await db
+    .select()
+    .from(collarDevices)
+    .where(eq(collarDevices.chipId, chipId));
+
+  return collar;
+}
+
 async function findDesktopByMac(macAddress: string) {
   const [desktop] = await db
     .select()
@@ -47,6 +56,34 @@ async function findDesktopByMac(macAddress: string) {
     .where(eq(desktopDevices.macAddress, macAddress));
 
   return desktop;
+}
+
+async function findDesktopByChipId(chipId: string) {
+  const [desktop] = await db
+    .select()
+    .from(desktopDevices)
+    .where(eq(desktopDevices.chipId, chipId));
+
+  return desktop;
+}
+
+function normalizeDeviceRegisterBody(body: { macAddress?: string; chipId?: string }) {
+  const chipId = body.chipId?.trim() || "";
+  const normalizedMac = normalizeMac(body.macAddress ?? "");
+  const identity = chipId || normalizedMac;
+
+  if (!identity) {
+    return { error: "chipId or macAddress is required" } as const;
+  }
+
+  if (body.macAddress && !normalizedMac && !chipId) {
+    return { error: "Invalid macAddress format" } as const;
+  }
+
+  return {
+    chipId: chipId || null,
+    macAddress: normalizedMac || chipId,
+  } as const;
 }
 
 function getInactiveMeta(lastOnlineAt: Date | string | null) {
@@ -213,16 +250,18 @@ devicesRoute.post("/collars/register", async (c) => {
   const userId = c.get("userId" as never) as string;
   const body =
     (await c.req
-      .json<{ macAddress?: string; name?: string }>()
+      .json<{ macAddress?: string; chipId?: string; name?: string }>()
       .catch(() => null)) ?? {};
-  const macAddress = normalizeMac(body.macAddress ?? "");
+  const identity = normalizeDeviceRegisterBody(body);
 
-  if (!macAddress) return c.json({ error: "macAddress is required" }, 400);
-  if (!NORMALIZED_MAC_REGEX.test(macAddress)) {
-    return c.json({ error: "Invalid macAddress format" }, 400);
+  if ("error" in identity) {
+    return c.json({ error: identity.error }, 400);
   }
 
-  let existing = await findCollarByMac(macAddress);
+  let existing = identity.chipId ? await findCollarByChipId(identity.chipId) : null;
+  if (!existing && NORMALIZED_MAC_REGEX.test(identity.macAddress)) {
+    existing = await findCollarByMac(identity.macAddress);
+  }
 
   if (!existing) {
     const [collar] = await db
@@ -230,7 +269,8 @@ devicesRoute.post("/collars/register", async (c) => {
       .values({
         userId,
         name: body.name ?? "我的项圈",
-        macAddress,
+        chipId: identity.chipId,
+        macAddress: identity.macAddress,
         ...buildOnlineDeviceState(),
       })
       .onConflictDoNothing()
@@ -240,7 +280,10 @@ devicesRoute.post("/collars/register", async (c) => {
       return c.json({ collar }, 201);
     }
 
-    existing = await findCollarByMac(macAddress);
+    existing = identity.chipId ? await findCollarByChipId(identity.chipId) : null;
+    if (!existing && NORMALIZED_MAC_REGEX.test(identity.macAddress)) {
+      existing = await findCollarByMac(identity.macAddress);
+    }
     if (!existing) {
       return c.json({ error: "Collar registration failed" }, 500);
     }
@@ -252,6 +295,10 @@ devicesRoute.post("/collars/register", async (c) => {
       .set({
         userId,
         name: body.name ?? existing.name,
+        chipId: identity.chipId ?? existing.chipId,
+        macAddress: NORMALIZED_MAC_REGEX.test(identity.macAddress)
+          ? identity.macAddress
+          : existing.macAddress,
         claimStatus: "occupied" as const,
         ...buildOnlineDeviceState(),
       })
@@ -259,7 +306,11 @@ devicesRoute.post("/collars/register", async (c) => {
       .returning();
 
     if (!collar) {
-      const latest = await findCollarByMac(macAddress);
+      const latest = identity.chipId
+        ? await findCollarByChipId(identity.chipId)
+        : NORMALIZED_MAC_REGEX.test(identity.macAddress)
+          ? await findCollarByMac(identity.macAddress)
+          : null;
       if (latest?.userId === userId) {
         return c.json({ collar: latest });
       }
@@ -273,7 +324,10 @@ devicesRoute.post("/collars/register", async (c) => {
   if (existing.userId === userId) {
     const [collar] = await db
       .update(collarDevices)
-      .set(buildOnlineDeviceState())
+      .set({
+        chipId: identity.chipId ?? existing.chipId,
+        ...buildOnlineDeviceState(),
+      })
       .where(eq(collarDevices.id, existing.id))
       .returning();
 
@@ -287,16 +341,18 @@ devicesRoute.post("/desktops/register", async (c) => {
   const userId = c.get("userId" as never) as string;
   const body =
     (await c.req
-      .json<{ macAddress?: string; name?: string }>()
+      .json<{ macAddress?: string; chipId?: string; name?: string }>()
       .catch(() => null)) ?? {};
-  const macAddress = normalizeMac(body.macAddress ?? "");
+  const identity = normalizeDeviceRegisterBody(body);
 
-  if (!macAddress) return c.json({ error: "macAddress is required" }, 400);
-  if (!NORMALIZED_MAC_REGEX.test(macAddress)) {
-    return c.json({ error: "Invalid macAddress format" }, 400);
+  if ("error" in identity) {
+    return c.json({ error: identity.error }, 400);
   }
 
-  let existing = await findDesktopByMac(macAddress);
+  let existing = identity.chipId ? await findDesktopByChipId(identity.chipId) : null;
+  if (!existing && NORMALIZED_MAC_REGEX.test(identity.macAddress)) {
+    existing = await findDesktopByMac(identity.macAddress);
+  }
 
   if (!existing) {
     const [desktop] = await db
@@ -304,7 +360,8 @@ devicesRoute.post("/desktops/register", async (c) => {
       .values({
         userId,
         name: body.name ?? "我的桌面端",
-        macAddress,
+        chipId: identity.chipId,
+        macAddress: identity.macAddress,
         ...buildOnlineDeviceState(),
       })
       .onConflictDoNothing()
@@ -314,7 +371,10 @@ devicesRoute.post("/desktops/register", async (c) => {
       return c.json({ desktop }, 201);
     }
 
-    existing = await findDesktopByMac(macAddress);
+    existing = identity.chipId ? await findDesktopByChipId(identity.chipId) : null;
+    if (!existing && NORMALIZED_MAC_REGEX.test(identity.macAddress)) {
+      existing = await findDesktopByMac(identity.macAddress);
+    }
     if (!existing) {
       return c.json({ error: "Desktop registration failed" }, 500);
     }
@@ -326,6 +386,10 @@ devicesRoute.post("/desktops/register", async (c) => {
       .set({
         userId,
         name: body.name ?? existing.name,
+        chipId: identity.chipId ?? existing.chipId,
+        macAddress: NORMALIZED_MAC_REGEX.test(identity.macAddress)
+          ? identity.macAddress
+          : existing.macAddress,
         claimStatus: "occupied" as const,
         ...buildOnlineDeviceState(),
       })
@@ -333,7 +397,11 @@ devicesRoute.post("/desktops/register", async (c) => {
       .returning();
 
     if (!desktop) {
-      const latest = await findDesktopByMac(macAddress);
+      const latest = identity.chipId
+        ? await findDesktopByChipId(identity.chipId)
+        : NORMALIZED_MAC_REGEX.test(identity.macAddress)
+          ? await findDesktopByMac(identity.macAddress)
+          : null;
       if (latest?.userId === userId) {
         return c.json({ desktop: latest });
       }
@@ -347,7 +415,10 @@ devicesRoute.post("/desktops/register", async (c) => {
   if (existing.userId === userId) {
     const [desktop] = await db
       .update(desktopDevices)
-      .set(buildOnlineDeviceState())
+      .set({
+        chipId: identity.chipId ?? existing.chipId,
+        ...buildOnlineDeviceState(),
+      })
       .where(eq(desktopDevices.id, existing.id))
       .returning();
 
@@ -413,7 +484,12 @@ devicesRoute.get("/collars", async (c) => {
 
 devicesRoute.post("/collars", async (c) => {
   const userId = c.get("userId" as never) as string;
-  const body = await c.req.json();
+  const body = await c.req.json<{
+    name?: string;
+    macAddress: string;
+    petId?: string | null;
+    replace?: boolean;
+  }>();
 
   // 如果指定了 petId，校验宠物归属
   if (body.petId) {
@@ -455,6 +531,17 @@ devicesRoute.put("/collars/:id", async (c) => {
       .from(pets)
       .where(and(eq(pets.id, body.petId), eq(pets.userId, userId)));
     if (!pet) return c.json({ error: "Pet not found" }, 404);
+
+    if (existing.petId && existing.petId !== body.petId && !body.replace) {
+      return c.json(
+        {
+          error: "Collar already bound to another pet",
+          currentPetId: existing.petId,
+          requiresReplace: true,
+        },
+        409,
+      );
+    }
   }
 
   const [collar] = await db
