@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckOutlined, CloseOutlined, DownloadOutlined, ReloadOutlined, SyncOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -155,6 +155,7 @@ export default function ImageReview() {
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
+  const initialLoadRef = useRef(false);
 
   const loadAvatars = async () => {
     setLoading(true);
@@ -293,6 +294,15 @@ export default function ImageReview() {
 
     return avatars.filter((avatar) => avatar.status === activeTab);
   }, [activeTab, avatars]);
+
+  useEffect(() => {
+    if (initialLoadRef.current) {
+      return;
+    }
+
+    initialLoadRef.current = true;
+    void loadAvatars();
+  }, []);
 
   useEffect(() => {
     if (filteredAvatars.length === 0) {
