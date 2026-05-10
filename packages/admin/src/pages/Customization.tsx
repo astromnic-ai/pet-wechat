@@ -288,15 +288,22 @@ function getDefaultPreviewActionType(actions: PetAvatarAction[]) {
   return actions[0].actionType as ActionType;
 }
 
-function openImageDownload(imageUrl: string, fallbackName: string) {
+async function downloadImage(imageUrl: string, fallbackName: string) {
+  const response = await fetch(imageUrl, { mode: "cors" });
+
+  if (!response.ok) {
+    throw new Error("图片下载失败");
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = imageUrl;
+  link.href = objectUrl;
   link.download = fallbackName;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
   document.body.appendChild(link);
   link.click();
   link.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): CustomizationTask {
@@ -663,7 +670,7 @@ export default function Customization() {
   const canSync = !!selectedAvatarDetail && uploadedProgress.completed > 0 && selectedAvatarDetail.status !== "done";
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
-  const previewImageUrl = previewAction?.videoUrl ?? previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
+  const previewImageUrl = previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
   const selectedAvatarImage =
     selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
   const referenceImages = parseAdditionalImages(
@@ -849,12 +856,13 @@ export default function Customization() {
                 }}
               >
                 {action ? (
-                  <video
-                    src={action.videoUrl ?? action.imageUrl}
-                    controls
-                    preload="metadata"
-                    playsInline
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  <Image
+                    src={action.imageUrl}
+                    alt={ACTION_LABELS[actionType] ?? actionType}
+                    width="100%"
+                    height="100%"
+                    preview={false}
+                    style={{ objectFit: "cover" }}
                   />
                 ) : (
                   <div
@@ -1066,24 +1074,14 @@ export default function Customization() {
                         }}
                       >
                         {previewImageUrl ? (
-                          previewAction && isMjpegUrl(previewImageUrl) ? (
-                            <video
-                              src={previewImageUrl}
-                              controls
-                              preload="metadata"
-                              playsInline
-                              style={{ width: 128, height: 128, objectFit: "cover" }}
-                            />
-                          ) : (
-                            <Image
-                              src={previewImageUrl}
-                              alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "预览图"}
-                              width={128}
-                              height={128}
-                              preview={false}
-                              style={{ objectFit: "cover" }}
-                            />
-                          )
+                          <Image
+                            src={previewImageUrl}
+                            alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "预览图"}
+                            width={128}
+                            height={128}
+                            preview={false}
+                            style={{ objectFit: "cover" }}
+                          />
                         ) : null}
                       </div>
 
@@ -1091,12 +1089,14 @@ export default function Customization() {
                         {selectedAvatarImage ? (
                           <Button
                             icon={<DownloadOutlined />}
-                            onClick={() =>
-                              openImageDownload(
+                            onClick={() => {
+                              void downloadImage(
                                 selectedAvatarImage,
                                 `${selectedAvatarFilePrefix}-source.jpg`,
-                              )
-                            }
+                              ).catch((error) => {
+                                messageApi.error(error instanceof Error ? error.message : "图片下载失败");
+                              });
+                            }}
                           >
                             下载原图
                           </Button>
@@ -1197,12 +1197,14 @@ export default function Customization() {
                             <Button
                               size="small"
                               icon={<DownloadOutlined />}
-                              onClick={() =>
-                                openImageDownload(
+                              onClick={() => {
+                                void downloadImage(
                                   url,
                                   `${selectedAvatarFilePrefix}-reference-${index + 1}.jpg`,
-                                )
-                              }
+                                ).catch((error) => {
+                                  messageApi.error(error instanceof Error ? error.message : "图片下载失败");
+                                });
+                              }}
                             >
                               下载
                             </Button>

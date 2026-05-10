@@ -96,15 +96,22 @@ function getSpeciesLabel(species?: string | null) {
   return speciesLabels[species] ?? species;
 }
 
-function openImageDownload(imageUrl: string, fallbackName: string) {
+async function downloadImage(imageUrl: string, fallbackName: string) {
+  const response = await fetch(imageUrl, { mode: "cors" });
+
+  if (!response.ok) {
+    throw new Error("图片下载失败");
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
-  link.href = imageUrl;
+  link.href = objectUrl;
   link.download = fallbackName;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
   document.body.appendChild(link);
   link.click();
   link.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 function formatComparedToYesterday(delta: number) {
@@ -622,12 +629,14 @@ export default function ImageReview() {
                           </Button>
                           <Button
                             icon={<DownloadOutlined />}
-                            onClick={() =>
-                              openImageDownload(
+                            onClick={() => {
+                              void downloadImage(
                                 selectedAvatarDetail.sourceImageUrl,
                                 `${selectedAvatarDetail.id}.jpg`,
-                              )
-                            }
+                              ).catch((error) => {
+                                messageApi.error(error instanceof Error ? error.message : "图片下载失败");
+                              });
+                            }}
                           >
                             下载
                           </Button>

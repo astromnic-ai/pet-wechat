@@ -249,8 +249,18 @@ export default function PetAvatar() {
           },
         });
         avatar = res.avatar;
+        console.info("[pet-avatar] customization task created", {
+          petId,
+          avatarId: avatar.id,
+          sourceImageUrl,
+        });
         setDraftImageUrl("");
       } catch (e: any) {
+        console.warn("[pet-avatar] customization task creation failed", {
+          petId,
+          sourceImageUrl,
+          error: e?.message || e,
+        });
         Taro.showToast({ title: e.message || "创建定制任务失败", icon: "none" });
         return;
       }

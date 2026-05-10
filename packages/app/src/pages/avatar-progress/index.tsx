@@ -42,10 +42,19 @@ export default function AvatarProgress() {
   const [avatar, setAvatar] = useState<PetAvatar | null>(null);
   const [actions, setActions] = useState<PetAvatarAction[]>([]);
   const [status, setStatus] = useState<AvatarStatus>("pending");
+  const [loadError, setLoadError] = useState("");
   const petRequestIdRef = useRef<string | null>(null);
 
   const warnFetchAvatarError = (source: string, error: unknown) => {
     console.warn(`[avatar-progress] ${source} failed`, error);
+  };
+
+  const getErrorMessage = (error: unknown) => {
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return "无法读取定制任务，请稍后重试";
   };
 
   const fetchAvatar = async (id: string) => {
@@ -53,6 +62,7 @@ export default function AvatarProgress() {
       url: `/api/avatars/${id}`,
     });
 
+    setLoadError("");
     setAvatar(res.avatar);
     setStatus(res.avatar.status);
     setActions([...res.actions].sort((a, b) => a.sortOrder - b.sortOrder));
@@ -87,6 +97,7 @@ export default function AvatarProgress() {
       } catch (error) {
         if (cancelled) return;
         warnFetchAvatarError("initial load", error);
+        setLoadError(getErrorMessage(error));
       }
     };
 
@@ -103,6 +114,9 @@ export default function AvatarProgress() {
     const timer = setInterval(() => {
       void fetchAvatar(avatarId).catch((error) => {
         warnFetchAvatarError("polling refresh", error);
+        if (!avatar) {
+          setLoadError(getErrorMessage(error));
+        }
       });
     }, 3000);
 
@@ -146,8 +160,9 @@ export default function AvatarProgress() {
       .catch(() => setPet(null));
   }, [avatarId, router.params.petId]);
 
-  const isSuccess = status === "done";
-  const isFailed = status === "failed";
+  const hasLoadError = !!loadError && !!avatarId && !avatar;
+  const isSuccess = !hasLoadError && status === "done";
+  const isFailed = hasLoadError || status === "failed";
   const isCustomActionFlow = source === "custom-action";
   const previewAction = actions[0] ?? null;
   const progress = getProgress(status);
@@ -170,6 +185,19 @@ export default function AvatarProgress() {
       return;
     }
     Taro.navigateBack();
+  };
+
+  const handleRetryLoad = () => {
+    if (!avatarId) {
+      handleRetryUpload();
+      return;
+    }
+
+    setLoadError("");
+    void fetchAvatar(avatarId).catch((error) => {
+      warnFetchAvatarError("manual retry", error);
+      setLoadError(getErrorMessage(error));
+    });
   };
 
   const handlePrimarySuccessAction = () => {
@@ -243,8 +271,8 @@ export default function AvatarProgress() {
             </View>
           </View>
 
-          <Text className="progress-title">生成失败</Text>
-          <Text className="progress-subtitle">{getStatusText(status)}</Text>
+          <Text className="progress-title">{hasLoadError ? "定制任务读取失败" : "生成失败"}</Text>
+          <Text className="progress-subtitle">{hasLoadError ? loadError : getStatusText(status)}</Text>
 
           <View className="progress-panel">
             <View className="progress-meta">
@@ -263,15 +291,17 @@ export default function AvatarProgress() {
             </View>
             <View className="step-item">
               <View className="step-icon step-icon--error">✕</View>
-              <Text className="step-text">生成专属形象失败</Text>
+              <Text className="step-text">{hasLoadError ? "未能确认定制任务" : "生成专属形象失败"}</Text>
             </View>
           </View>
 
           <View className="footer-card">
-            <View className="footer-primary-btn" onClick={handleRetryUpload}>
-              <Text className="footer-primary-btn-text">重新上传</Text>
+            <View className="footer-primary-btn" onClick={hasLoadError ? handleRetryLoad : handleRetryUpload}>
+              <Text className="footer-primary-btn-text">{hasLoadError ? "重新读取" : "重新上传"}</Text>
             </View>
-            <Text className="footer-tip">失败后本次定制次数不会被占用</Text>
+            <Text className="footer-tip">
+              {hasLoadError ? `任务编号：${avatarId}` : "失败后本次定制次数不会被占用"}
+            </Text>
           </View>
         </View>
       ) : (
