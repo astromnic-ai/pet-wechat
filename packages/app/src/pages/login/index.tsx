@@ -29,6 +29,11 @@ function isLocalDevApi() {
   return /127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\./.test(BASE_URL);
 }
 
+function isPhoneAuthDenied(event: any) {
+  const errMsg = String(event?.detail?.errMsg || "");
+  return errMsg.includes("deny") || errMsg.includes("cancel");
+}
+
 export default function Login() {
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
@@ -238,10 +243,19 @@ export default function Login() {
       }
 
       if (!phoneCode) {
+        if (isPhoneAuthDenied(event)) {
+          Taro.showToast({
+            title: "已取消手机号授权",
+            icon: "none",
+          });
+          return;
+        }
+
         Taro.showToast({
-          title: "未获取到手机号授权",
+          title: "请使用其他手机号注册",
           icon: "none",
         });
+        Taro.navigateTo({ url: "/pages/register/index" });
         return;
       }
 

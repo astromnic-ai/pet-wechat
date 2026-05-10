@@ -2,10 +2,24 @@ import { View, Text, Input, Button } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import PageBack from "../../components/PageBack";
+import { request, setToken } from "../../utils/request";
+import { setUserInfo } from "../../utils/storage";
+import { connectWs } from "../../utils/ws";
 import "./index.scss";
 
 const REGISTER_DRAFT_KEY = "registerFormDraft";
 const PHONE_PATTERN = /^1[3-9]\d{9}$/;
+
+interface AuthResponse {
+  token: string;
+  user: { id: string };
+}
+
+interface SendCodeResponse {
+  accepted: boolean;
+  expiresIn: number;
+  mockCode?: string;
+}
 
 export default function Register() {
   const [phone, setPhone] = useState("");
@@ -88,12 +102,26 @@ export default function Register() {
     }
 
     setSendingCode(true);
-    Taro.showToast({
-      title: "请使用本机号码快捷登录",
-      icon: "none",
-      duration: 1800,
-    });
-    setTimeout(() => setSendingCode(false), 600);
+    try {
+      const res = await request<SendCodeResponse>({
+        url: "/api/auth/phone/send-code",
+        method: "POST",
+        data: { phone: normalizedPhone },
+        needAuth: false,
+      });
+
+      Taro.showToast({
+        title: res.mockCode ? `验证码 ${res.mockCode}` : "验证码已发送",
+        icon: "none",
+      });
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message ?? "验证码发送失败",
+        icon: "none",
+      });
+    } finally {
+      setSendingCode(false);
+    }
   };
 
   const handleRegister = async () => {
@@ -115,11 +143,40 @@ export default function Register() {
       return;
     }
 
-    Taro.showToast({
-      title: "当前请使用本机号码快捷登录或微信登录",
-      icon: "none",
-      duration: 2200,
-    });
+    setSubmitting(true);
+    try {
+      const { token, user } = await request<AuthResponse>({
+        url: "/api/auth/phone",
+        method: "POST",
+        data: { phone: normalizedPhone, code: code.trim() },
+        needAuth: false,
+      });
+
+      setToken(token);
+      Taro.setStorageSync("userId", user.id);
+      Taro.removeStorageSync(REGISTER_DRAFT_KEY);
+
+      try {
+        const profile = await request<{ user: any }>({ url: "/api/me" });
+        if (profile.user) {
+          setUserInfo(profile.user);
+        }
+      } catch {
+        // 登录成功即可进入主页，资料预载失败不阻塞注册流程。
+      }
+
+      connectWs().catch(() => {
+        // WebSocket 后续会在页面生命周期里继续尝试。
+      });
+      Taro.reLaunch({ url: "/pages/index/index" });
+    } catch (error: any) {
+      Taro.showToast({
+        title: error?.message ?? "注册失败，请重试",
+        icon: "none",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openAgreementPage = (event: any, url: string) => {
