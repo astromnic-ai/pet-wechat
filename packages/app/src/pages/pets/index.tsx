@@ -147,9 +147,9 @@ export default function PetsPage() {
                 <View key={pet.id} className="pet-swipe-row">
                   <View
                     className={`pet-delete-action ${openDeleteId === pet.id ? "pet-delete-action--open" : ""}`}
-                    onClick={() => handleDeletePet(pet)}
+                    onClick={(event) => event.stopPropagation()}
                   >
-                    <Text className="pet-delete-action-text">
+                    <Text className="pet-delete-action-text" onClick={() => handleDeletePet(pet)}>
                       {deletingId === pet.id ? "删除中" : "删除"}
                     </Text>
                   </View>

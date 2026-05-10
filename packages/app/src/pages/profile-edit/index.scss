@@ -100,10 +100,16 @@
 
 .avatar-change-link {
   margin-top: 12rpx;
+  padding: 0;
+  background: transparent;
   font-size: 24rpx;
   line-height: 1.2;
   color: #4ea7ff;
   font-weight: 700;
+
+  &::after {
+    border: none;
+  }
 }
 
 .info-card,

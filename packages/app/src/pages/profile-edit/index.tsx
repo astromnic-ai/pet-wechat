@@ -1,4 +1,4 @@
-import { View, Text, Image, Input, Picker, ScrollView } from "@tarojs/components";
+import { View, Text, Image, Input, Picker, ScrollView, Button } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { User } from "@pet-wechat/shared";
@@ -117,6 +117,13 @@ export default function ProfileEdit() {
     }
   };
 
+  const handleWechatAvatarChosen = (event: any) => {
+    const avatarPath = event?.detail?.avatarUrl?.trim?.() || "";
+    if (!avatarPath) return;
+    setAvatarPreview(avatarPath);
+    setLocalAvatarPath(avatarPath);
+  };
+
   const handleSave = async () => {
     const trimmedNickname = nickname.trim();
     if (!trimmedNickname) {
@@ -215,7 +222,13 @@ export default function ProfileEdit() {
                 mode="aspectFill"
               />
             </View>
-            <Text className="avatar-change-link" onClick={handleChooseAvatar}>更换头像</Text>
+            <Button
+              className="avatar-change-link"
+              openType="chooseAvatar"
+              onChooseAvatar={handleWechatAvatarChosen}
+            >
+              更换头像
+            </Button>
           </View>
 
           <View className="info-card">

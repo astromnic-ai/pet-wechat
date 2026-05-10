@@ -128,35 +128,29 @@ export default function Login() {
     enterHome(res.user.id);
   };
 
-  const handleUseWechatAvatar = async () => {
+  const saveLocalAvatarPath = async (avatarPath: string) => {
+    const uploadRes = await uploadFile<{ url: string }>({
+      url: "/api/upload",
+      filePath: avatarPath,
+      name: "file",
+    });
+
+    await saveAvatarAndEnter(uploadRes.url);
+  };
+
+  const handleWechatAvatarChosen = async (event: any) => {
     if (avatarPromptLoading) return;
+    const avatarPath = event?.detail?.avatarUrl?.trim?.() || "";
+    if (!avatarPath) return;
+
     setAvatarPromptLoading("wechat");
     try {
-      const getUserProfile = (Taro as any).getUserProfile as
-        | ((options: { desc: string }) => Promise<{ userInfo?: { avatarUrl?: string } }>)
-        | undefined;
-
-      if (!getUserProfile) {
-        throw new Error("当前微信版本暂不支持获取头像");
-      }
-
-      const res = await getUserProfile({
-        desc: "用于设置您的头像",
-      });
-      const avatarUrl = res.userInfo?.avatarUrl?.trim();
-      if (!avatarUrl) {
-        throw new Error("未获取到微信头像");
-      }
-
-      await saveAvatarAndEnter(avatarUrl);
+      await saveLocalAvatarPath(avatarPath);
     } catch (error: any) {
-      const message = String(error?.errMsg || error?.message || "");
-      if (!message.includes("cancel")) {
-        Taro.showToast({
-          title: error?.message || "获取微信头像失败",
-          icon: "none",
-        });
-      }
+      Taro.showToast({
+        title: error?.message || "保存微信头像失败",
+        icon: "none",
+      });
     } finally {
       setAvatarPromptLoading(null);
     }
@@ -181,13 +175,7 @@ export default function Login() {
       const nextPath = res.tempFilePaths?.[0] || "";
       if (!nextPath) return;
 
-      const uploadRes = await uploadFile<{ url: string }>({
-        url: "/api/upload",
-        filePath: nextPath,
-        name: "file",
-      });
-
-      await saveAvatarAndEnter(uploadRes.url);
+      await saveLocalAvatarPath(nextPath);
     } catch (error: any) {
       const errorMessage = getChooseImageErrorMessage(error);
       if (errorMessage) {
@@ -418,9 +406,10 @@ export default function Login() {
             <View className="avatar-prompt-actions">
               <Button
                 className="avatar-prompt-btn avatar-prompt-btn--primary"
+                openType="chooseAvatar"
                 loading={avatarPromptLoading === "wechat"}
                 disabled={avatarPromptLoading !== null}
-                onClick={handleUseWechatAvatar}
+                onChooseAvatar={handleWechatAvatarChosen}
               >
                 使用微信头像
               </Button>
