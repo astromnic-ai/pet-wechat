@@ -39,7 +39,6 @@ export default function Login() {
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
   const [loadingType, setLoadingType] = useState<"wechat" | "phone" | null>(null);
   const [agreementShaking, setAgreementShaking] = useState(false);
-  const [phonePromptVisible, setPhonePromptVisible] = useState(false);
   const [avatarPromptVisible, setAvatarPromptVisible] = useState(false);
   const [avatarPromptLoading, setAvatarPromptLoading] = useState<"wechat" | "custom" | null>(null);
 
@@ -234,11 +233,9 @@ export default function Login() {
 
       if (!phoneCode) {
         if (isPhoneAuthDenied(event)) {
-          setPhonePromptVisible(false);
           return;
         }
 
-        setPhonePromptVisible(false);
         Taro.navigateTo({ url: "/pages/register/index" });
         return;
       }
@@ -251,11 +248,9 @@ export default function Login() {
       });
 
       await finishLogin(token, user.id);
-      setPhonePromptVisible(false);
     } catch (error: any) {
       try {
         await tryDevLoginFallback(error);
-        setPhonePromptVisible(false);
         return;
       } catch {}
 
@@ -266,19 +261,6 @@ export default function Login() {
     } finally {
       setLoadingType(null);
     }
-  };
-
-  const handleOpenPhonePrompt = () => {
-    if (!ensureAgreementsAccepted() || loadingType) {
-      return;
-    }
-
-    setPhonePromptVisible(true);
-  };
-
-  const handleUseOtherPhone = () => {
-    setPhonePromptVisible(false);
-    Taro.navigateTo({ url: "/pages/register/index" });
   };
 
   const handleWechatLogin = async () => {
@@ -341,9 +323,15 @@ export default function Login() {
         <View className="btn-box">
           <Button
             className="btn btn-primary"
+            openType={hasAcceptedAgreements ? "getPhoneNumber" : undefined}
             loading={loadingType === "phone"}
             disabled={loadingType !== null}
-            onClick={handleOpenPhonePrompt}
+            onClick={() => {
+              if (!hasAcceptedAgreements) {
+                ensureAgreementsAccepted();
+              }
+            }}
+            onGetPhoneNumber={handlePhoneQuickLogin}
           >
             本机号码快捷登录
           </Button>
@@ -400,35 +388,6 @@ export default function Login() {
           <Text className="register-link">立即注册</Text>
         </View>
       </View>
-
-      {phonePromptVisible ? (
-        <View className="phone-prompt-mask" onClick={() => setPhonePromptVisible(false)}>
-          <View className="phone-prompt-card" onClick={(event) => event.stopPropagation()}>
-            <Text className="phone-prompt-title">选择登录方式</Text>
-            <Text className="phone-prompt-desc">
-              使用微信绑定的本机号码快捷登录，或前往手机号验证码页面填写其他号码。
-            </Text>
-            <View className="phone-prompt-actions">
-              <Button
-                className="phone-prompt-btn phone-prompt-btn--primary"
-                openType="getPhoneNumber"
-                loading={loadingType === "phone"}
-                disabled={loadingType !== null}
-                onGetPhoneNumber={handlePhoneQuickLogin}
-              >
-                使用本机号码
-              </Button>
-              <Button
-                className="phone-prompt-btn phone-prompt-btn--secondary"
-                disabled={loadingType !== null}
-                onClick={handleUseOtherPhone}
-              >
-                其他手机号
-              </Button>
-            </View>
-          </View>
-        </View>
-      ) : null}
 
       {avatarPromptVisible ? (
         <View className="avatar-prompt-mask">
