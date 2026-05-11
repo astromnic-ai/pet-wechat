@@ -102,8 +102,10 @@ export default function PetInfo() {
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState("");
   const [selectedPreviewLabel, setSelectedPreviewLabel] = useState("");
   const [loading, setLoading] = useState(false);
+  const [nameLockedDialogVisible, setNameLockedDialogVisible] = useState(false);
   const canSubmit = name.trim().length > 0 && !loading;
   const isDetailMode = Boolean(petId) && !isEditFormMode;
+  const isNameLocked = Boolean(petId && isEditFormMode);
 
   useDidShow(() => {
     if (routeCollarId) {
@@ -196,7 +198,7 @@ export default function PetInfo() {
     setLoading(true);
     try {
       const data = {
-        name: name.trim(),
+        ...(petId ? {} : { name: name.trim() }),
         species,
         breed: breed || null,
         gender,
@@ -391,6 +393,16 @@ export default function PetInfo() {
     Taro.navigateTo({ url: `/pages/custom-action/index?petId=${petId}` });
   };
 
+  const handleOpenNameLockedDialog = () => {
+    if (!isNameLocked) return;
+    setNameLockedDialogVisible(true);
+  };
+
+  const handleCreateAnotherPet = () => {
+    setNameLockedDialogVisible(false);
+    Taro.redirectTo({ url: "/pages/pet-info/index" });
+  };
+
   useEffect(() => {
     if (!selectedPreviewUrl) return;
     const existsInActions = avatarActions.some((item) => item.imageUrl === selectedPreviewUrl);
@@ -462,13 +474,19 @@ export default function PetInfo() {
       );
     }
 
+    const shouldLockName = label === "宠物名字" && isNameLocked;
+
     return (
-      <View className={options?.required ? "required-input" : ""}>
+      <View
+        className={`${options?.required ? "required-input" : ""} ${shouldLockName ? "locked-input-wrap" : ""}`}
+        onClick={shouldLockName ? handleOpenNameLockedDialog : undefined}
+      >
         <Input
-          className={`single-input ${options?.required ? "single-input--required" : ""}`}
+          className={`single-input ${options?.required ? "single-input--required" : ""} ${shouldLockName ? "single-input--locked" : ""}`}
           type={options?.type === "number" ? "number" : "text"}
           placeholder={placeholder}
           value={value}
+          disabled={shouldLockName}
           onInput={(e) => onChange(e.detail.value)}
         />
         {options?.required ? <Text className="required-text">必填</Text> : null}
@@ -802,6 +820,31 @@ export default function PetInfo() {
               </View>
               <View className="selector-sheet-btn" onClick={handleConfirmBirthday}>
                 <Text className="selector-sheet-btn-text">确认</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {nameLockedDialogVisible ? (
+        <View className="name-locked-mask" onClick={() => setNameLockedDialogVisible(false)}>
+          <View className="name-locked-dialog" onClick={(e) => e.stopPropagation?.()}>
+            <View className="name-locked-icon-wrap">
+              <View className="name-locked-icon">
+                <View className="name-locked-icon-dot name-locked-icon-dot--one" />
+                <View className="name-locked-icon-dot name-locked-icon-dot--two" />
+                <View className="name-locked-icon-dot name-locked-icon-dot--three" />
+                <Text className="name-locked-icon-mark">∞</Text>
+              </View>
+            </View>
+            <Text className="name-locked-title">宠物信息已存在</Text>
+            <Text className="name-locked-desc">该宠物信息已建立，名称暂时不可修改。是否要新建一个宠物信息？</Text>
+            <View className="name-locked-actions">
+              <View className="name-locked-btn name-locked-btn--cancel" onClick={() => setNameLockedDialogVisible(false)}>
+                <Text className="name-locked-btn-text name-locked-btn-text--cancel">取消</Text>
+              </View>
+              <View className="name-locked-btn name-locked-btn--primary" onClick={handleCreateAnotherPet}>
+                <Text className="name-locked-btn-text">新建宠物</Text>
               </View>
             </View>
           </View>

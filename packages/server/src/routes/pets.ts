@@ -469,7 +469,7 @@ petsRoute.put("/:id", async (c) => {
   const [pet] = await db
     .update(pets)
     .set({
-      name: body.name ?? existing.name,
+      name: existing.name,
       species: body.species ?? existing.species,
       breed: body.breed ?? existing.breed,
       gender: body.gender ?? existing.gender,

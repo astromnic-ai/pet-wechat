@@ -208,9 +208,9 @@ describe("Pet Routes", () => {
   // ===== PUT /api/pets/:id =====
 
   describe("PUT /api/pets/:id", () => {
-    it("updates own pet", async () => {
+    it("updates own pet without renaming it", async () => {
       const existing = fakePet();
-      const updated = fakePet({ name: "New Name" });
+      const updated = fakePet({ name: existing.name, breed: "布偶" });
       // select: find existing, update: return updated
       mockDb._results.select = [[existing]];
       mockDb._results.update = [[updated]];
@@ -219,12 +219,16 @@ describe("Pet Routes", () => {
       const res = await app.request(
         jsonReq("PUT", "/api/pets/pet-1", {
           headers,
-          body: { name: "New Name" },
+          body: { name: "New Name", breed: "布偶" },
         })
       );
       expect(res.status).toBe(200);
       const json = await res.json();
-      expect(json.pet.name).toBe("New Name");
+      expect(json.pet.name).toBe(existing.name);
+      expect((mockDb._calls.update[0] as any).set).toMatchObject({
+        name: existing.name,
+        breed: "布偶",
+      });
     });
 
     it("returns 404 when updating another user's pet", async () => {
