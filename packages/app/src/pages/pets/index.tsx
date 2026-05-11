@@ -5,6 +5,7 @@ import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
 import { getPetDisplayImage } from "../../utils/petVisual";
+import { ICON_DELETE } from "../../assets/icons";
 import "./index.scss";
 const DELETE_ACTION_WIDTH = 168;
 
@@ -184,7 +185,15 @@ export default function PetsPage() {
                         </Text>
                       </View>
 
-                      <Text className="pet-list-arrow">〉</Text>
+                      <View
+                        className="pet-list-delete-btn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeletePet(pet);
+                        }}
+                      >
+                        <Image className="pet-list-delete-icon" src={ICON_DELETE} mode="aspectFit" />
+                      </View>
                     </View>
                   </View>
                 </View>

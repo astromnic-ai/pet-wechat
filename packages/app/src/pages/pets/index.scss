@@ -203,6 +203,22 @@
   flex-shrink: 0;
 }
 
+.pet-list-delete-btn {
+  width: 58rpx;
+  height: 58rpx;
+  border-radius: 29rpx;
+  background: #fff2f2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.pet-list-delete-icon {
+  width: 34rpx;
+  height: 34rpx;
+}
+
 .pets-add-btn {
   margin-top: 16rpx;
   width: 100%;

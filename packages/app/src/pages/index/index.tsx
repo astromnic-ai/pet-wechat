@@ -8,6 +8,7 @@ import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import { getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
+import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petActions";
 import "./index.scss";
 
 const HOME_LOGO_IMAGE = require("@/assets/images/logo.png");
@@ -24,6 +25,7 @@ type DesktopDeviceWithBindings = DesktopDevice & {
 };
 
 const ACTION_LABELS: Record<string, string> = {
+  ...SHARED_ACTION_LABELS,
   walking: "散步",
   running: "奔跑",
   sleeping: "睡觉",
@@ -141,7 +143,7 @@ function getCurrentCustomAction(petId?: string) {
     const appliesToToday =
       plan.repeat === "weekly"
         ? plan.days.includes(todayWeekday)
-        : plan.date === today;
+        : plan.days.includes(todayWeekday) || plan.date === today;
 
     return appliesToToday;
   });
@@ -149,6 +151,10 @@ function getCurrentCustomAction(petId?: string) {
   if (!activePlan) return "";
 
   const activeSlot = activePlan.slots.find((slot) => {
+    if (slot.day && slot.day !== todayWeekday) {
+      return false;
+    }
+
     const [startHour, startMinute] = String(slot.start).split(":").map(Number);
     const [endHour, endMinute] = String(slot.end).split(":").map(Number);
     const start = startHour * 60 + startMinute;

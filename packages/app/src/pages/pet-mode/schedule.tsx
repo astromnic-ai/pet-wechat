@@ -71,7 +71,7 @@ function toMinutes(value: string) {
   return hour * 60 + minute;
 }
 
-function sortSlots(slots: PetModeSlot[]) {
+function sortSlots<T extends PetModeSlot>(slots: T[]) {
   return [...slots].sort((a, b) => toMinutes(a.start) - toMinutes(b.start));
 }
 
@@ -129,6 +129,7 @@ export default function PetModeSchedulePage() {
   const existingOrderedDays = existingPlan?.days?.length ? orderDays(existingPlan.days) : [];
   const [repeat, setRepeat] = useState<PetModeRepeatType>(existingPlan?.repeat || "once");
   const [selectedDays, setSelectedDays] = useState<PetModeWeekday[]>(existingOrderedDays);
+  const [activeDay, setActiveDay] = useState<PetModeWeekday>(existingOrderedDays[0] || "mon");
   const [selectedDate, setSelectedDate] = useState<string>(existingPlan?.date || "");
   const [slots, setSlots] = useState<PetModeSlot[]>(() => sortSlots(existingPlan?.slots || []));
   const [customActions, setCustomActions] = useState<string[]>([]);
@@ -147,15 +148,18 @@ export default function PetModeSchedulePage() {
 
   useEffect(() => {
     if (existingPlan) {
+      const nextDays = existingPlan.days?.length ? orderDays(existingPlan.days) : [];
       setRepeat(existingPlan.repeat);
-      setSelectedDays(existingPlan.days?.length ? orderDays(existingPlan.days) : []);
-      setSelectedDate(existingPlan.date || "");
+      setSelectedDays(nextDays);
+      setActiveDay(nextDays[0] || "mon");
+      setSelectedDate(existingPlan.date || (nextDays[0] ? getCurrentWeekDateByDay(nextDays[0]) : ""));
       setSlots(sortSlots(existingPlan.slots || []));
       return;
     }
 
     setRepeat("once");
     setSelectedDays(["mon"]);
+    setActiveDay("mon");
     setSelectedDate(getCurrentWeekDateByDay("mon"));
     setSlots([]);
   }, [existingPlan]);
@@ -169,29 +173,49 @@ export default function PetModeSchedulePage() {
     [customActions]
   );
 
-  const canSaveSchedule = slots.length > 0 && selectedDays.length > 0;
+  const visibleSlots = useMemo(
+    () =>
+      sortSlots(
+        slots
+          .map((slot, index) => ({ ...slot, originalIndex: index }))
+          .filter((slot) => slot.day === activeDay)
+      ),
+    [activeDay, slots]
+  );
+  const selectedDaySlots = useMemo(
+    () => slots.filter((slot) => selectedDays.includes(slot.day || activeDay)),
+    [activeDay, selectedDays, slots]
+  );
+  const canSaveSchedule = selectedDaySlots.length > 0 && selectedDays.length > 0;
   const canDeleteSchedule = slots.length > 0;
 
   const handleToggleDay = (day: PetModeWeekday) => {
-    if (repeat === "once") {
-      setSelectedDays([day]);
-      setSelectedDate(getCurrentWeekDateByDay(day));
-      return;
-    }
-
     setSelectedDays((prev) => {
       const exists = prev.includes(day);
+      if (exists && activeDay !== day) {
+        setActiveDay(day);
+        setSelectedDate(getCurrentWeekDateByDay(day));
+        return prev;
+      }
+
       if (exists) {
         if (prev.length === 1) return prev;
-        return prev.filter((item) => item !== day);
+        const nextDays = prev.filter((item) => item !== day);
+        const nextActiveDay = nextDays[0] || "mon";
+        setActiveDay(nextActiveDay);
+        setSelectedDate(getCurrentWeekDateByDay(nextActiveDay));
+        return nextDays;
       }
+
+      setActiveDay(day);
+      setSelectedDate(getCurrentWeekDateByDay(day));
       return orderDays([...prev, day]);
     });
   };
 
   const openTimeEditor = (slotIndex = -1) => {
     const target = slotIndex >= 0 ? slots[slotIndex] : null;
-    const nextSuggestion = getNextTimeSuggestion(slots);
+    const nextSuggestion = getNextTimeSuggestion(visibleSlots);
     setTimeEditor({
       visible: true,
       editIndex: slotIndex,
@@ -223,6 +247,9 @@ export default function PetModeSchedulePage() {
       start: timeEditor.start,
       end: timeEditor.end,
       action: timeEditor.action,
+      day: activeDay,
+      repeat,
+      date: repeat === "once" ? getCurrentWeekDateByDay(activeDay) : null,
     };
 
     if (timeEditor.editIndex >= 0) {
@@ -231,7 +258,8 @@ export default function PetModeSchedulePage() {
       nextSlots.push(nextSlot);
     }
 
-    if (hasOverlap(nextSlots)) {
+    const nextVisibleSlots = nextSlots.filter((slot) => slot.day === activeDay);
+    if (hasOverlap(nextVisibleSlots)) {
       Taro.showToast({ title: "时间段不能重叠", icon: "none" });
       return;
     }
@@ -261,8 +289,16 @@ export default function PetModeSchedulePage() {
       id: existingPlan?.id || `plan-${Date.now()}`,
       repeat,
       days: normalizedDays,
-      date: repeat === "once" ? selectedDate || null : null,
-      slots: sortSlots(slots),
+      date: null,
+      slots: sortSlots(
+        selectedDaySlots
+          .filter((slot) => normalizedDays.includes(slot.day || activeDay))
+          .map((slot) => ({
+            ...slot,
+            repeat,
+            date: repeat === "once" && slot.day ? getCurrentWeekDateByDay(slot.day) : null,
+          }))
+      ),
     };
 
     const currentPlans = getPetModePlans(petId);
@@ -323,11 +359,7 @@ export default function PetModeSchedulePage() {
                   }`}
                   onClick={() => {
                     setRepeat(item.key);
-                    if (item.key === "once") {
-                      const nextDay = selectedDays[0] || "mon";
-                      setSelectedDays([nextDay]);
-                      setSelectedDate(getCurrentWeekDateByDay(nextDay));
-                    }
+                    setSelectedDate(getCurrentWeekDateByDay(activeDay));
                   }}
                 >
                   <Text
@@ -364,11 +396,11 @@ export default function PetModeSchedulePage() {
           </View>
 
           <View className="custom-schedule-slot-list">
-            {slots.map((slot, index) => (
+            {visibleSlots.map((slot) => (
               <View
                 key={slot.id}
                 className="custom-schedule-slot-card"
-                onClick={() => setSlotActionDialog({ visible: true, slotIndex: index })}
+                onClick={() => setSlotActionDialog({ visible: true, slotIndex: slot.originalIndex })}
               >
                 <View className="custom-schedule-slot-time">
                   <Text className="custom-schedule-slot-time-text">

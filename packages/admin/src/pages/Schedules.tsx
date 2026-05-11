@@ -73,31 +73,32 @@ const effectiveTypeEnglishLabels: Record<ScheduleEffectiveType, string> = {
   friday: "Beauty Friday Only",
 };
 
-const actionEnglishLabels: Record<ActionType, string> = {
-  sit: "Sitting",
-  eat: "Eating",
-  sleep: "Sleeping",
-  lie: "Resting",
-  run: "Running",
-  walk: "Walking",
-  stand: "Standing",
-  jump: "Jumping",
-  play_ball: "Playing",
-  poop: "Pooping",
-  drink_water: "Drinking",
-  chase_tail: "Chasing",
-  butterfly: "Catching",
-  dream: "Dreaming",
-  lick_paw: "Licking",
-  spin: "Spinning",
-  dizzy: "Dizzy",
-  get_closer: "Approaching",
-  run_fast: "Sprinting",
-  woken_up: "Responding",
-  eat_shrimp: "Eating Treat",
-  well_behaved: "Behaving",
-  confused: "Confused",
-  walk_left: "Walking Side",
+const actionEnglishLabels: Partial<Record<ActionType, string>> = {
+  "base-seat": "base-seat",
+  "base-eat": "base-eat",
+  "base-sleep": "base-sleep",
+  "base-lay": "base-lay",
+  "base-run": "base-run",
+  "base-walk": "base-walk",
+  "base-stand": "base-stand",
+  "base-jump": "base-jump",
+  "funny-playball": "funny-playball",
+  "funny-toilet": "funny-toilet",
+  "funny-drinkwater": "funny-drinkwater",
+  "funny-chasing-the-tail": "funny-chasing-the-tail",
+  "funny-butterfly": "funny-butterfly",
+  "funny-dream": "funny-dream",
+  "funny-lick-paw": "funny-lick-paw",
+  "funny-spin-around": "funny-spin-around",
+  "touch-dizzy": "touch-dizzy",
+  "touch-get-closer": "touch-get-closer",
+  "touch-run-fast-6s": "touch-run-fast-6s",
+  "touch-woken-up-6s": "touch-woken-up-6s",
+  "touch-shrimp-6s": "touch-shrimp-6s",
+  "touch-well-behaved-miaomiao-6s": "touch-well-behaved-miaomiao-6s",
+  "touch-confused-6s": "touch-confused-6s",
+  "touch-walk-left-6s": "touch-walk-left-6s",
+  "touch-walk-right-6s": "touch-walk-right-6s",
 };
 
 const MINUTES_PER_DAY = 24 * 60;
@@ -266,21 +267,21 @@ const actionGroupMeta = [
   {
     key: "basic",
     title: "基础动作",
-    description: "八种基础动作，用于日常主行为配置。",
+    description: `${BASIC_ACTIONS.length} 种基础动作，用于日常主行为配置。`,
     color: "#1677ff",
     actions: BASIC_ACTIONS,
   },
   {
     key: "fun",
     title: "趣味动作",
-    description: "八种趣味动作，用于穿插在主行为之间。",
+    description: `${FUN_ACTIONS.length} 种趣味动作，用于穿插在主行为之间。`,
     color: "#722ed1",
     actions: FUN_ACTIONS,
   },
   {
     key: "interactive",
     title: "交互动作",
-    description: "八种交互动作，用于响应用户主动互动。",
+    description: `${INTERACTIVE_ACTIONS.length} 种交互动作，用于响应用户主动互动。`,
     color: "#13c2c2",
     actions: INTERACTIVE_ACTIONS,
   },
@@ -422,37 +423,37 @@ function getActionVisual(actionType: ActionType) {
   };
 
   const map: Partial<Record<ActionType, typeof defaults>> = {
-    sleep: {
+    "base-sleep": {
       dot: "#5b5ce9",
       border: "#2f3952",
       background: "#253247",
       text: "#f4f6fb",
     },
-    lie: {
+    "base-lay": {
       dot: "#6f71f4",
       border: "#7d83ff",
       background: "#eef0ff",
       text: "#4c57cb",
     },
-    eat: {
+    "base-eat": {
       dot: "#22c55e",
       border: "#2ed573",
       background: "#eafbf0",
       text: "#26b45b",
     },
-    play_ball: {
+    "funny-playball": {
       dot: "#f59e0b",
       border: "#ffa31a",
       background: "#fff5d6",
       text: "#cc7a00",
     },
-    run: {
+    "base-run": {
       dot: "#f59e0b",
       border: "#ffa31a",
       background: "#fff5d6",
       text: "#cc7a00",
     },
-    walk: {
+    "base-walk": {
       dot: "#3b82f6",
       border: "#6ea8ff",
       background: "#edf5ff",
@@ -1106,7 +1107,7 @@ export default function Schedules() {
                                       textOverflow: "ellipsis",
                                     }}
                                   >
-                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]}
+                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType] ?? block.actionType}
                                     {compact ? ` · ${formatTime(block.startMinutes)}-${formatTime(block.endMinutes)}` : ""}
                                   </div>
                                   {compact ? null : (

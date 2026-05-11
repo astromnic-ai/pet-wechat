@@ -5,29 +5,29 @@ import { request } from "../../utils/request";
 import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarAction, Species } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { getPetFallbackImage } from "../../utils/petVisual";
-import { normalizePetActionLabel } from "../../utils/petActions";
+import { normalizePetActionLabel, SYSTEM_PRESET_ACTION_KEYS } from "../../utils/petActions";
 import "./index.scss";
 
 const CAT_SYSTEM_ACTION_FALLBACKS = [
-  { label: "蹲坐", image: require("./images/action-sit.png") },
-  { label: "趴卧", image: require("./images/action-lie.png") },
-  { label: "吃饭", image: require("./images/action-eat.png") },
-  { label: "睡觉", image: require("./images/action-sleep.png") },
-  { label: "跑", image: require("./images/action-run.png") },
-  { label: "走", image: require("./images/action-walk.png") },
-  { label: "舔爪子", image: require("./images/action-lick.png") },
-  { label: "睡觉", image: require("./images/action-sleep.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[0]), image: require("./images/action-sit.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[1]), image: require("./images/action-eat.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[2]), image: require("./images/action-sleep.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[3]), image: require("./images/action-lie.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[4]), image: require("./images/action-run.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[5]), image: require("./images/action-walk.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[6]), image: require("./images/action-sit.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[7]), image: require("./images/action-run.png") },
 ];
 
 const DOG_SYSTEM_ACTION_FALLBACKS = [
-  { label: "蹲坐", image: require("./images/dog-action-sit.png") },
-  { label: "趴卧", image: require("./images/dog-action-lie.png") },
-  { label: "吃饭", image: require("./images/dog-action-eat.png") },
-  { label: "睡觉", image: require("./images/dog-action-sleep.png") },
-  { label: "跑", image: require("./images/dog-action-run.png") },
-  { label: "走", image: require("./images/dog-action-walk.png") },
-  { label: "舔爪子", image: require("./images/dog-action-lick.png") },
-  { label: "睡觉", image: require("./images/dog-action-sleep.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[0]), image: require("./images/dog-action-sit.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[1]), image: require("./images/dog-action-eat.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[2]), image: require("./images/dog-action-sleep.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[3]), image: require("./images/dog-action-lie.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[4]), image: require("./images/dog-action-run.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[5]), image: require("./images/dog-action-walk.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[6]), image: require("./images/dog-action-sit.png") },
+  { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[7]), image: require("./images/dog-action-run.png") },
 ];
 
 const AVATAR_PROGRESS_BASE = 12;
@@ -486,9 +486,6 @@ export default function PetInfo() {
               <Text className="create-header-back-icon">←</Text>
             </View>
             <Text className="detail-header-title">宠物信息</Text>
-            <View className="detail-header-switch">
-              <Text className="detail-header-switch-icon">⇄</Text>
-            </View>
           </View>
         </View>
       ) : (

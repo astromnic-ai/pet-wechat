@@ -4,11 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import type { CollarDevice, InteractionStats, Pet, PetBehavior } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
+import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petActions";
 import "./index.scss";
 
 const WEEK_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
 const MONTH_BUCKET_LABELS = ["1-4", "5-8", "9-12", "13-16", "17-20", "21-24", "25-28"];
 const ACTION_LABELS: Record<string, string> = {
+  ...SHARED_ACTION_LABELS,
   sleeping: "睡觉",
   eating: "吃饭",
   playing: "玩耍",

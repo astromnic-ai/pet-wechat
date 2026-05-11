@@ -179,6 +179,9 @@ function normalizePlan(value: any, index: number): PetModePlan {
           start: normalized.start,
           end: normalized.end,
           action: normalized.action,
+          day: schedule.days.includes(normalized.day) ? normalized.day : schedule.days[0],
+          repeat: schedule.repeat,
+          date: schedule.repeat === "once" && normalized.day ? getCurrentWeekDateByDay(normalized.day) : null,
         };
       })
     : [];
@@ -268,9 +271,9 @@ export function getPetModeSlots(petId?: string): PetModeSlot[] {
         start: slot.start,
         end: slot.end,
         action: slot.action,
-        day: plan.days[0] || getTodayWeekday(),
+        day: slot.day || plan.days[0] || getTodayWeekday(),
         repeat: plan.repeat,
-        date: plan.date ?? null,
+        date: plan.repeat === "once" && slot.day ? getCurrentWeekDateByDay(slot.day) : plan.date ?? null,
       }))
     );
   }
@@ -323,9 +326,9 @@ export function setPetModePlans(petId: string | undefined, plans: PetModePlan[])
       getPetModeSlotsKey(petId),
       firstPlan.slots.map((slot) => ({
         ...slot,
-        day: firstPlan.days[0] || getTodayWeekday(),
+        day: slot.day || firstPlan.days[0] || getTodayWeekday(),
         repeat: firstPlan.repeat,
-        date: firstPlan.date ?? null,
+        date: firstPlan.repeat === "once" && slot.day ? getCurrentWeekDateByDay(slot.day) : firstPlan.date ?? null,
       }))
     );
     return;
