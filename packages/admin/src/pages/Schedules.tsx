@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent } from "react";
+import { CloseOutlined } from "@ant-design/icons";
 import {
   Badge,
   Button,
@@ -100,9 +101,9 @@ const actionEnglishLabels: Record<ActionType, string> = {
 };
 
 const MINUTES_PER_DAY = 24 * 60;
-const TIMELINE_SEGMENT_MINUTES = 3 * 60;
-const TIMELINE_SEGMENT_HEIGHT = 110;
-const verticalTimelineHours = Array.from({ length: 8 }, (_, index) => index * 3);
+const TIMELINE_SEGMENT_MINUTES = 60;
+const TIMELINE_SEGMENT_HEIGHT = 72;
+const verticalTimelineHours = Array.from({ length: 24 }, (_, index) => index);
 const TIMELINE_CANVAS_HEIGHT = verticalTimelineHours.length * TIMELINE_SEGMENT_HEIGHT;
 const DRAG_SNAP_MINUTES = 15;
 const DRAG_START_THRESHOLD_PX = 6;
@@ -245,7 +246,7 @@ const timelineStyles: Record<string, CSSProperties> = {
     position: "absolute",
     left: 0,
     right: 0,
-    borderRadius: 14,
+    borderRadius: 8,
     background: "#fafcff",
     border: "1px dashed #e7edf6",
     pointerEvents: "none",
@@ -759,7 +760,7 @@ export default function Schedules() {
       activeDraggedBlockIdRef.current = null;
 
       if (!dragging) {
-        openEditBlockModal(block);
+        setSelectedBlockId(block.id);
       }
     };
 
@@ -873,10 +874,6 @@ export default function Schedules() {
     });
     setSelectedBlockId(nextBlock.id);
     closeBlockModal();
-  };
-
-  const handleDeleteSelectedBlock = () => {
-    deleteBlockById(selectedBlockId);
   };
 
   const persistSchedule = async () => {
@@ -1067,47 +1064,40 @@ export default function Schedules() {
                             const visual = getActionVisual(block.actionType);
                             const top = minutesToTimelineOffset(block.startMinutes);
                             const blockHeight = Math.max(
-                              40,
+                              28,
                               minutesToTimelineOffset(block.endMinutes) - minutesToTimelineOffset(block.startMinutes),
                             );
-                            const compact = blockHeight < 72;
+                            const compact = blockHeight < 52;
 
                             return (
                               <div
                                 key={block.id}
                                 onMouseDown={(event) => handleBlockMouseDown(event, block)}
+                                onDoubleClick={(event) => {
+                                  event.stopPropagation();
+                                  openEditBlockModal(block);
+                                }}
                                 style={{
                                   position: "absolute",
                                   top,
                                   left: 12,
                                   right: 12,
                                   height: blockHeight,
-                                  borderRadius: 14,
+                                  borderRadius: 6,
                                   border: `2px solid ${isSelected ? visual.dot : visual.border}`,
                                   background: visual.background,
-                                  padding: compact ? "10px 14px" : "16px 18px",
+                                  padding: compact ? "5px 36px 5px 14px" : "14px 42px 14px 16px",
                                   display: "flex",
                                   alignItems: "flex-start",
-                                  gap: 14,
                                   cursor: dragState?.blockId === block.id ? "grabbing" : "grab",
                                   boxShadow: isSelected ? `0 0 0 2px ${visual.border}` : "none",
                                   overflow: "hidden",
                                 }}
                               >
-                                <div
-                                  style={{
-                                    width: compact ? 16 : 20,
-                                    height: compact ? 16 : 20,
-                                    borderRadius: "50%",
-                                    background: visual.dot,
-                                    flexShrink: 0,
-                                    marginTop: 2,
-                                  }}
-                                  />
-                                <div style={{ minWidth: 0 }}>
+                                <div style={{ minWidth: 0, width: "100%" }}>
                                   <div
                                     style={{
-                                      fontSize: compact ? 12 : 13,
+                                      fontSize: compact ? 13 : 14,
                                       fontWeight: 700,
                                       color: visual.text,
                                       lineHeight: 1.3,
@@ -1116,10 +1106,42 @@ export default function Schedules() {
                                       textOverflow: "ellipsis",
                                     }}
                                   >
-                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]} ·{" "}
-                                    {formatTime(block.startMinutes)}-{formatTime(block.endMinutes)}
+                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType]}
+                                    {compact ? ` · ${formatTime(block.startMinutes)}-${formatTime(block.endMinutes)}` : ""}
                                   </div>
+                                  {compact ? null : (
+                                    <div
+                                      style={{
+                                        marginTop: 4,
+                                        fontSize: 13,
+                                        color: "rgba(31, 41, 55, 0.68)",
+                                        lineHeight: 1.35,
+                                      }}
+                                    >
+                                      {formatTime(block.startMinutes)} - {formatTime(block.endMinutes)}
+                                    </div>
+                                  )}
                                 </div>
+                                <Button
+                                  type="text"
+                                  danger
+                                  size="small"
+                                  aria-label={`删除${ACTION_LABELS[block.actionType]}时间段`}
+                                  icon={<CloseOutlined />}
+                                  onMouseDown={(event) => {
+                                    event.stopPropagation();
+                                  }}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    deleteBlockById(block.id);
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    top: compact ? 0 : 6,
+                                    right: 8,
+                                    color: "#98a2b3",
+                                  }}
+                                />
                               </div>
                             );
                           })
@@ -1153,11 +1175,6 @@ export default function Schedules() {
                     <div style={{ color: "#8c8c8c", fontSize: 12 }}>
                       已添加 {(editorSchedule.blocks ?? []).length} 个行为时间段
                     </div>
-                    <Space wrap>
-                      <Button danger disabled={!selectedBlock} onClick={handleDeleteSelectedBlock}>
-                        删除行为
-                      </Button>
-                    </Space>
                   </div>
                 </Space>
               </div>
