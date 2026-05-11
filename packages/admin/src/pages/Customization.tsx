@@ -425,23 +425,6 @@ function getTaskProgress(task: CustomizationTask | null | undefined, category: A
   };
 }
 
-function avatarSupportsCategory(avatar: CustomizationAvatar, category: ActionCategoryFilter) {
-  const hasReferences =
-    avatar.task?.supportsFunActions ??
-    avatar.task?.supportsInteractiveActions ??
-    hasAdditionalReferences(avatar.additionalImageUrls);
-
-  if (category === "basic") {
-    return true;
-  }
-
-  if (category === "fun") {
-    return !!hasReferences;
-  }
-
-  return !!hasReferences;
-}
-
 function hasPersonalizedTask(avatar: CustomizationAvatar) {
   return (
     avatar.task?.supportsFunActions ??
@@ -634,25 +617,6 @@ export default function Customization() {
     [avatars, selectedAvatarId],
   );
   const selectedPetDescription = (selectedAvatarDetail?.petDescription ?? selectedAvatarSummary?.petDescription ?? "").trim();
-  const currentSelectedAvatar = selectedAvatarDetail ?? selectedAvatarSummary;
-  const supportsFunActions = currentSelectedAvatar ? avatarSupportsCategory(currentSelectedAvatar, "fun") : false;
-  const supportsInteractiveActions = currentSelectedAvatar
-    ? avatarSupportsCategory(currentSelectedAvatar, "interactive")
-    : false;
-
-  useEffect(() => {
-    if (!currentSelectedAvatar) {
-      return;
-    }
-
-    if (actionFilter === "basic") {
-      return;
-    }
-
-    if (!avatarSupportsCategory(currentSelectedAvatar, actionFilter)) {
-      setActionFilter("basic");
-    }
-  }, [actionFilter, currentSelectedAvatar]);
 
   const actionMap = useMemo(
     () => buildActionMap(selectedAvatarDetail?.actions ?? []),
@@ -667,7 +631,10 @@ export default function Customization() {
   const funProgress = getCategoryProgress(selectedActions, "fun");
   const interactiveProgress = getCategoryProgress(selectedActions, "interactive");
   const canEditActions = selectedAvatarDetail?.status === "approved" || selectedAvatarDetail?.status === "processing";
-  const canSync = !!selectedAvatarDetail && uploadedProgress.completed > 0 && selectedAvatarDetail.status !== "done";
+  const canSync =
+    !!selectedAvatarDetail &&
+    uploadedProgress.completed >= totalActionCount &&
+    selectedAvatarDetail.status !== "done";
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
   const previewImageUrl = previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
@@ -919,11 +886,10 @@ export default function Customization() {
 
   const actionFilterOptions = [
     { label: `基础动作 ${BASIC_ACTIONS.length}个`, value: "basic" },
-    { label: `趣味动作 ${FUN_ACTIONS.length}个`, value: "fun", disabled: !supportsFunActions },
+    { label: `趣味动作 ${FUN_ACTIONS.length}个`, value: "fun" },
     {
       label: `交互动作 ${INTERACTIVE_ACTIONS.length}个`,
       value: "interactive",
-      disabled: !supportsInteractiveActions,
     },
   ] satisfies { label: string; value: ActionCategoryFilter; disabled?: boolean }[];
 
@@ -931,20 +897,8 @@ export default function Customization() {
     actionFilter === "basic"
       ? renderActionSection("基础动作", BASIC_ACTIONS)
       : actionFilter === "fun"
-        ? supportsFunActions
-          ? renderActionSection("趣味动作", FUN_ACTIONS)
-          : (
-              <Card>
-                <Empty description="当前任务暂无趣味动作素材" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-              </Card>
-            )
-        : supportsInteractiveActions
-          ? renderActionSection("交互动作", INTERACTIVE_ACTIONS)
-          : (
-              <Card>
-                <Empty description="当前任务暂无交互动作素材" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-              </Card>
-            );
+        ? renderActionSection("趣味动作", FUN_ACTIONS)
+        : renderActionSection("交互动作", INTERACTIVE_ACTIONS);
 
   return (
     <>
