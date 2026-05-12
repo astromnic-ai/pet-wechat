@@ -195,7 +195,8 @@ export const api = {
   getAvatars: (status?: string) => request<{ avatars: any[] }>(`/avatars${status ? `?status=${status}` : ""}`),
   getAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}`),
   approveAvatar: (id: string) => request<{ avatar: any }>(`/avatars/${id}/approve`, { method: "PUT" }),
-  rejectAvatar: (id: string, reason: string) => request<{ avatar: any }>(`/avatars/${id}/reject`, { method: "PUT", body: JSON.stringify({ reason }) }),
+  rejectAvatar: (id: string, reason: string, title?: string) =>
+    request<{ avatar: any }>(`/avatars/${id}/reject`, { method: "PUT", body: JSON.stringify({ reason, title }) }),
   getAvatarActions: (id: string) => request<{ actions: any[] }>(`/avatars/${id}/actions`),
   createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
     request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),

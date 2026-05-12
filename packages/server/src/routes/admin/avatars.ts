@@ -165,37 +165,42 @@ function buildApprovalMessage() {
   };
 }
 
-function buildRejectMessage(reason: string) {
+function buildRejectMessage(reason: string, titleOverride?: string) {
+  const withTitle = (message: { title: string; content: string }) => ({
+    ...message,
+    title: titleOverride?.trim() || message.title,
+  });
+
   switch (reason) {
     case "该图片不是宠物图片":
-      return {
+      return withTitle({
         title: "图像审核未通过：未检测到宠物形象",
         content:
           "抱歉，您上传的图片中似乎没有发现可爱的宠物身影。本产品暂仅支持【猫/狗】的宠物专项影像定制，请重新上传一张宠物的清晰美照吧。",
-      };
+      });
     case "宠物形象有遮挡":
-      return {
+      return withTitle({
         title: "图像审核未通过：宠物身体存在遮挡",
         content:
           "宠物照片被其他物体遮挡住了一部分。为了保证定制出的动作（如扑、跳、滚）足够完整自然，请上传一张【全身无遮挡】的宠物全身或半身照。",
-      };
+      });
     case "宠物面部不完全":
-      return {
+      return withTitle({
         title: "图像审核未通过：面部识别不完整",
         content:
           "您上传的图片中，宠物的面部五官不完整，请重新上传一张【正面】的照片。",
-      };
+      });
     case "光线过暗":
-      return {
+      return withTitle({
         title: "图像审核未通过：环境光线太暗啦",
         content:
           "图片光线不足影响宠物定制细节效果，建议您在【光线充足的白天】或【明亮的室内】为宝贝重新拍一张照片哦。",
-      };
+      });
     default:
-      return {
+      return withTitle({
         title: "图像审核未通过",
         content: `抱歉，您上传的宠物图片未通过审核：${reason}。请根据提示调整后重新上传。`,
-      };
+      });
   }
 }
 
@@ -326,8 +331,9 @@ avatarsRoute.put("/avatars/:id/approve", async (c) => {
 
 avatarsRoute.put("/avatars/:id/reject", async (c) => {
   const avatarId = c.req.param("id");
-  const body = await c.req.json<{ reason?: string }>();
+  const body = await c.req.json<{ reason?: string; title?: string }>();
   const reason = body.reason?.trim();
+  const title = body.title?.trim();
 
   if (!reason) {
     return c.json({ error: "reason is required" }, 400);
@@ -353,7 +359,7 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
   }
 
   const nextReviewedAt = row.avatar.status === "pending" ? new Date() : row.avatar.reviewedAt;
-  const rejectMessage = buildRejectMessage(reason);
+  const rejectMessage = buildRejectMessage(reason, title);
 
   const [avatar] = await db.transaction(async (tx) => {
     const [updatedAvatar] = await tx

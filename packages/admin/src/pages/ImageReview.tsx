@@ -33,6 +33,12 @@ const REJECT_REASON_OPTIONS = [
   "宠物面部不完全",
   "光线过暗",
 ] as const;
+const REJECT_REASON_TITLES: Record<(typeof REJECT_REASON_OPTIONS)[number], string> = {
+  该图片不是宠物图片: "图像审核未通过：未检测到宠物形象",
+  宠物形象有遮挡: "图像审核未通过：宠物身体存在遮挡",
+  宠物面部不完全: "图像审核未通过：面部识别不完整",
+  光线过暗: "图像审核未通过：环境光线太暗啦",
+};
 const APPROVED_REVIEW_STATUSES: AvatarStatus[] = ["approved", "processing", "done"];
 const REVIEWED_AVATAR_STATUSES: AvatarStatus[] = ["approved", "processing", "done", "rejected"];
 
@@ -153,6 +159,7 @@ export default function ImageReview() {
   const [selectedAvatarDetail, setSelectedAvatarDetail] = useState<ReviewAvatarDetail | null>(null);
   const [rejectReasonOption, setRejectReasonOption] = useState<string | undefined>(undefined);
   const [rejectReason, setRejectReason] = useState("");
+  const [rejectTitle, setRejectTitle] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
   const [syncLoading, setSyncLoading] = useState(false);
   const initialLoadRef = useRef(false);
@@ -190,6 +197,11 @@ export default function ImageReview() {
       setSelectedAvatarDetail(detail);
       const nextReason = detail.rejectReason?.trim() ?? "";
       setRejectReason(nextReason);
+      setRejectTitle(
+        nextReason && REJECT_REASON_OPTIONS.includes(nextReason as (typeof REJECT_REASON_OPTIONS)[number])
+          ? REJECT_REASON_TITLES[nextReason as (typeof REJECT_REASON_OPTIONS)[number]]
+          : "",
+      );
       setRejectReasonOption(
         nextReason
           ? REJECT_REASON_OPTIONS.includes(nextReason as (typeof REJECT_REASON_OPTIONS)[number])
@@ -310,6 +322,7 @@ export default function ImageReview() {
       setSelectedAvatarDetail(null);
       setRejectReasonOption(undefined);
       setRejectReason("");
+      setRejectTitle("");
       return;
     }
 
@@ -372,11 +385,16 @@ export default function ImageReview() {
       messageApi.warning("请填写拒绝原因");
       return;
     }
+    const nextTitle = rejectTitle.trim();
+    if (!nextTitle) {
+      messageApi.warning("请填写推送标题详情");
+      return;
+    }
 
     setActionLoading(true);
 
     try {
-      await api.rejectAvatar(selectedAvatarDetail.id, nextReason);
+      await api.rejectAvatar(selectedAvatarDetail.id, nextReason, nextTitle);
       messageApi.success("已标记为有问题并通知用户");
       await refreshAfterMutation(selectedAvatarDetail.id);
     } catch (error) {
@@ -691,23 +709,30 @@ export default function ImageReview() {
                               setRejectReasonOption(value);
                               if (value === CUSTOM_REJECT_REASON) {
                                 setRejectReason("");
+                                setRejectTitle("");
                                 return;
                               }
                               setRejectReason(value);
+                              setRejectTitle(REJECT_REASON_TITLES[value as (typeof REJECT_REASON_OPTIONS)[number]]);
                             }}
                           />
                           <TextArea
-                            value={rejectReason}
+                            value={rejectTitle}
                             rows={5}
                             maxLength={200}
                             showCount
                             placeholder={
                               rejectReasonOption === CUSTOM_REJECT_REASON
-                                ? "请输入其他拒绝原因，不超过 200 字"
-                                : "可直接选择预设原因，或切换到“手动填写其他原因”"
+                                ? "请输入推送标题详情，不超过 200 字"
+                                : "可按需调整推送标题详情，不超过 200 字"
                             }
                             disabled={!canReject}
-                            onChange={(event) => setRejectReason(event.target.value)}
+                            onChange={(event) => {
+                              setRejectTitle(event.target.value);
+                              if (rejectReasonOption === CUSTOM_REJECT_REASON) {
+                                setRejectReason(event.target.value);
+                              }
+                            }}
                           />
                         </div>
 
