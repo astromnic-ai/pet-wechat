@@ -212,10 +212,6 @@ export default function ProfileEdit() {
     Taro.navigateTo({ url: "/pages/settings/bind-email" });
   };
 
-  const handleChangePassword = () => {
-    Taro.showToast({ title: "修改密码功能即将上线", icon: "none" });
-  };
-
   const handleVerified = () => {
     Taro.showToast({ title: "当前账号已认证", icon: "none" });
   };
@@ -330,11 +326,6 @@ export default function ProfileEdit() {
               <View className="account-action-btn" onClick={handleModifyEmail}>
                 <Text className="account-action-btn-text">修改</Text>
               </View>
-            </View>
-
-            <View className="account-row account-row--plain" onClick={handleChangePassword}>
-              <Text className="account-link-label">修改密码</Text>
-              <Text className="info-arrow">›</Text>
             </View>
 
             <View className="account-row account-row--plain" onClick={handleVerified}>

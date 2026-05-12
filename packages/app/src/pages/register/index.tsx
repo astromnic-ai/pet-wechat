@@ -24,8 +24,6 @@ interface SendCodeResponse {
 export default function Register() {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [sendingCode, setSendingCode] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -36,8 +34,8 @@ export default function Register() {
   const isPhoneValid = PHONE_PATTERN.test(normalizedPhone);
 
   const canSubmit = useMemo(
-    () => Boolean(isPhoneValid && code.trim() && password.trim() && confirmPassword.trim() && agreed),
-    [agreed, code, confirmPassword, isPhoneValid, password],
+    () => Boolean(isPhoneValid && code.trim() && agreed),
+    [agreed, code, isPhoneValid],
   );
 
   const triggerAgreementShake = () => {
@@ -76,8 +74,6 @@ export default function Register() {
     if (draft && typeof draft === "object") {
       setPhone(typeof draft.phone === "string" ? draft.phone : "");
       setCode(typeof draft.code === "string" ? draft.code : "");
-      setPassword(typeof draft.password === "string" ? draft.password : "");
-      setConfirmPassword(typeof draft.confirmPassword === "string" ? draft.confirmPassword : "");
       setAgreed(Boolean(draft.agreed));
     }
   });
@@ -86,11 +82,9 @@ export default function Register() {
     Taro.setStorageSync(REGISTER_DRAFT_KEY, {
       phone,
       code,
-      password,
-      confirmPassword,
       agreed,
     });
-  }, [agreed, code, confirmPassword, password, phone]);
+  }, [agreed, code, phone]);
 
   const handleSendCode = async () => {
     if (sendingCode) return;
@@ -129,14 +123,6 @@ export default function Register() {
     if (!validatePhone()) return;
     if (!code.trim()) {
       Taro.showToast({ title: "请输入验证码", icon: "none" });
-      return;
-    }
-    if (!password.trim()) {
-      Taro.showToast({ title: "请输入密码", icon: "none" });
-      return;
-    }
-    if (password !== confirmPassword) {
-      Taro.showToast({ title: "两次输入密码不一致", icon: "none" });
       return;
     }
     if (!ensureAgreementAccepted()) {
@@ -231,26 +217,6 @@ export default function Register() {
             发送验证码
           </Button>
         </View>
-
-        <Text className="field-label">设置密码</Text>
-        <Input
-          className="field-input"
-          password
-          placeholder="6-16位数字或字母"
-          placeholderClass="input-placeholder"
-          value={password}
-          onInput={(e) => setPassword(e.detail.value)}
-        />
-
-        <Text className="field-label">确认密码</Text>
-        <Input
-          className="field-input"
-          password
-          placeholder="再次输入密码"
-          placeholderClass="input-placeholder"
-          value={confirmPassword}
-          onInput={(e) => setConfirmPassword(e.detail.value)}
-        />
 
         <View className={`agreement-row ${agreementShaking ? "shake" : ""}`} onClick={() => setAgreed((prev) => !prev)}>
           <View className={`agreement-check ${agreed ? "checked" : ""}`} />
