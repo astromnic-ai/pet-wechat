@@ -208,7 +208,7 @@
   min-height: 60rpx;
   border-radius: 999rpx;
   background: #ffd86f;
-  padding: 12rpx 22rpx;
+  padding: 0 22rpx;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -221,7 +221,7 @@
   font-size: 22rpx;
   font-weight: 600;
   color: #1d1d1d;
-  line-height: 1;
+  line-height: 60rpx;
   white-space: nowrap;
 }
 
@@ -231,6 +231,7 @@
   justify-content: center;
   gap: 8rpx;
   flex-wrap: nowrap;
+  height: 60rpx;
 }
 
 .detail-pill-gender-main {
@@ -239,24 +240,43 @@
   justify-content: center;
   gap: 6rpx;
   flex-wrap: nowrap;
+  height: 60rpx;
+}
+
+.detail-pill-symbol-box {
+  width: 26rpx;
+  height: 60rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
 }
 
 .detail-pill-symbol {
+  display: block;
+  width: 26rpx;
+  height: 60rpx;
   font-size: 24rpx;
   font-weight: 700;
   color: #1d1d1d;
-  line-height: 1;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transform: translateY(1rpx);
+  line-height: 60rpx;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.detail-pill-text--gender,
+.detail-pill-text--age {
+  display: block;
+  height: 60rpx;
 }
 
 .detail-pill-separator {
+  display: block;
+  height: 60rpx;
   font-size: 22rpx;
   font-weight: 600;
   color: #1d1d1d;
-  line-height: 1;
+  line-height: 60rpx;
   margin: 0 2rpx;
 }
 
