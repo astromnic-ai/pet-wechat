@@ -14,6 +14,7 @@ import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petAvatars, petBehaviors } from "../../db/schema";
 import { createId } from "../../utils/id";
+import { getEffectiveDeviceStatus } from "../../utils/device-status";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../../utils/mac";
 import { buildPageResponse, parsePagination } from "../../utils/pagination";
 import { normalizePublicFileUrl } from "../../utils/storage";
@@ -239,7 +240,11 @@ function toAdminDeviceListItem(row: RawDeviceRow): AdminDeviceListItem {
     name: row.name,
     chipId: row.chip_id,
     macAddress: row.mac_address,
-    status: row.status,
+    status: getEffectiveDeviceStatus({
+      type: row.type,
+      status: row.status,
+      lastOnlineAt: row.last_online_at,
+    }),
     claimStatus: row.claim_status,
     upgradeStatus: row.upgrade_status,
     firmwareVersion: row.firmware_version,
@@ -267,7 +272,11 @@ function toAdminDeviceRelationItem(row: RawRelatedDeviceRow): AdminDeviceRelatio
     type: row.type,
     id: row.id,
     name: row.name,
-    status: row.status,
+    status: getEffectiveDeviceStatus({
+      type: row.type,
+      status: row.status,
+      lastOnlineAt: row.last_online_at,
+    }),
     claimStatus: row.claim_status,
     lastOnlineAt: toIsoString(row.last_online_at),
     createdAt: toRequiredIsoString(row.created_at),
