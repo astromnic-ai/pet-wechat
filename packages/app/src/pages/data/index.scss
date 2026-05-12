@@ -51,6 +51,7 @@
 
 .pet-tabs-scroll {
   flex: 1;
+  min-width: 0;
   width: 100%;
   white-space: nowrap;
   overflow: hidden;
@@ -68,6 +69,7 @@
   border-radius: 28rpx;
   background: #fff;
   border: 2rpx solid #efe7da;
+  overflow: hidden;
 }
 
 .pet-tab--active {
@@ -82,13 +84,22 @@
 
 .pet-tab-title {
   display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 34rpx;
   font-weight: 700;
+  line-height: 1.25;
   color: #fff;
 }
 
 .pet-tab-desc {
   display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   margin-top: 12rpx;
   font-size: 22rpx;
   line-height: 1.4;
@@ -98,6 +109,8 @@
 .pet-tab--small {
   width: 124rpx;
   height: 130rpx;
+  padding: 0 16rpx;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -105,6 +118,12 @@
 }
 
 .pet-tab-name {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
   font-size: 28rpx;
   font-weight: 700;
   color: #5d5d5d;
