@@ -257,6 +257,29 @@ describe("Device Routes", () => {
         },
       ]);
     });
+
+    it("returns stale online desktops as offline after 10 minutes without heartbeat", async () => {
+      mockDb._results.select = [[
+        {
+          desktop: fakeDesktop({
+            status: "online",
+            lastOnlineAt: new Date(Date.now() - 11 * 60 * 1000),
+          }),
+          bindingId: null,
+          bindingPetId: null,
+          bindingType: null,
+        },
+      ]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/devices/desktops", { headers })
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.desktops[0].status).toBe("offline");
+    });
   });
 
   describe("POST /api/devices/desktops", () => {
@@ -335,6 +358,55 @@ describe("Device Routes", () => {
       expect(json.devices[0].usageDurationMinutes).toBe(180);
       expect(json.devices[0].isInactive).toBe(true);
       expect(json.devices[0].claimStatus).toBe("occupied");
+    });
+
+    it("derives desktop offline state from a 10 minute heartbeat timeout", async () => {
+      mockDb._results.select = [
+        [],
+        [
+          {
+            desktop: fakeDesktop({
+              status: "online",
+              lastOnlineAt: new Date(Date.now() - 11 * 60 * 1000),
+            }),
+            bindingId: null,
+            bindingPetId: null,
+            bindingType: null,
+          },
+        ],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(jsonReq("GET", "/api/devices", { headers }));
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.devices[0].deviceType).toBe("desktop");
+      expect(json.devices[0].status).toBe("offline");
+    });
+
+    it("keeps recently heartbeating desktops online", async () => {
+      mockDb._results.select = [
+        [],
+        [
+          {
+            desktop: fakeDesktop({
+              status: "online",
+              lastOnlineAt: new Date(Date.now() - 9 * 60 * 1000),
+            }),
+            bindingId: null,
+            bindingPetId: null,
+            bindingType: null,
+          },
+        ],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(jsonReq("GET", "/api/devices", { headers }));
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.devices[0].status).toBe("online");
     });
   });
 

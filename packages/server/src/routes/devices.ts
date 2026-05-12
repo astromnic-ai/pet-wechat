@@ -14,6 +14,7 @@ import {
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { generateInviteCode, verifyInviteCode } from "../utils/invite";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
+import { getEffectiveDeviceStatus } from "../utils/device-status";
 import { deviceTypeSchema } from "../validators/user-end";
 
 const devicesRoute = new Hono();
@@ -157,6 +158,11 @@ async function getOwnedDesktops(userId: string) {
 
     desktops.set(row.desktop.id, {
       ...row.desktop,
+      status: getEffectiveDeviceStatus({
+        type: "desktop",
+        status: row.desktop.status,
+        lastOnlineAt: row.desktop.lastOnlineAt,
+      }),
       bindings:
         row.bindingId && row.bindingPetId && row.bindingType
           ? [
@@ -607,7 +613,11 @@ devicesRoute.get("/", async (c) => {
       deviceId: collar.id,
       deviceType: "collar" as const,
       name: collar.name,
-      status: collar.status,
+      status: getEffectiveDeviceStatus({
+        type: "collar",
+        status: collar.status,
+        lastOnlineAt: collar.lastOnlineAt,
+      }),
       firmwareVersion: collar.firmwareVersion,
       claimStatus: collar.claimStatus,
       usageDurationMinutes: collar.usageDurationMinutes,
@@ -621,7 +631,11 @@ devicesRoute.get("/", async (c) => {
       deviceId: desktop.id,
       deviceType: "desktop" as const,
       name: desktop.name,
-      status: desktop.status,
+      status: getEffectiveDeviceStatus({
+        type: "desktop",
+        status: desktop.status,
+        lastOnlineAt: desktop.lastOnlineAt,
+      }),
       firmwareVersion: desktop.firmwareVersion,
       claimStatus: desktop.claimStatus,
       usageDurationMinutes: desktop.usageDurationMinutes,
