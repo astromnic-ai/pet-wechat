@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
-import { ALL_ACTIONS } from "shared";
+import { ALL_ACTIONS, BASIC_ACTIONS, FUN_ACTIONS, INTERACTIVE_ACTIONS } from "shared";
 import { db } from "../../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
 import { extractFirstJpegFrame } from "../../utils/mjpeg";
@@ -23,8 +23,14 @@ const VALID_ACTIONS = new Set<string>(ALL_ACTIONS);
 const ADMIN_TIME_ZONE = "Asia/Shanghai";
 const MAX_ACTION_VIDEO_SIZE = 50 * 1024 * 1024;
 const ACTION_VIDEO_TYPES = new Set(["video/mjpeg", "video/x-motion-jpeg"]);
+const ACTION_CATEGORY_TYPES = {
+  basic: BASIC_ACTIONS,
+  fun: FUN_ACTIONS,
+  interactive: INTERACTIVE_ACTIONS,
+} as const;
 type AvatarStatus = (typeof petAvatars.$inferSelect)["status"];
 type AvatarAction = typeof petAvatarActions.$inferSelect;
+type ActionCategory = keyof typeof ACTION_CATEGORY_TYPES;
 
 type AvatarRow = {
   avatar: typeof petAvatars.$inferSelect;
@@ -155,6 +161,14 @@ function getAvatarOwnerContext(row: AvatarRow) {
     petName: row.petName,
     userId: row.userId,
   };
+}
+
+function getActionCategoryTypes(category: string): readonly string[] | null {
+  if (category === "basic" || category === "fun" || category === "interactive") {
+    return ACTION_CATEGORY_TYPES[category];
+  }
+
+  return null;
 }
 
 function buildApprovalMessage() {
@@ -523,6 +537,13 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
             videoUrl,
             sortOrder: (lastAction?.sortOrder ?? -1) + 1,
           })
+          .onConflictDoUpdate({
+            target: [petAvatarActions.petAvatarId, petAvatarActions.actionType],
+            set: {
+              imageUrl,
+              ...(hasVideoUrl ? { videoUrl } : {}),
+            },
+          })
           .returning();
 
     if (row.avatar.status === "approved") {
@@ -586,6 +607,51 @@ avatarsRoute.delete("/avatars/:id/actions/:actionId", async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+avatarsRoute.post("/avatars/:id/action-categories/:category/save", async (c) => {
+  const avatarId = c.req.param("id");
+  const category = c.req.param("category") as ActionCategory;
+  const categoryActionTypes = getActionCategoryTypes(category);
+
+  if (!categoryActionTypes) {
+    return c.json({ error: "Invalid action category" }, 400);
+  }
+
+  const row = await getAvatarRow(avatarId);
+
+  if (!row) {
+    return c.json({ error: "Avatar not found" }, 404);
+  }
+
+  if (!EDITABLE_ACTION_STATUSES.has(row.avatar.status) && row.avatar.status !== "done") {
+    return c.json({ error: "Avatar actions can only be saved while approved, processing or done" }, 400);
+  }
+
+  const actions = await getAvatarActions(avatarId);
+  const categoryActionTypeSet = new Set(categoryActionTypes);
+  const savedActions = actions.filter((action) => categoryActionTypeSet.has(action.actionType));
+  const savedActionTypes = new Set(savedActions.map((action) => action.actionType));
+
+  let nextStatus = row.avatar.status;
+
+  if (row.avatar.status === "approved" && savedActionTypes.size > 0) {
+    const [updatedAvatar] = await db
+      .update(petAvatars)
+      .set({ status: "processing" })
+      .where(eq(petAvatars.id, avatarId))
+      .returning();
+
+    nextStatus = updatedAvatar?.status ?? "processing";
+  }
+
+  return c.json({
+    category,
+    saved: savedActionTypes.size,
+    total: categoryActionTypes.length,
+    actions: savedActions,
+    avatarStatus: nextStatus,
+  });
 });
 
 avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {

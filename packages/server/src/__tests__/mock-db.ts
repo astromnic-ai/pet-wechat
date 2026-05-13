@@ -150,9 +150,11 @@ export function createMockDb(): MockDb {
           return Promise.resolve(result());
         },
         onConflictDoUpdate(_config: unknown) {
+          call.onConflictDoUpdate = _config;
           return { returning: () => Promise.resolve(result()) };
         },
         onConflictDoNothing() {
+          call.onConflictDoNothing = true;
           return { returning: () => Promise.resolve(result()) };
         },
       };

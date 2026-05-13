@@ -3,6 +3,7 @@ import {
   CheckOutlined,
   DeleteOutlined,
   DownloadOutlined,
+  SaveOutlined,
   SyncOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
@@ -100,6 +101,12 @@ const genderLabels: Record<Gender, string> = {
   male: "公",
   female: "母",
   unknown: "未知",
+};
+
+const actionCategoryLabels: Record<ActionCategoryFilter, string> = {
+  basic: "基础动作",
+  fun: "趣味动作",
+  interactive: "交互动作",
 };
 
 function padNumber(value: number) {
@@ -233,7 +240,13 @@ function buildActionMap(actions: PetAvatarAction[]) {
 
 function countCompletedActions(actions: PetAvatarAction[], actionTypes: readonly ActionType[]) {
   const actionTypeSet = new Set(actionTypes);
-  return actions.filter((action) => actionTypeSet.has(action.actionType as ActionType)).length;
+  const completedActionTypes = new Set(
+    actions
+      .map((action) => action.actionType as ActionType)
+      .filter((actionType) => actionTypeSet.has(actionType)),
+  );
+
+  return completedActionTypes.size;
 }
 
 function getCategoryProgress(actions: PetAvatarAction[], category: ActionCategoryFilter | "all"): CategoryProgress {
@@ -259,7 +272,7 @@ function getCategoryProgress(actions: PetAvatarAction[], category: ActionCategor
   }
 
   return {
-    completed: actions.length,
+    completed: new Set(actions.map((action) => action.actionType)).size,
     total: BASIC_ACTIONS.length + FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length,
   };
 }
@@ -311,7 +324,7 @@ function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): Customiz
   const funActionCount = countCompletedActions(avatar.actions, FUN_ACTIONS);
   const interactiveActionCount = countCompletedActions(avatar.actions, INTERACTIVE_ACTIONS);
   const personalizedActionCount = funActionCount + interactiveActionCount;
-  const totalActionCount = avatar.actions.length;
+  const totalActionCount = new Set(avatar.actions.map((action) => action.actionType)).size;
   const supportsPersonalizedActions = hasAdditionalReferences(avatar.additionalImageUrls);
 
   return {
@@ -462,6 +475,7 @@ export default function Customization() {
   const [submittingAction, setSubmittingAction] = useState(false);
   const [deletingActionId, setDeletingActionId] = useState<string | null>(null);
   const [metaSaving, setMetaSaving] = useState(false);
+  const [savingActionCategory, setSavingActionCategory] = useState<ActionCategoryFilter | null>(null);
   const [syncing, setSyncing] = useState(false);
   const detailRequestRef = useRef(0);
 
@@ -747,6 +761,25 @@ export default function Customization() {
     }
   };
 
+  const handleSaveActionCategory = async (category: ActionCategoryFilter) => {
+    if (!selectedAvatarDetail) {
+      return;
+    }
+
+    setSavingActionCategory(category);
+
+    try {
+      const result = await api.saveAvatarActionCategory(selectedAvatarDetail.id, category);
+      const categoryLabel = actionCategoryLabels[category];
+      messageApi.success(`${categoryLabel}已保存：${result.saved}/${result.total}`);
+      await refreshCurrentAvatar(selectedAvatarDetail.id);
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : "动作保存失败");
+    } finally {
+      setSavingActionCategory(null);
+    }
+  };
+
   const handleSyncAvatar = async () => {
     if (!selectedAvatarDetail) {
       return;
@@ -771,7 +804,11 @@ export default function Customization() {
     </Tag>
   );
 
-  const renderActionSection = (title: string, actions: readonly ActionType[]) => (
+  const renderActionSection = (category: ActionCategoryFilter, title: string, actions: readonly ActionType[]) => {
+    const categoryProgress = getCategoryProgress(selectedActions, category);
+    const isSavingCategory = savingActionCategory === category;
+
+    return (
     <Card
       title={`${title}（${actions.length}个）`}
       styles={{ body: { padding: 16 } }}
@@ -881,8 +918,20 @@ export default function Customization() {
           );
         })}
       </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+        <Button
+          type="primary"
+          icon={<SaveOutlined />}
+          loading={isSavingCategory}
+          disabled={!selectedAvatarDetail || categoryProgress.completed === 0}
+          onClick={() => void handleSaveActionCategory(category)}
+        >
+          {`保存${title} ${categoryProgress.completed}/${categoryProgress.total}`}
+        </Button>
+      </div>
     </Card>
-  );
+    );
+  };
 
   const actionFilterOptions = [
     { label: `基础动作 ${BASIC_ACTIONS.length}个`, value: "basic" },
@@ -895,10 +944,10 @@ export default function Customization() {
 
   const currentActionSection =
     actionFilter === "basic"
-      ? renderActionSection("基础动作", BASIC_ACTIONS)
+      ? renderActionSection("basic", "基础动作", BASIC_ACTIONS)
       : actionFilter === "fun"
-        ? renderActionSection("趣味动作", FUN_ACTIONS)
-        : renderActionSection("交互动作", INTERACTIVE_ACTIONS);
+        ? renderActionSection("fun", "趣味动作", FUN_ACTIONS)
+        : renderActionSection("interactive", "交互动作", INTERACTIVE_ACTIONS);
 
   return (
     <>

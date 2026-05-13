@@ -309,6 +309,10 @@ export const petAvatarActions = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (table) => [
+    uniqueIndex("uq_pet_avatar_actions_avatar_action_type").on(
+      table.petAvatarId,
+      table.actionType,
+    ),
     index("idx_pet_avatar_actions_avatar_sort_order").on(
       table.petAvatarId,
       table.sortOrder,

@@ -85,4 +85,93 @@ describe("Admin Avatar Review Routes", () => {
       imageUrl: "https://test-storage.local/avatars/avatar-1/lay-thumb.jpg",
     });
   });
+
+  it("upserts one admin action per avatar and action type", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "processing" });
+    const createdAction = fakeAvatarAction({
+      id: "action-1",
+      petAvatarId: "avatar-1",
+      actionType: "base-lay",
+      imageUrl: "http://localhost:9527/storage/uploads/test/base-lay.mjpeg",
+    });
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      [],
+      [],
+    ];
+    mockDb._results.insert = [[createdAction]];
+
+    const res = await app.request(
+      jsonReq("POST", "/api/admin/avatars/avatar-1/actions", {
+        body: {
+          actionType: "base-lay",
+          imageUrl: "http://localhost:9527/storage/uploads/test/base-lay.mjpeg",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect((mockDb._calls.insert[0] as any).onConflictDoUpdate).toBeDefined();
+  });
+
+  it("saves one action category without requiring other categories", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "processing" });
+    const basicAction = fakeAvatarAction({
+      id: "action-basic",
+      petAvatarId: "avatar-1",
+      actionType: "base-lay",
+    });
+    const funAction = fakeAvatarAction({
+      id: "action-fun",
+      petAvatarId: "avatar-1",
+      actionType: "funny-dream",
+    });
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      [basicAction, funAction],
+    ];
+
+    const res = await app.request(
+      jsonReq("POST", "/api/admin/avatars/avatar-1/action-categories/basic/save"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      category: "basic",
+      saved: 1,
+      total: 8,
+      actions: [basicAction],
+      avatarStatus: "processing",
+    });
+  });
 });

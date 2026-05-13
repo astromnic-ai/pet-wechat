@@ -200,6 +200,11 @@ export const api = {
   getAvatarActions: (id: string) => request<{ actions: any[] }>(`/avatars/${id}/actions`),
   createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
     request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
+  saveAvatarActionCategory: (id: string, category: "basic" | "fun" | "interactive") =>
+    request<{ category: string; saved: number; total: number; actions: any[]; avatarStatus: string }>(
+      `/avatars/${id}/action-categories/${category}/save`,
+      { method: "POST" },
+    ),
   deleteAvatarAction: (id: string, actionId: string) => request(`/avatars/${id}/actions/${actionId}`, { method: "DELETE" }),
   uploadAvatarActionVideo,
   updateAvatarMeta: (id: string, data: { petDescription?: string; funFact?: string }) =>

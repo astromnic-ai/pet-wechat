@@ -92,6 +92,13 @@
       "when": 1778348400000,
       "tag": "0012_pet_avatar_draft_source",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1778688000000,
+      "tag": "0013_pet_avatar_action_unique",
+      "breakpoints": true
     }
   ]
 }
