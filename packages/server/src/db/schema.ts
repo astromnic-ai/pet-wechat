@@ -13,6 +13,7 @@ import {
   jsonb,
   unique,
   uniqueIndex,
+  bigint,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { createId } from "../utils/id";
@@ -86,6 +87,17 @@ export const membershipStatusEnum = pgEnum("membership_status", [
   "active",
   "expired",
   "suspended",
+]);
+export const firmwareStateEnum = pgEnum("firmware_state", [
+  "draft",
+  "internal",
+  "released",
+  "quarantine",
+]);
+export const dispatchSourceEnum = pgEnum("dispatch_source", [
+  "manual",
+  "auto_full",
+  "internal_auto",
 ]);
 
 // ===== 用户 =====
@@ -454,6 +466,174 @@ export const firmwareReleases = pgTable(
       table.deviceType,
       table.releasedAt,
     ),
+  ],
+);
+
+// ===== 摆台 OTA =====
+
+export const otaTokens = pgTable(
+  "ota_tokens",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    name: text("name").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    tokenPrefix: text("token_prefix").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdBy: text("created_by").notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("uq_ota_tokens_token_hash").on(table.tokenHash),
+    index("idx_ota_tokens_revoked_at").on(table.revokedAt),
+  ],
+);
+
+export const firmwareVersions = pgTable(
+  "firmware_versions",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    version: text("version").notNull(),
+    state: firmwareStateEnum("state").notNull().default("draft"),
+    sha256: text("sha256").notNull(),
+    size: bigint("size", { mode: "number" }).notNull(),
+    storageKey: text("storage_key").notNull(),
+    releaseNote: text("release_note"),
+    force: boolean("force").notNull().default(false),
+    minFromVersion: text("min_from_version"),
+    uploadedAt: timestamp("uploaded_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    uploadedByTokenId: text("uploaded_by_token_id").references(() => otaTokens.id, {
+      onDelete: "set null",
+    }),
+    quarantinedAt: timestamp("quarantined_at", { withTimezone: true }),
+    quarantinedReason: text("quarantined_reason"),
+  },
+  (table) => [
+    uniqueIndex("uq_firmware_versions_version").on(table.version),
+    index("idx_firmware_versions_state_version").on(table.state, table.version),
+    check("firmware_versions_sha256_check", sql`length(${table.sha256}) = 64`),
+    check("firmware_versions_size_check", sql`${table.size} > 0`),
+  ],
+);
+
+export const internalDevices = pgTable("internal_devices", {
+  chipId: text("chip_id").primaryKey(),
+  addedAt: timestamp("added_at", { withTimezone: true }).notNull().defaultNow(),
+  addedBy: text("added_by").notNull(),
+  note: text("note"),
+});
+
+export const deviceRegistry = pgTable(
+  "device_registry",
+  {
+    chipId: text("chip_id").primaryKey(),
+    online: boolean("online").notNull().default(false),
+    fw: text("fw"),
+    ip: text("ip"),
+    rssi: integer("rssi"),
+    freeHeap: bigint("free_heap", { mode: "number" }),
+    mac: text("mac"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_device_registry_online_fw").on(table.online, table.fw),
+    index("idx_device_registry_last_seen_at").on(sql`${table.lastSeenAt} desc`),
+  ],
+);
+
+export const dispatchJobs = pgTable(
+  "dispatch_jobs",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    version: text("version").notNull(),
+    chipIds: jsonb("chip_ids").$type<string[]>().notNull(),
+    source: dispatchSourceEnum("source").notNull().default("manual"),
+    dispatchedAt: timestamp("dispatched_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    totalCount: integer("total_count").notNull(),
+    immediateCount: integer("immediate_count").notNull(),
+    throttledCount: integer("throttled_count").notNull(),
+    createdBy: text("created_by"),
+  },
+  (table) => [
+    index("idx_dispatch_jobs_version_dispatched_at").on(
+      table.version,
+      sql`${table.dispatchedAt} desc`,
+    ),
+    check("dispatch_jobs_total_count_check", sql`${table.totalCount} >= 0`),
+    check("dispatch_jobs_immediate_count_check", sql`${table.immediateCount} >= 0`),
+    check("dispatch_jobs_throttled_count_check", sql`${table.throttledCount} >= 0`),
+  ],
+);
+
+export const otaProgress = pgTable(
+  "ota_progress",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    chipId: text("chip_id").notNull(),
+    version: text("version").notNull(),
+    stage: text("stage").notNull(),
+    percent: integer("percent"),
+    code: text("code"),
+    reason: text("reason"),
+    deviceTs: bigint("device_ts", { mode: "number" }).notNull(),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_ota_progress_chip_id").on(table.chipId),
+    index("idx_ota_progress_chip_version_received").on(
+      table.chipId,
+      table.version,
+      sql`${table.receivedAt} desc`,
+    ),
+    uniqueIndex("uq_ota_progress_dedupe").on(
+      table.chipId,
+      table.version,
+      table.stage,
+      table.deviceTs,
+    ),
+    check(
+      "ota_progress_percent_check",
+      sql`${table.percent} IS NULL OR (${table.percent} >= 0 AND ${table.percent} <= 100)`,
+    ),
+  ],
+);
+
+export const otaRollbacks = pgTable(
+  "ota_rollbacks",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    chipId: text("chip_id").notNull(),
+    version: text("version").notNull(),
+    code: text("code"),
+    reason: text("reason"),
+    firstSeenAt: timestamp("first_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    seenCount: integer("seen_count").notNull().default(1),
+  },
+  (table) => [
+    uniqueIndex("uq_ota_rollbacks_chip_id_version").on(table.chipId, table.version),
+    index("idx_ota_rollbacks_version_last_seen").on(
+      table.version,
+      sql`${table.lastSeenAt} desc`,
+    ),
+    check("ota_rollbacks_seen_count_check", sql`${table.seenCount} > 0`),
   ],
 );
 

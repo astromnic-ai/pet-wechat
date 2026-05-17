@@ -12,6 +12,10 @@ const REQUIRED_ENV_VARS = [
   "S3_ENDPOINT",
   "S3_ACCESS_KEY",
   "S3_SECRET_KEY",
+  "S3_FIRMWARE_BUCKET",
+  "EMQX_BROKER_URL",
+  "EMQX_USERNAME",
+  "EMQX_PASSWORD",
 ] as const;
 
 type MigrationJournal = {

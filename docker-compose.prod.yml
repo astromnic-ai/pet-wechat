@@ -49,7 +49,11 @@ services:
       S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
       S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}
       S3_BUCKET: pet-uploads
+      S3_FIRMWARE_BUCKET: ${S3_FIRMWARE_BUCKET:-firmware}
       S3_PUBLIC_URL: https://pet-wechat.yangl.com.cn/storage
+      EMQX_BROKER_URL: ${EMQX_BROKER_URL:-mqtts://lf2ebe1a.ala.cn-hangzhou.emqxsl.cn:8883}
+      EMQX_USERNAME: ${EMQX_USERNAME:-thup}
+      EMQX_PASSWORD: ${EMQX_PASSWORD}
       TENCENT_SECRET_ID: ${TENCENT_SECRET_ID}
       TENCENT_SECRET_KEY: ${TENCENT_SECRET_KEY}
       TENCENT_SMS_APP_ID: ${TENCENT_SMS_APP_ID}
