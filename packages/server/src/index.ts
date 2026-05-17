@@ -8,6 +8,7 @@ import { logger } from "hono/logger";
 import path from "node:path";
 import { authMiddleware } from "./middleware/auth";
 import { adminMiddleware } from "./middleware/admin";
+import { otaAdminMiddleware } from "./middleware/ota-admin";
 import { verifyToken } from "./middleware/auth";
 import authRoute from "./routes/auth";
 import adminRoute from "./routes/admin/index";
@@ -25,6 +26,10 @@ import debugRoute from "./routes/debug";
 import deviceReportRoute from "./routes/device-report";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
+import otaPublicRoute from "./routes/ota-public";
+import firmwareAdminRoute from "./routes/admin/firmware";
+import otaAdminRoute from "./routes/admin/ota";
+import otaTokensRoute from "./routes/admin/ota-tokens";
 import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
 import { closeOtaMqtt, initOtaMqtt } from "./ota/mqtt-client";
@@ -172,7 +177,15 @@ export function createApp() {
   app.route("/api/schedules", schedulesRoute);
   app.route("/api/device-report", deviceReportRoute);
   app.route("/api/content", contentRoute);
+  app.route("/firmware", otaPublicRoute);
   app.get("/api", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
+
+  // OTA admin routes must be registered before the global /api/admin/* middleware.
+  app.use("/api/admin/firmware/*", otaAdminMiddleware);
+  app.use("/api/admin/ota/*", otaAdminMiddleware);
+  app.route("/api/admin/firmware", firmwareAdminRoute);
+  app.route("/api/admin/ota/tokens", otaTokensRoute);
+  app.route("/api/admin/ota", otaAdminRoute);
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);

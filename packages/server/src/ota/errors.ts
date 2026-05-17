@@ -1,16 +1,6 @@
 import type { Context } from "hono";
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
-
-type OkData = Record<string, JsonValue | undefined>;
-
-export function ok(c: Context, data: OkData = {}) {
+export function ok(c: Context, data: Record<string, unknown> = {}) {
   return c.json({ ok: true, ...data });
 }
 
