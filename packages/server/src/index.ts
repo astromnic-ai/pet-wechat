@@ -27,6 +27,7 @@ import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
 import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
+import { closeOtaMqtt, initOtaMqtt } from "./ota/mqtt-client";
 import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -223,12 +224,39 @@ const port = Number(process.env.PORT ?? 9527);
 if (import.meta.main) {
   try {
     await runPreflight();
+    if (process.env.OTA_MQTT_DISABLED !== "1") {
+      await initOtaMqtt();
+    }
     console.log(`Server running on http://localhost:${port}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     console.error("启动预检失败，服务退出");
     process.exit(1);
   }
+}
+
+let isShuttingDown = false;
+async function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  try {
+    await closeOtaMqtt();
+  } catch (error) {
+    console.error("[ota:mqtt] close failed:", error);
+  } finally {
+    console.log(`Received ${signal}, exiting`);
+    process.exit(0);
+  }
+}
+
+if (import.meta.main) {
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
 }
 
 export default {
