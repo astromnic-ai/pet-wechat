@@ -97,7 +97,6 @@ export const firmwareStateEnum = pgEnum("firmware_state", [
 export const dispatchSourceEnum = pgEnum("dispatch_source", [
   "manual",
   "auto_full",
-  "internal_auto",
 ]);
 
 // ===== 用户 =====

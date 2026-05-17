@@ -2383,8 +2383,7 @@
       "schema": "public",
       "values": [
         "manual",
-        "auto_full",
-        "internal_auto"
+        "auto_full"
       ]
     },
     "public.firmware_state": {

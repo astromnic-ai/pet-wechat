@@ -53,7 +53,7 @@ function scheduleRemaining(chipIds: string[], firmware: FirmwareRow) {
 export async function dispatchVersion(opts: {
   chipIds: string[];
   firmware: FirmwareRow;
-  source?: "manual" | "auto_full" | "internal_auto";
+  source?: "manual" | "auto_full";
   createdBy?: string | null;
 }) {
   const uniqueChipIds = Array.from(new Set(opts.chipIds.map((id) => id.trim()).filter(Boolean)));

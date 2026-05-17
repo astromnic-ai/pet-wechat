@@ -1,4 +1,4 @@
-CREATE TYPE "public"."dispatch_source" AS ENUM('manual', 'auto_full', 'internal_auto');--> statement-breakpoint
+CREATE TYPE "public"."dispatch_source" AS ENUM('manual', 'auto_full');--> statement-breakpoint
 CREATE TYPE "public"."firmware_state" AS ENUM('draft', 'internal', 'released', 'quarantine');--> statement-breakpoint
 CREATE TABLE "device_registry" (
 	"chip_id" text PRIMARY KEY NOT NULL,

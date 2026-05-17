@@ -112,7 +112,7 @@ snake_case，遵循现有风格。详细字段在 Codex 实现时按需补充，
 - `id` (uuid pk)
 - `version` (text)
 - `chip_ids` (jsonb, text[])
-- `source` (enum: manual / auto_full / internal_auto)
+- `source` (enum: manual / auto_full)
 - `dispatched_at`
 - `total_count`, `immediate_count`, `throttled_count`
 - `created_by` (text, nullable)

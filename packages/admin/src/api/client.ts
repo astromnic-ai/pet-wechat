@@ -69,7 +69,7 @@ export type OtaDispatchJob = {
   id: string;
   version: string;
   chipIds: string[];
-  source: "manual" | "auto_full" | "internal_auto";
+  source: "manual" | "auto_full";
   dispatchedAt: string;
   totalCount: number;
   immediateCount: number;
