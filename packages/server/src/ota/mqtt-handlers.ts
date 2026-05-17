@@ -119,7 +119,7 @@ async function handleOta(chipId: string, payload: Buffer) {
       },
     });
 
-  if (TERMINAL_STAGES.has(progress.stage)) {
+  if (TERMINAL_STAGES.has(progress.stage) && progress.stage !== "rolled_back") {
     await clearRetainedOtaCommand(chipId);
   }
 
