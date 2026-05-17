@@ -12,6 +12,11 @@ const MAX_FIRMWARE_SIZE = 5 * 1024 * 1024;
 const firmwareAdminRoute = new Hono();
 
 firmwareAdminRoute.post("/upload", async (c) => {
+  const contentLength = Number(c.req.header("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_FIRMWARE_SIZE + 1024 * 1024) {
+    return fail(c, 413, "size_exceeded", "multipart 请求超过允许大小");
+  }
+
   const body = await c.req.parseBody();
   const version = typeof body.version === "string" ? body.version.trim() : "";
   const releaseNote = typeof body.releaseNote === "string" ? body.releaseNote : null;
@@ -22,6 +27,9 @@ firmwareAdminRoute.post("/upload", async (c) => {
   }
   if (!(firmware instanceof File)) {
     return fail(c, 400, "bad_request", "缺少 firmware 文件");
+  }
+  if (firmware.size > MAX_FIRMWARE_SIZE) {
+    return fail(c, 400, "size_exceeded", "固件文件超过 5MB");
   }
 
   const buffer = Buffer.from(await firmware.arrayBuffer());

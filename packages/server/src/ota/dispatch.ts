@@ -6,6 +6,7 @@ import { publishOtaCommand } from "./mqtt-client";
 
 const BATCH_SIZE = 20;
 const BATCH_INTERVAL_MS = 5000;
+const scheduledDispatchTimers = new Set<ReturnType<typeof setTimeout>>();
 
 type FirmwareRow = {
   version: string;
@@ -36,7 +37,8 @@ async function publishBatch(chipIds: string[], firmware: FirmwareRow) {
 function scheduleRemaining(chipIds: string[], firmware: FirmwareRow) {
   if (chipIds.length === 0) return;
 
-  setTimeout(() => {
+  const timer = setTimeout(() => {
+    scheduledDispatchTimers.delete(timer);
     const current = chipIds.slice(0, BATCH_SIZE);
     const remaining = chipIds.slice(BATCH_SIZE);
     void publishBatch(current, firmware)
@@ -45,6 +47,7 @@ function scheduleRemaining(chipIds: string[], firmware: FirmwareRow) {
       })
       .finally(() => scheduleRemaining(remaining, firmware));
   }, BATCH_INTERVAL_MS);
+  scheduledDispatchTimers.add(timer);
 }
 
 export async function dispatchVersion(opts: {
@@ -75,4 +78,11 @@ export async function dispatchVersion(opts: {
     immediate: immediateChipIds.length,
     throttled: throttledChipIds.length,
   };
+}
+
+export function clearScheduledDispatches() {
+  for (const timer of scheduledDispatchTimers) {
+    clearTimeout(timer);
+  }
+  scheduledDispatchTimers.clear();
 }

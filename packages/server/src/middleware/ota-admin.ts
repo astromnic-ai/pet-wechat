@@ -1,12 +1,13 @@
 import { createMiddleware } from "hono/factory";
 import { authenticateOtaBearer } from "./ota-bearer";
 import { fail } from "../ota/errors";
+import { timingSafeEqual } from "../ota/tokens";
 
 const ADMIN_KEY = process.env.ADMIN_KEY ?? "yehey-admin-dev";
 
 export const otaAdminMiddleware = createMiddleware(async (c, next) => {
   const key = c.req.header("X-Admin-Key");
-  if (key && key === ADMIN_KEY) {
+  if (key && timingSafeEqual(key, ADMIN_KEY)) {
     c.set("otaAuth", { type: "admin-key", actor: "admin-key" });
     await next();
     return;

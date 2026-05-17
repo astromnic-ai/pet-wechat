@@ -97,6 +97,9 @@ export async function transitionTo(
     updates.quarantinedReason =
       ctx.reason ??
       (ctx.triggeredBy ? `rolled_back by ${ctx.triggeredBy}` : "manual quarantine");
+  } else if (currentState === "quarantine" && newState === "released") {
+    updates.quarantinedAt = null;
+    updates.quarantinedReason = null;
   }
 
   const [updated] = await db

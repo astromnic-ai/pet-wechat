@@ -104,7 +104,20 @@ async function handleOta(chipId: string, payload: Buffer) {
       reason: progress.reason,
       deviceTs: progress.ts,
     })
-    .onConflictDoNothing();
+    .onConflictDoUpdate({
+      target: [
+        otaProgress.chipId,
+        otaProgress.version,
+        otaProgress.stage,
+        otaProgress.deviceTs,
+      ],
+      set: {
+        percent: progress.percent,
+        code: progress.code,
+        reason: progress.reason,
+        receivedAt: new Date(),
+      },
+    });
 
   if (TERMINAL_STAGES.has(progress.stage)) {
     await clearRetainedOtaCommand(chipId);

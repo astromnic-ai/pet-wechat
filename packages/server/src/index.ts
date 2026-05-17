@@ -33,6 +33,7 @@ import otaTokensRoute from "./routes/admin/ota-tokens";
 import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
 import { closeOtaMqtt, initOtaMqtt } from "./ota/mqtt-client";
+import { clearScheduledDispatches } from "./ota/dispatch";
 import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -134,8 +135,18 @@ export function createApp() {
         : typeof errorWithStatus.status === "number"
           ? errorWithStatus.status
           : null;
+    const isOtaRoute =
+      c.req.path.startsWith("/api/admin/firmware") ||
+      c.req.path.startsWith("/api/admin/ota") ||
+      c.req.path.startsWith("/firmware");
 
     if (status !== null && status >= 400 && status < 500) {
+      if (isOtaRoute) {
+        return c.json(
+          { ok: false, code: "bad_request", message: error.message },
+          status as never,
+        );
+      }
       return new Response(JSON.stringify({ error: error.message }), {
         status,
         headers: {
@@ -145,6 +156,12 @@ export function createApp() {
     }
 
     console.error(`[${c.req.method}] ${c.req.path} failed:`, error);
+    if (isOtaRoute) {
+      return c.json(
+        { ok: false, code: "internal_error", message: "服务器内部错误" },
+        500,
+      );
+    }
     return c.json({ error: "服务器内部错误" }, 500);
   });
 
@@ -254,6 +271,7 @@ async function shutdown(signal: string) {
   isShuttingDown = true;
 
   try {
+    clearScheduledDispatches();
     await closeOtaMqtt();
   } catch (error) {
     console.error("[ota:mqtt] close failed:", error);

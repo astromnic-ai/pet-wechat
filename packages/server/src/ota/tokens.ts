@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual as nodeTimingSafeEqual } from "node:crypto";
 import { eq, and, isNull, desc } from "drizzle-orm";
 import { db } from "../db";
 import { otaTokens } from "../db/schema";
@@ -7,6 +7,12 @@ export type OtaTokenRow = typeof otaTokens.$inferSelect;
 
 export function hashToken(token: string) {
   return createHash("sha256").update(token).digest("hex");
+}
+
+export function timingSafeEqual(left: string, right: string) {
+  const leftHash = createHash("sha256").update(left).digest();
+  const rightHash = createHash("sha256").update(right).digest();
+  return nodeTimingSafeEqual(leftHash, rightHash);
 }
 
 export async function createOtaToken(opts: { name: string; createdBy: string }) {
