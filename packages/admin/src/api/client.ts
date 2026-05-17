@@ -4,6 +4,7 @@ import type {
   AvatarReviewStats,
   CustomizationTask,
   DeviceType,
+  FirmwareState,
   Membership,
   PresignResponse,
 } from "shared";
@@ -13,6 +14,78 @@ type PageResponse<T> = {
   total: number;
   page: number;
   pageSize: number;
+};
+
+type OtaOkResponse<T> = T & {
+  ok: true;
+};
+
+type OtaErrorResponse = {
+  ok: false;
+  code: string;
+  message: string;
+};
+
+export type OtaError = Error & {
+  code?: string;
+};
+
+export type OtaFirmwareVersion = {
+  id: string;
+  version: string;
+  state: FirmwareState;
+  sha256: string;
+  size: number;
+  storageKey: string;
+  releaseNote: string | null;
+  force: boolean;
+  minFromVersion: string | null;
+  uploadedAt: string;
+  uploadedByTokenId: string | null;
+  quarantinedAt: string | null;
+  quarantinedReason: string | null;
+};
+
+export type OtaInternalDevice = {
+  chipId: string;
+  addedAt: string;
+  addedBy: string;
+  note: string | null;
+};
+
+export type OtaRegistryDevice = {
+  chipId: string;
+  online: boolean;
+  fw: string | null;
+  ip: string | null;
+  rssi: number | null;
+  freeHeap: number | null;
+  mac: string | null;
+  firstSeenAt: string;
+  lastSeenAt: string;
+};
+
+export type OtaDispatchJob = {
+  id: string;
+  version: string;
+  chipIds: string[];
+  source: "manual" | "auto_full" | "internal_auto";
+  dispatchedAt: string;
+  totalCount: number;
+  immediateCount: number;
+  throttledCount: number;
+  createdBy: string | null;
+  progress: Record<string, number>;
+};
+
+export type OtaToken = {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  createdAt: string;
+  createdBy: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
 };
 
 export function getAdminKey() {
@@ -64,6 +137,34 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(err.error || res.statusText);
   }
   return res.json();
+}
+
+async function otaRequest<T>(path: string, options?: RequestInit): Promise<T> {
+  const isFormData = options?.body instanceof FormData;
+  const res = await fetch(`/api/admin${path}`, {
+    ...options,
+    headers: {
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
+      "X-Admin-Key": getAdminKey(),
+      ...options?.headers,
+    },
+  });
+
+  if (res.status === 401) {
+    localStorage.removeItem("adminKey");
+    window.location.reload();
+    throw new Error("Admin Key 无效");
+  }
+
+  const payload = (await res.json().catch(() => null)) as OtaOkResponse<T> | OtaErrorResponse | null;
+  if (!res.ok || payload?.ok === false) {
+    const otaError = payload?.ok === false ? payload : null;
+    const error = new Error(otaError?.message || res.statusText) as OtaError;
+    error.code = otaError?.code;
+    throw error;
+  }
+
+  return payload as T;
 }
 
 async function uploadAdminFile(path: string, file: File): Promise<{ url: string; fileId: string }> {
@@ -269,4 +370,52 @@ export const api = {
     file: File,
     contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
   ) => uploadAdminAsset("/uploads", file, contentType),
+
+  // OTA
+  getOtaFirmwareVersions: () => otaRequest<{ items: OtaFirmwareVersion[] }>("/firmware/versions"),
+  uploadOtaFirmware: (data: { version: string; releaseNote?: string; firmware: File }) => {
+    const formData = new FormData();
+    formData.append("version", data.version);
+    if (data.releaseNote) {
+      formData.append("releaseNote", data.releaseNote);
+    }
+    formData.append("firmware", data.firmware);
+    return otaRequest<{ version: string; sha256: string; size: number; uploadedAt: string; initialState: FirmwareState }>(
+      "/firmware/upload",
+      { method: "POST", body: formData },
+    );
+  },
+  updateOtaFirmwareState: (id: string, state: FirmwareState, reason?: string) =>
+    otaRequest<{ item: OtaFirmwareVersion }>(`/firmware/versions/${id}/state`, {
+      method: "POST",
+      body: JSON.stringify({ state, reason }),
+    }),
+  getOtaInternalDevices: () => otaRequest<{ items: OtaInternalDevice[] }>("/ota/internal-devices"),
+  createOtaInternalDevice: (data: { chipId: string; note?: string }) =>
+    otaRequest<{ item: OtaInternalDevice }>("/ota/internal-devices", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteOtaInternalDevice: (chipId: string) =>
+    otaRequest<{ chipId: string }>(`/ota/internal-devices/${encodeURIComponent(chipId)}`, { method: "DELETE" }),
+  getOtaRegistry: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return otaRequest<{ items: OtaRegistryDevice[] }>(`/ota/registry${qs}`);
+  },
+  getOtaDispatchJobs: (params?: Record<string, string>) => {
+    const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
+    return otaRequest<{ items: OtaDispatchJob[] }>(`/ota/dispatch-jobs${qs}`);
+  },
+  dispatchAllOta: (version: string) =>
+    otaRequest<{ version: string; dispatched: number; immediate: number; throttled: number }>("/ota/dispatch-all", {
+      method: "POST",
+      body: JSON.stringify({ version }),
+    }),
+  getOtaTokens: () => otaRequest<{ items: OtaToken[] }>("/ota/tokens"),
+  createOtaToken: (name: string) =>
+    otaRequest<{ token: string; item: OtaToken }>("/ota/tokens", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+    }),
+  revokeOtaToken: (id: string) => otaRequest<{ id: string }>(`/ota/tokens/${id}`, { method: "DELETE" }),
 };

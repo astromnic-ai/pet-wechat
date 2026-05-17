@@ -14,6 +14,9 @@ import {
   BarChartOutlined,
   SettingOutlined,
   LogoutOutlined,
+  CloudUploadOutlined,
+  DeploymentUnitOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 import { getAdminKey, setAdminKey, verifyAdminKey } from "./api/client";
 
@@ -29,6 +32,11 @@ const PetsPage = lazy(() => import("./pages/Pets"));
 const CollarsPage = lazy(() => import("./pages/Collars"));
 const DesktopsPage = lazy(() => import("./pages/Desktops"));
 const EventsPage = lazy(() => import("./pages/Events"));
+const OtaFirmwarePage = lazy(() => import("./pages/ota/Firmware"));
+const OtaInternalPage = lazy(() => import("./pages/ota/Internal"));
+const OtaRegistryPage = lazy(() => import("./pages/ota/Registry"));
+const OtaDispatchPage = lazy(() => import("./pages/ota/Dispatch"));
+const OtaTokensPage = lazy(() => import("./pages/ota/Tokens"));
 
 const menuItems: MenuProps["items"] = [
   {
@@ -46,6 +54,17 @@ const menuItems: MenuProps["items"] = [
     ],
   },
   {
+    key: "ota",
+    label: "OTA 管理",
+    children: [
+      { key: "/ota/firmware", icon: <CloudUploadOutlined />, label: "固件版本" },
+      { key: "/ota/internal", icon: <SafetyCertificateOutlined />, label: "内测白名单" },
+      { key: "/ota/registry", icon: <MobileOutlined />, label: "设备清册" },
+      { key: "/ota/dispatch", icon: <DeploymentUnitOutlined />, label: "下发记录" },
+      { key: "/ota/tokens", icon: <SafetyCertificateOutlined />, label: "上传 Token" },
+    ],
+  },
+  {
     key: "dev-tools",
     label: "开发工具",
     children: [
@@ -57,7 +76,24 @@ const menuItems: MenuProps["items"] = [
   },
 ];
 
-const menuRouteKeys = ["/", "/schedules", "/image-review", "/customization", "/devices", "/analytics", "/users", "/pets", "/events"];
+const menuRouteKeys = [
+  "/",
+  "/schedules",
+  "/image-review",
+  "/customization",
+  "/devices",
+  "/analytics",
+  "/users",
+  "/ota/firmware",
+  "/ota/internal",
+  "/ota/registry",
+  "/ota/dispatch",
+  "/ota/tokens",
+  "/pets",
+  "/collars",
+  "/desktops",
+  "/events",
+];
 
 export default function App() {
   const navigate = useNavigate();
@@ -210,6 +246,11 @@ export default function App() {
               <Route path="/devices/:deviceType/:deviceId" element={<DevicesPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/ota/firmware" element={<OtaFirmwarePage />} />
+              <Route path="/ota/internal" element={<OtaInternalPage />} />
+              <Route path="/ota/registry" element={<OtaRegistryPage />} />
+              <Route path="/ota/dispatch" element={<OtaDispatchPage />} />
+              <Route path="/ota/tokens" element={<OtaTokensPage />} />
               <Route path="/pets" element={<PetsPage />} />
               <Route path="/collars" element={<CollarsPage />} />
               <Route path="/desktops" element={<DesktopsPage />} />
