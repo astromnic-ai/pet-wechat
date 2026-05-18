@@ -8,6 +8,7 @@ import { logger } from "hono/logger";
 import path from "node:path";
 import { authMiddleware } from "./middleware/auth";
 import { adminMiddleware } from "./middleware/admin";
+import { otaAdminMiddleware } from "./middleware/ota-admin";
 import { verifyToken } from "./middleware/auth";
 import authRoute from "./routes/auth";
 import adminRoute from "./routes/admin/index";
@@ -25,8 +26,14 @@ import debugRoute from "./routes/debug";
 import deviceReportRoute from "./routes/device-report";
 import uploadRoute from "./routes/upload";
 import invitePublicRoute from "./routes/invite-public";
+import otaPublicRoute from "./routes/ota-public";
+import firmwareAdminRoute from "./routes/admin/firmware";
+import otaAdminRoute from "./routes/admin/ota";
+import otaTokensRoute from "./routes/admin/ota-tokens";
 import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
+import { closeOtaMqtt, initOtaMqtt } from "./ota/mqtt-client";
+import { clearScheduledDispatches } from "./ota/dispatch";
 import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -128,8 +135,18 @@ export function createApp() {
         : typeof errorWithStatus.status === "number"
           ? errorWithStatus.status
           : null;
+    const isOtaRoute =
+      c.req.path.startsWith("/api/admin/firmware") ||
+      c.req.path.startsWith("/api/admin/ota") ||
+      c.req.path.startsWith("/firmware");
 
     if (status !== null && status >= 400 && status < 500) {
+      if (isOtaRoute) {
+        return c.json(
+          { ok: false, code: "bad_request", message: error.message },
+          status as never,
+        );
+      }
       return new Response(JSON.stringify({ error: error.message }), {
         status,
         headers: {
@@ -139,6 +156,12 @@ export function createApp() {
     }
 
     console.error(`[${c.req.method}] ${c.req.path} failed:`, error);
+    if (isOtaRoute) {
+      return c.json(
+        { ok: false, code: "internal_error", message: "服务器内部错误" },
+        500,
+      );
+    }
     return c.json({ error: "服务器内部错误" }, 500);
   });
 
@@ -171,7 +194,15 @@ export function createApp() {
   app.route("/api/schedules", schedulesRoute);
   app.route("/api/device-report", deviceReportRoute);
   app.route("/api/content", contentRoute);
+  app.route("/firmware", otaPublicRoute);
   app.get("/api", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
+
+  // OTA admin routes must be registered before the global /api/admin/* middleware.
+  app.use("/api/admin/firmware/*", otaAdminMiddleware);
+  app.use("/api/admin/ota/*", otaAdminMiddleware);
+  app.route("/api/admin/firmware", firmwareAdminRoute);
+  app.route("/api/admin/ota/tokens", otaTokensRoute);
+  app.route("/api/admin/ota", otaAdminRoute);
 
   // 管理后台路由（Admin Key 认证）
   app.use("/api/admin/*", adminMiddleware);
@@ -223,12 +254,40 @@ const port = Number(process.env.PORT ?? 9527);
 if (import.meta.main) {
   try {
     await runPreflight();
+    if (process.env.OTA_MQTT_DISABLED !== "1") {
+      await initOtaMqtt();
+    }
     console.log(`Server running on http://localhost:${port}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     console.error("启动预检失败，服务退出");
     process.exit(1);
   }
+}
+
+let isShuttingDown = false;
+async function shutdown(signal: string) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
+  try {
+    clearScheduledDispatches();
+    await closeOtaMqtt();
+  } catch (error) {
+    console.error("[ota:mqtt] close failed:", error);
+  } finally {
+    console.log(`Received ${signal}, exiting`);
+    process.exit(0);
+  }
+}
+
+if (import.meta.main) {
+  process.on("SIGTERM", () => {
+    void shutdown("SIGTERM");
+  });
+  process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+  });
 }
 
 export default {

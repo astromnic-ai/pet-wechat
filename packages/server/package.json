@@ -20,6 +20,7 @@
     "@smithy/signature-v4": "^5.3.14",
     "drizzle-orm": "^0.39",
     "hono": "^4",
+    "mqtt": "^5.15.1",
     "postgres": "^3",
     "shared": "workspace:*",
     "zod": "^4.3.6"

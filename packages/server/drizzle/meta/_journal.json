@@ -99,6 +99,13 @@
       "when": 1778688000000,
       "tag": "0013_pet_avatar_action_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1779035935857,
+      "tag": "0014_windy_valkyrie",
+      "breakpoints": true
     }
   ]
 }
