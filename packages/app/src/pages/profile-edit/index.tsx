@@ -235,9 +235,6 @@ export default function ProfileEdit() {
       <View className="profile-edit-header">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="profile-edit-title">编辑资料</Text>
-        <View className={`profile-edit-save-chip ${saving ? "profile-edit-save-chip--disabled" : ""}`} onClick={handleSave}>
-          <Text className="profile-edit-save-chip-text">{saving ? "保存中" : "保存"}</Text>
-        </View>
       </View>
 
       <ScrollView className="profile-edit-scroll" scrollY>

@@ -1472,13 +1472,13 @@
 .custom-schedule-week-row {
   display: flex;
   justify-content: space-between;
-  gap: 10rpx;
+  gap: 6rpx;
   margin-top: 28rpx;
 }
 
 .custom-schedule-week-chip {
-  width: 78rpx;
-  height: 78rpx;
+  width: 92rpx;
+  height: 92rpx;
   border-radius: 50%;
   background: #f3f4f6;
   display: flex;
@@ -1492,7 +1492,7 @@
 }
 
 .custom-schedule-week-chip-text {
-  font-size: 24rpx;
+  font-size: 25rpx;
   font-weight: 700;
   color: #9e978e;
 }

@@ -103,17 +103,17 @@ export default function PetModeCustomOverviewPage() {
         <View className="custom-overview-shell">
           <View className="custom-overview-hero">
             <Text className="custom-overview-hero-text">
-              支持上传宠物视频，AI 定制专属动作图像，随心定义它的每刻表现。
+              自由设定宠物的显示状态与每日作息，何时撒欢、何时打盹，都由你来决定。
             </Text>
             <View className="custom-overview-tags">
               <View className="custom-overview-tag">
-                <Text className="custom-overview-tag-text">视频上传</Text>
-              </View>
-              <View className="custom-overview-tag">
-                <Text className="custom-overview-tag-text">AI定制</Text>
+                <Text className="custom-overview-tag-text">个性作息</Text>
               </View>
               <View className="custom-overview-tag">
                 <Text className="custom-overview-tag-text">随心定义</Text>
+              </View>
+              <View className="custom-overview-tag">
+                <Text className="custom-overview-tag-text">视频上传</Text>
               </View>
             </View>
           </View>

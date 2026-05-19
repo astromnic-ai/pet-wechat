@@ -30,8 +30,8 @@ const MODE_CONTENT: Record<
     name: "个性自定义",
     title: "个性自定义模式",
     subtitle: "自定义\n行为时段",
-    description: "支持上传宠物视频，AI 定制专属动作图像，随心定义它的每刻表现。",
-    tags: ["视频上传", "AI定制", "随心定义"],
+    description: "自由设定宠物的显示状态与每日作息，何时撒欢、何时打盹，都由你来决定。",
+    tags: ["个性作息", "随心定义", "视频上传"],
     actionText: "进入自定义 →",
   },
   real: {

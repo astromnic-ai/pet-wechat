@@ -127,10 +127,11 @@ export default function PetModeSchedulePage() {
   );
 
   const existingOrderedDays = existingPlan?.days?.length ? orderDays(existingPlan.days) : [];
+  const defaultWeekday = existingOrderedDays[0] || getTodayWeekday();
   const [repeat, setRepeat] = useState<PetModeRepeatType>(existingPlan?.repeat || "once");
-  const [selectedDays, setSelectedDays] = useState<PetModeWeekday[]>(existingOrderedDays);
-  const [activeDay, setActiveDay] = useState<PetModeWeekday>(existingOrderedDays[0] || "mon");
-  const [selectedDate, setSelectedDate] = useState<string>(existingPlan?.date || "");
+  const [selectedDays, setSelectedDays] = useState<PetModeWeekday[]>(existingOrderedDays.length ? existingOrderedDays : [defaultWeekday]);
+  const [activeDay, setActiveDay] = useState<PetModeWeekday>(defaultWeekday);
+  const [selectedDate, setSelectedDate] = useState<string>(existingPlan?.date || getCurrentWeekDateByDay(defaultWeekday));
   const [slots, setSlots] = useState<PetModeSlot[]>(() => sortSlots(existingPlan?.slots || []));
   const [customActions, setCustomActions] = useState<string[]>([]);
   const [timeEditor, setTimeEditor] = useState<TimeEditorState>({
@@ -149,18 +150,20 @@ export default function PetModeSchedulePage() {
   useEffect(() => {
     if (existingPlan) {
       const nextDays = existingPlan.days?.length ? orderDays(existingPlan.days) : [];
+      const nextActiveDay = nextDays[0] || getTodayWeekday();
       setRepeat(existingPlan.repeat);
-      setSelectedDays(nextDays);
-      setActiveDay(nextDays[0] || "mon");
-      setSelectedDate(existingPlan.date || (nextDays[0] ? getCurrentWeekDateByDay(nextDays[0]) : ""));
+      setSelectedDays(nextDays.length ? nextDays : [nextActiveDay]);
+      setActiveDay(nextActiveDay);
+      setSelectedDate(existingPlan.date || getCurrentWeekDateByDay(nextActiveDay));
       setSlots(sortSlots(existingPlan.slots || []));
       return;
     }
 
+    const today = getTodayWeekday();
     setRepeat("once");
-    setSelectedDays(["mon"]);
-    setActiveDay("mon");
-    setSelectedDate(getCurrentWeekDateByDay("mon"));
+    setSelectedDays([today]);
+    setActiveDay(today);
+    setSelectedDate(getCurrentWeekDateByDay(today));
     setSlots([]);
   }, [existingPlan]);
 

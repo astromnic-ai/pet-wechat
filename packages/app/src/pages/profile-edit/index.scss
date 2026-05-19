@@ -44,28 +44,6 @@
   line-height: 1.2;
 }
 
-.profile-edit-save-chip {
-  min-width: 112rpx;
-  height: 64rpx;
-  padding: 0 24rpx;
-  border-radius: 32rpx;
-  background: #4ea7ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.profile-edit-save-chip--disabled {
-  opacity: 0.7;
-}
-
-.profile-edit-save-chip-text {
-  font-size: 28rpx;
-  color: #ffffff;
-  font-weight: 700;
-}
-
 .profile-edit-scroll {
   height: calc(100vh - env(safe-area-inset-top) - 156rpx);
 }
