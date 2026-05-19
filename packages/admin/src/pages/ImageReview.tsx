@@ -347,6 +347,7 @@ export default function ImageReview() {
   const selectedStatus = selectedAvatarDetail?.status ?? selectedSummary?.status ?? null;
   const canApprove = selectedStatus === "pending" || selectedStatus === "rejected";
   const canReject = selectedStatus === "pending" || selectedStatus === "rejected";
+  const canPushRejectReason = canReject && rejectReason.trim().length > 0 && rejectTitle.trim().length > 0;
   const canPushProgress =
     !!selectedAvatarDetail &&
     (selectedAvatarDetail.status === "approved" || selectedAvatarDetail.status === "processing") &&
@@ -665,7 +666,7 @@ export default function ImageReview() {
                             disabled={!canReject}
                             onClick={() => void handleReject()}
                           >
-                            有问题
+                            推送不通过原因
                           </Button>
                           <Button
                             icon={<DownloadOutlined />}
@@ -734,6 +735,18 @@ export default function ImageReview() {
                               }
                             }}
                           />
+                          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+                            <Button
+                              danger
+                              type="primary"
+                              icon={<CloseOutlined />}
+                              loading={actionLoading && canReject}
+                              disabled={!canPushRejectReason}
+                              onClick={() => void handleReject()}
+                            >
+                              推送不通过原因给用户
+                            </Button>
+                          </div>
                         </div>
 
                         <Button
@@ -744,7 +757,7 @@ export default function ImageReview() {
                           disabled={!canPushProgress}
                           onClick={() => void handlePushProgress()}
                         >
-                          推送客户端定制进度信息
+                          推送客户端定制进度
                         </Button>
                         {!canPushProgress ? (
                           <Text type="secondary">

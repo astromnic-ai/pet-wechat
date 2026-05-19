@@ -24,6 +24,7 @@ import {
 } from "antd";
 import {
   ACTION_LABELS,
+  ALL_ACTIONS,
   BASIC_ACTIONS,
   FUN_ACTIONS,
   INTERACTIVE_ACTIONS,
@@ -272,8 +273,8 @@ function getCategoryProgress(actions: PetAvatarAction[], category: ActionCategor
   }
 
   return {
-    completed: new Set(actions.map((action) => action.actionType)).size,
-    total: BASIC_ACTIONS.length + FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length,
+    completed: countCompletedActions(actions, ALL_ACTIONS),
+    total: ALL_ACTIONS.length,
   };
 }
 
@@ -641,6 +642,8 @@ export default function Customization() {
   const totalActionCount =
     BASIC_ACTIONS.length + FUN_ACTIONS.length + INTERACTIVE_ACTIONS.length;
   const uploadedProgress = getCategoryProgress(selectedActions, "all");
+  const clampedUploadedCompleted = Math.min(uploadedProgress.completed, totalActionCount);
+  const uploadedProgressPercent = totalActionCount > 0 ? Math.round((clampedUploadedCompleted / totalActionCount) * 100) : 0;
   const basicProgress = getCategoryProgress(selectedActions, "basic");
   const funProgress = getCategoryProgress(selectedActions, "fun");
   const interactiveProgress = getCategoryProgress(selectedActions, "interactive");
@@ -651,7 +654,8 @@ export default function Customization() {
     selectedAvatarDetail.status !== "done";
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
-  const previewImageUrl = previewAction?.imageUrl ?? selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
+  const homepageAction = previewAction ?? selectedActions[0];
+  const homepageImageUrl = homepageAction?.imageUrl ?? "";
   const selectedAvatarImage =
     selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
   const referenceImages = parseAdditionalImages(
@@ -1063,107 +1067,125 @@ export default function Customization() {
           ) : (
             <Spin spinning={detailLoading}>
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <Card styles={{ body: { padding: 16 } }}>
-                  <div style={{ display: "flex", gap: 16, justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap" }}>
-                    <div style={{ display: "flex", gap: 16, flex: 1, minWidth: 0 }}>
-                      <div
-                        style={{
-                          width: 128,
-                          height: 128,
-                          borderRadius: 14,
-                          overflow: "hidden",
-                          background: "#f5f5f5",
-                          flexShrink: 0,
-                        }}
-                      >
-                        {previewImageUrl ? (
-                          <Image
-                            src={previewImageUrl}
-                            alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "预览图"}
-                            width={128}
-                            height={128}
-                            preview={false}
-                            style={{ objectFit: "cover" }}
-                          />
-                        ) : null}
+                <Card styles={{ body: { padding: 20, background: "#eef5ff", borderRadius: 8 } }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, 1fr) minmax(420px, 1fr)", gap: 32, alignItems: "center" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(160px, 1fr))", gap: 20 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ aspectRatio: "1 / 1", borderRadius: 16, overflow: "hidden", background: "#dfe6f0" }}>
+                          {selectedAvatarImage ? (
+                            <Image
+                              src={selectedAvatarImage}
+                              alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "用户上传预览图"}
+                              width="100%"
+                              height="100%"
+                              preview={false}
+                              style={{ objectFit: "cover" }}
+                            />
+                          ) : (
+                            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#8c9aae" }}>
+                              用户上传预览图
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          icon={<DownloadOutlined />}
+                          disabled={!selectedAvatarImage}
+                          onClick={() => {
+                            if (!selectedAvatarImage) {
+                              return;
+                            }
+                            void downloadImage(
+                              selectedAvatarImage,
+                              `${selectedAvatarFilePrefix}-source.jpg`,
+                            ).catch((error) => {
+                              messageApi.error(error instanceof Error ? error.message : "图片下载失败");
+                            });
+                          }}
+                        >
+                          下载原图
+                        </Button>
                       </div>
 
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {selectedAvatarImage ? (
-                          <Button
-                            icon={<DownloadOutlined />}
-                            onClick={() => {
-                              void downloadImage(
-                                selectedAvatarImage,
-                                `${selectedAvatarFilePrefix}-source.jpg`,
-                              ).catch((error) => {
-                                messageApi.error(error instanceof Error ? error.message : "图片下载失败");
-                              });
-                            }}
-                          >
-                            下载原图
-                          </Button>
-                        ) : null}
-                      </div>
-
-                      <div style={{ minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
-                        <Title level={4} style={{ margin: 0 }}>
-                          {selectedAvatarDetail?.user?.nickname ?? selectedAvatarSummary.user?.nickname ?? "未知微信用户"}
-                        </Title>
-                        <Text>{`宠物名称：${selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "未命名宠物"}`}</Text>
-                        <Text>{`类别：${getSpeciesLabel(selectedAvatarDetail?.pet?.species ?? selectedAvatarSummary.pet?.species)}`}</Text>
-                        <Text>{`年龄：${getAgeLabel(selectedAvatarDetail?.pet?.birthday ?? selectedAvatarSummary.pet?.birthday)}`}</Text>
-                        <Text>{`公母：${getGenderLabel(selectedAvatarDetail?.pet?.gender ?? selectedAvatarSummary.pet?.gender)}`}</Text>
+                        <div style={{ aspectRatio: "1 / 1", borderRadius: 16, overflow: "hidden", background: "#dfe6f0" }}>
+                          {homepageImageUrl ? (
+                            <Image
+                              src={homepageImageUrl}
+                              alt={selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "手机端主页显示图"}
+                              width="100%"
+                              height="100%"
+                              preview={false}
+                              style={{ objectFit: "cover" }}
+                            />
+                          ) : (
+                            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#8c9aae" }}>
+                              手机端主页显示图
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          icon={<UploadOutlined />}
+                          disabled={!canEditActions}
+                          onClick={() => handleOpenUploadModal((homepageAction?.actionType as ActionType | undefined) ?? BASIC_ACTIONS[0])}
+                        >
+                          上传主页图
+                        </Button>
                       </div>
                     </div>
 
-                    <Button
-                      type="primary"
-                      size="large"
-                      icon={<SyncOutlined />}
-                      disabled={!canSync}
-                      loading={syncing}
-                      style={{ background: "#52c41a", borderColor: "#52c41a" }}
-                      onClick={() => void handleSyncAvatar()}
-                    >
-                      {selectedAvatarDetail?.status === "done" ? "已同步到手机端" : "一键同步到手机端"}
-                    </Button>
-                  </div>
-
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 20 }}>
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <Text strong>上传进度</Text>
-                        <Text type="secondary">{`${uploadedProgress.completed}/${totalActionCount}`}</Text>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 18, minWidth: 0 }}>
+                      <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                        <div style={{ width: 56, height: 56, borderRadius: "50%", background: "#6b8ff0", border: "3px solid #fff", flexShrink: 0 }} />
+                        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 4 }}>
+                          <Title level={4} style={{ margin: 0, color: "#24418f" }}>
+                            {`微信用户：${selectedAvatarDetail?.user?.nickname ?? selectedAvatarSummary.user?.nickname ?? "未知微信用户"}`}
+                          </Title>
+                          <Text strong style={{ color: "#24418f", fontSize: 16 }}>
+                            {`宠物：${selectedAvatarDetail?.pet?.name ?? selectedAvatarSummary.pet?.name ?? "未命名宠物"} ${getSpeciesLabel(selectedAvatarDetail?.pet?.species ?? selectedAvatarSummary.pet?.species)} · ${getAgeLabel(selectedAvatarDetail?.pet?.birthday ?? selectedAvatarSummary.pet?.birthday)} · ${getGenderLabel(selectedAvatarDetail?.pet?.gender ?? selectedAvatarSummary.pet?.gender)}`}
+                          </Text>
+                        </div>
                       </div>
-                      <Progress percent={Math.round((uploadedProgress.completed / totalActionCount) * 100)} showInfo={false} strokeColor="#1677ff" />
-                    </div>
 
-                    <div>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <Text strong>动作完成进度</Text>
-                        <Text type="secondary">{`${uploadedProgress.completed}/${totalActionCount} 已完成`}</Text>
+                      <div>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+                          <Text strong style={{ color: "#24418f" }}>上传进度 Upload Progress</Text>
+                          <Text type="secondary">{`${clampedUploadedCompleted}/${totalActionCount}`}</Text>
+                        </div>
+                        <Progress percent={uploadedProgressPercent} showInfo={false} strokeColor="#52c41a" trailColor="#d9e7ff" />
                       </div>
-                      <Progress percent={Math.round((uploadedProgress.completed / totalActionCount) * 100)} showInfo={false} strokeColor="#52c41a" />
-                    </div>
 
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <Text strong>宠物描述</Text>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <Input
-                          value={petDescriptionDraft}
-                          placeholder="请输入宠物描述"
-                          maxLength={100}
-                          onChange={(event) => setPetDescriptionDraft(event.target.value)}
-                          style={{ flex: 1, minWidth: 220 }}
-                        />
+                      <div style={{ background: "#fff", borderRadius: 16, padding: 20, display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 20, alignItems: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+                          <Text strong style={{ color: "#1f5f99", fontSize: 20 }}>{`${clampedUploadedCompleted} / ${totalActionCount} 动作已完成`}</Text>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center", minWidth: 0 }}>
+                            <Text type="secondary" style={{ flexShrink: 0 }}>宠物描述</Text>
+                            <Input
+                              value={petDescriptionDraft}
+                              placeholder="请输入宠物描述"
+                              maxLength={100}
+                              onChange={(event) => setPetDescriptionDraft(event.target.value)}
+                              style={{ minWidth: 180 }}
+                            />
+                            <Button
+                              loading={metaSaving}
+                              disabled={petDescriptionDraft.trim() === selectedPetDescription}
+                              onClick={() => void handleSavePetDescription()}
+                            >
+                              保存
+                            </Button>
+                          </div>
+                        </div>
+
                         <Button
                           type="primary"
-                          loading={metaSaving}
-                          disabled={petDescriptionDraft.trim() === selectedPetDescription}
-                          onClick={() => void handleSavePetDescription()}
+                          size="large"
+                          icon={<SyncOutlined />}
+                          disabled={!canSync}
+                          loading={syncing}
+                          style={{ background: "#49aa7a", borderColor: "#49aa7a", height: 56 }}
+                          onClick={() => void handleSyncAvatar()}
                         >
-                          保存描述
+                          {selectedAvatarDetail?.status === "done" ? "已同步到手机端" : "一键同步到手机"}
                         </Button>
                       </div>
                     </div>
