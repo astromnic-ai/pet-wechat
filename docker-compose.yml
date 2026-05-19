@@ -23,7 +23,7 @@ services:
       - minio_data:/data
 
   server:
-    image: ghcr.io/thup-jds/pet-wechat/server:latest
+    image: ghcr.io/astromnic-ai/pet-wechat/server:latest
     ports:
       - "9527:9527"
     environment:
@@ -41,7 +41,7 @@ services:
       - minio
 
   admin:
-    image: ghcr.io/thup-jds/pet-wechat/admin:latest
+    image: ghcr.io/astromnic-ai/pet-wechat/admin:latest
     ports:
       - "80:80"
     depends_on:

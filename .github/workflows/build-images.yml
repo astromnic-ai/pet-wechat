@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/thup-jds/pet-wechat
+  IMAGE_PREFIX: ghcr.io/astromnic-ai/pet-wechat
 
 permissions:
   contents: read
