@@ -3,7 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BASE_URL, request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
-import type { AvatarStatus, CollarDevice, DesktopDevice, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
+import type { AvatarStatus, DeviceSummary, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import { getPetFallbackImage } from "../../utils/petVisual";
@@ -16,14 +16,6 @@ const HOME_PET_SIT_IMAGE = require("@/assets/home/pet-sit.png");
 const HOME_PET_LIE_IMAGE = require("@/assets/home/pet-lie.png");
 const HOME_WAITING_VIDEO = `${BASE_URL}/static/home/pet-waiting-loop.mp4`;
 const HOME_WAITING_POSTER = `${BASE_URL}/static/home/pet-waiting-poster.png`;
-type DesktopDeviceWithBindings = DesktopDevice & {
-  bindings?: Array<{
-    id: string;
-    petId: string;
-    bindingType: string;
-  }>;
-};
-
 const ACTION_LABELS: Record<string, string> = {
   ...SHARED_ACTION_LABELS,
   walking: "散步",
@@ -167,8 +159,7 @@ function getCurrentCustomAction(petId?: string) {
 
 export default function Index() {
   const [pets, setPets] = useState<Pet[]>([]);
-  const [collars, setCollars] = useState<CollarDevice[]>([]);
-  const [desktops, setDesktops] = useState<DesktopDeviceWithBindings[]>([]);
+  const [devices, setDevices] = useState<DeviceSummary[]>([]);
   const [petActionMap, setPetActionMap] = useState<Record<string, PetAvatarAction[]>>({});
   const [petDescriptionMap, setPetDescriptionMap] = useState<Record<string, string>>({});
   const [petAvatarTaskMap, setPetAvatarTaskMap] = useState<
@@ -352,15 +343,12 @@ export default function Index() {
 
   const loadDevices = async () => {
     try {
-      const [{ collars: collarList }, { desktops: desktopList }] = await Promise.all([
-        request<{ collars: CollarDevice[] }>({ url: "/api/devices/collars" }),
-        request<{ desktops: DesktopDeviceWithBindings[] }>({ url: "/api/devices/desktops" }),
-      ]);
-      setCollars(collarList);
-      setDesktops(desktopList);
+      const { devices: deviceList } = await request<{ devices: DeviceSummary[] }>({
+        url: "/api/devices",
+      });
+      setDevices(deviceList);
     } catch {
-      setCollars([]);
-      setDesktops([]);
+      setDevices([]);
     }
   };
 
@@ -369,14 +357,14 @@ export default function Index() {
   const petSlides = hasPet ? pets : [null];
   const activeCollar = useMemo(() => {
     if (!currentPet) return null;
-    return collars.find((item) => item.petId === currentPet.id) ?? null;
-  }, [collars, currentPet]);
+    return devices.find((item) => item.deviceType === "collar" && item.petId === currentPet.id) ?? null;
+  }, [currentPet, devices]);
   const activeDesktop = useMemo(() => {
     if (!currentPet) return null;
     return (
-      desktops.find((item) => item.bindings?.some((binding) => binding.petId === currentPet.id)) ?? null
+      devices.find((item) => item.deviceType === "desktop" && item.bindings?.some((binding) => binding.petId === currentPet.id)) ?? null
     );
-  }, [currentPet, desktops]);
+  }, [currentPet, devices]);
   const primaryManagedDevice = activeDesktop ?? activeCollar;
   const hasManagedDevices = Boolean(primaryManagedDevice);
   const primaryManagedDeviceName = primaryManagedDevice
@@ -386,7 +374,7 @@ export default function Index() {
         fallbackName: primaryManagedDevice === activeDesktop ? "桌面端" : "项圈",
       })
     : "未命名设备";
-  const primaryManagedDeviceLabel = primaryManagedDevice ? getUsageLabel(primaryManagedDevice.createdAt) : "";
+  const primaryManagedDeviceLabel = primaryManagedDevice ? getUsageLabel(primaryManagedDevice.usageDurationMinutes) : "";
   const primaryManagedDeviceStatus = primaryManagedDevice ? getDeviceStatusText(primaryManagedDevice.status) : "";
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
   const defaultPetHeroImage = getPetFallbackImage(currentPet?.species);
