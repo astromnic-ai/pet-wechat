@@ -1,4 +1,4 @@
-import { View, Text, Image, Input } from "@tarojs/components";
+import { View, Text, Image, Input, Video } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
@@ -11,20 +11,25 @@ export default function CustomAction() {
   const [videoPath, setVideoPath] = useState("");
   const [actionName, setActionName] = useState("");
   const [actionDesc, setActionDesc] = useState("");
-  const canSubmit = actionName.trim().length > 0;
+  const canSubmit = videoPath.length > 0 && actionName.trim().length > 0;
 
   const handleChooseVideo = async () => {
     try {
       const res = await Taro.chooseVideo({
         sourceType: ["album", "camera"],
         compressed: true,
-        maxDuration: 10,
+        maxDuration: 30,
       });
       setVideoPath(res.tempFilePath);
     } catch {}
   };
 
   const handleSubmit = () => {
+    if (!videoPath) {
+      Taro.showToast({ title: "请先上传视频", icon: "none" });
+      return;
+    }
+
     if (!canSubmit) {
       Taro.showToast({ title: "请输入动作名称", icon: "none" });
       return;
@@ -54,15 +59,21 @@ export default function CustomAction() {
 
       <View className="custom-action-card">
         <View className="video-upload-box" onClick={handleChooseVideo}>
-          <View className="video-upload-placeholder">
-            {videoPath ? (
-              <Image className="video-upload-preview" src={require("@/assets/images/upload-icon.png")} mode="aspectFit" />
-            ) : (
+          {videoPath ? (
+            <Video
+              className="video-upload-preview"
+              src={videoPath}
+              controls
+              showCenterPlayBtn
+              objectFit="cover"
+            />
+          ) : (
+            <View className="video-upload-placeholder">
               <Image className="video-upload-icon" src={require("@/assets/images/upload-icon.png")} mode="aspectFit" />
-            )}
-          </View>
-          <Text className="video-upload-text">点击上传视频</Text>
-          <Text className="video-upload-subtext">视频时长不超过30秒</Text>
+            </View>
+          )}
+          <Text className="video-upload-text">{videoPath ? "已选择视频" : "点击上传视频"}</Text>
+          <Text className="video-upload-subtext">{videoPath ? "点击视频区域可重新选择" : "视频时长不超过30秒"}</Text>
         </View>
 
         <View className="custom-tips">

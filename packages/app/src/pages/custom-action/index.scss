@@ -66,8 +66,14 @@
   justify-content: center;
 }
 
-.video-upload-icon,
 .video-upload-preview {
+  width: 100%;
+  height: 320rpx;
+  border-radius: 28rpx;
+  overflow: hidden;
+}
+
+.video-upload-icon {
   width: 102rpx;
   height: 102rpx;
 }
