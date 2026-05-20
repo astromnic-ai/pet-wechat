@@ -34,6 +34,9 @@ meRoute.put("/", async (c) => {
     .set({
       nickname: body.nickname ?? existing.nickname,
       avatarUrl: body.avatarUrl !== undefined ? body.avatarUrl : existing.avatarUrl,
+      gender: body.gender ?? existing.gender,
+      birthday: body.birthday !== undefined ? body.birthday : existing.birthday,
+      updatedAt: new Date(),
     })
     .where(eq(users.id, userId))
     .returning();

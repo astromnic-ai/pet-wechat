@@ -10,6 +10,7 @@ import {
   fakeCollar,
   fakeDesktop,
   fakeInteractionEvent,
+  fakePet,
   jsonReq,
 } from "./helpers";
 
@@ -75,6 +76,7 @@ describe("Device Report Routes", () => {
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
         [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakePet({ id: "pet-1", activityMode: "free" })],
         [
           fakeAvatarAction({
             petAvatarId: "avatar-1",
@@ -100,6 +102,8 @@ describe("Device Report Routes", () => {
           },
         ],
         allActionTypes: [...ALL_ACTIONS],
+        activityMode: "free",
+        modePlans: [],
       });
     });
 
@@ -109,6 +113,7 @@ describe("Device Report Routes", () => {
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [],
         [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakePet({ id: "pet-1", activityMode: "free" })],
         [
           fakeAvatarAction({
             petAvatarId: "avatar-1",
@@ -132,6 +137,7 @@ describe("Device Report Routes", () => {
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
         [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakePet({ id: "pet-1", activityMode: "free" })],
         [fakeAvatarAction({ petAvatarId: "avatar-1", videoUrl: null, videoHash: null })],
       ];
 
@@ -140,7 +146,13 @@ describe("Device Report Routes", () => {
       );
 
       expect(res.status).toBe(200);
-      expect(await res.json()).toEqual({ collarChipId: "collar-chip-1", files: [], allActionTypes: [...ALL_ACTIONS] });
+      expect(await res.json()).toEqual({
+        collarChipId: "collar-chip-1",
+        files: [],
+        allActionTypes: [...ALL_ACTIONS],
+        activityMode: "free",
+        modePlans: [],
+      });
     });
 
     it("returns 400 when chipId is missing or blank", async () => {

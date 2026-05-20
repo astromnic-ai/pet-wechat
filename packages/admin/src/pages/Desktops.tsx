@@ -100,12 +100,12 @@ export default function DesktopsPage() {
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
         <h2 style={{ margin: 0 }}>桌面摆台管理</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingId(null); form.resetFields(); setModalOpen(true); }}>
-          新建模拟摆台
+          新建摆台
         </Button>
       </div>
       <Table dataSource={data} columns={columns} rowKey="id" loading={loading} size="middle" />
       <Modal
-        title={editingId ? "编辑摆台" : "新建模拟摆台"}
+        title={editingId ? "编辑摆台" : "新建摆台"}
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => { setModalOpen(false); setEditingId(null); form.resetFields(); }}
@@ -121,7 +121,7 @@ export default function DesktopsPage() {
             />
           </Form.Item>
           <Form.Item name="name" label="设备名称">
-            <Input placeholder="模拟摆台" />
+            <Input placeholder="摆台" />
           </Form.Item>
           <Form.Item name="macAddress" label="MAC 地址">
             <Input placeholder="留空自动生成" />

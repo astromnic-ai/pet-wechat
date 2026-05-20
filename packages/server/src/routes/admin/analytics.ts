@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { sql } from "drizzle-orm";
 import { db } from "../../db";
 import {
-  behaviorSchedules,
   collarDevices,
   desktopDevices,
   desktopPetBindings,
@@ -221,22 +220,9 @@ analyticsRoute.get("/analytics", async (c) => {
       pet_mode_map AS (
         SELECT
           online_pets.pet_id,
-          CASE
-            WHEN EXISTS (
-              SELECT 1
-              FROM ${petBehaviors}
-              WHERE ${petBehaviors.petId} = online_pets.pet_id
-                AND (${petBehaviors.timestamp} AT TIME ZONE ${ADMIN_TIME_ZONE})::date = ${today}::date
-            ) THEN 'real'
-            WHEN EXISTS (
-              SELECT 1
-              FROM ${behaviorSchedules}
-              WHERE ${behaviorSchedules.isActive} = true
-                AND ${behaviorSchedules.species} = online_pets.species
-            ) THEN 'custom'
-            ELSE 'free'
-          END AS key
+          COALESCE(${pets.activityMode}::text, 'free') AS key
         FROM online_pets
+        INNER JOIN ${pets} ON ${pets.id} = online_pets.pet_id
       )
       SELECT key, COUNT(*)::int AS count
       FROM pet_mode_map
@@ -296,7 +282,7 @@ analyticsRoute.get("/analytics", async (c) => {
       };
     }),
     modeDistributionBase: onlineModeBase,
-    modeDistributionInferred: true,
+    modeDistributionInferred: false,
   });
 });
 

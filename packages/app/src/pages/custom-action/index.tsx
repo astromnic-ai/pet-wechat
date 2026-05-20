@@ -3,6 +3,7 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
 import { addPetCustomActionLabel } from "../../utils/storage";
+import { uploadFile } from "../../utils/request";
 import "./index.scss";
 
 export default function CustomAction() {
@@ -11,6 +12,7 @@ export default function CustomAction() {
   const [videoPath, setVideoPath] = useState("");
   const [actionName, setActionName] = useState("");
   const [actionDesc, setActionDesc] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const canSubmit = videoPath.length > 0 && actionName.trim().length > 0;
 
   const handleChooseVideo = async () => {
@@ -24,7 +26,9 @@ export default function CustomAction() {
     } catch {}
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitting) return;
+
     if (!videoPath) {
       Taro.showToast({ title: "请先上传视频", icon: "none" });
       return;
@@ -35,18 +39,36 @@ export default function CustomAction() {
       return;
     }
 
-    addPetCustomActionLabel(petId, actionName);
+    setSubmitting(true);
+    try {
+      const res = await uploadFile<{ avatar: { id: string }; action: { actionType: string } }>({
+        url: "/api/avatars/custom-action",
+        filePath: videoPath,
+        name: "file",
+        formData: {
+          petId,
+          actionName: actionName.trim(),
+          actionDesc: actionDesc.trim(),
+        },
+      });
 
-    const query = [
-      "status=done",
-      "source=custom-action",
-      petId ? `petId=${encodeURIComponent(petId)}` : "",
-      actionName ? `label=${encodeURIComponent(actionName)}` : "",
-    ]
-      .filter(Boolean)
-      .join("&");
+      addPetCustomActionLabel(petId, res.action.actionType || actionName);
 
-    Taro.redirectTo({ url: `/pages/avatar-progress/index?${query}` });
+      const query = [
+        `avatarId=${encodeURIComponent(res.avatar.id)}`,
+        "source=custom-action",
+        petId ? `petId=${encodeURIComponent(petId)}` : "",
+        actionName ? `label=${encodeURIComponent(actionName)}` : "",
+      ]
+        .filter(Boolean)
+        .join("&");
+
+      Taro.redirectTo({ url: `/pages/avatar-progress/index?${query}` });
+    } catch (error: any) {
+      Taro.showToast({ title: error?.message || "自定义动作上传失败", icon: "none" });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -111,8 +133,8 @@ export default function CustomAction() {
           />
         </View>
 
-        <View className={`custom-submit-btn ${canSubmit ? "" : "custom-submit-btn--disabled"}`} onClick={handleSubmit}>
-          <Text className="custom-submit-btn-text">开始定制</Text>
+        <View className={`custom-submit-btn ${canSubmit && !submitting ? "" : "custom-submit-btn--disabled"}`} onClick={() => void handleSubmit()}>
+          <Text className="custom-submit-btn-text">{submitting ? "上传中" : "开始定制"}</Text>
         </View>
       </View>
     </View>

@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { User } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request, uploadFile } from "../../utils/request";
-import { getUserProfileExtras, setUserInfo, setUserProfileExtras, type ProfileGender } from "../../utils/storage";
+import { setUserInfo, type ProfileGender } from "../../utils/storage";
 import "./index.scss";
 
 const DEFAULT_AVATAR = require("@/assets/images/black cat 3.png");
@@ -63,14 +63,12 @@ export default function ProfileEdit() {
 
   const loadUser = async () => {
     const res = await request<{ user: User }>({ url: "/api/me" }).catch(() => ({ user: null as User | null }));
-    const extras = getUserProfileExtras(res.user?.id || null);
-
     setUser(res.user);
     setNickname(isPlaceholderNickname(res.user?.nickname) ? "" : res.user?.nickname?.trim() || "");
     setAvatarPreview(res.user?.avatarUrl || "");
     setLocalAvatarPath("");
-    setGender(extras.gender);
-    setBirthday(extras.birthday || "2002-08-15");
+    setGender((res.user?.gender as ProfileGender | undefined) || "unknown");
+    setBirthday(res.user?.birthday || "2002-08-15");
   };
 
   useDidShow(() => {
@@ -184,15 +182,12 @@ export default function ProfileEdit() {
         data: {
           nickname: trimmedNickname,
           avatarUrl: nextAvatarUrl,
+          gender,
+          birthday,
         },
       });
 
       setUserInfo(res.user);
-      setUserProfileExtras(res.user.id, {
-        gender,
-        birthday,
-        verified: true,
-      });
       Taro.showToast({ title: "保存成功", icon: "success" });
       setTimeout(() => {
         Taro.navigateBack();
