@@ -129,6 +129,94 @@ describe("Admin Avatar Review Routes", () => {
     expect((mockDb._calls.insert[0] as any).onConflictDoUpdate).toBeDefined();
   });
 
+  it("allows replacing an existing action after avatar is done", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" });
+    const existingAction = fakeAvatarAction({
+      id: "action-1",
+      petAvatarId: "avatar-1",
+      actionType: "base-lay",
+      imageUrl: "http://localhost:9527/storage/uploads/test/old.mjpeg",
+    });
+    const updatedAction = {
+      ...existingAction,
+      imageUrl: "http://localhost:9527/storage/uploads/test/new.mjpeg",
+    };
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      [existingAction],
+      [existingAction],
+    ];
+    mockDb._results.update = [[updatedAction]];
+
+    const res = await app.request(
+      jsonReq("POST", "/api/admin/avatars/avatar-1/actions", {
+        body: {
+          actionType: "base-lay",
+          imageUrl: "http://localhost:9527/storage/uploads/test/new.mjpeg",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      action: updatedAction,
+      avatarStatus: "done",
+    });
+    expect(mockDb._calls.insert).toHaveLength(0);
+  });
+
+  it("rejects adding a missing action after avatar is done", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" });
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      [],
+    ];
+
+    const res = await app.request(
+      jsonReq("POST", "/api/admin/avatars/avatar-1/actions", {
+        body: {
+          actionType: "base-lay",
+          imageUrl: "http://localhost:9527/storage/uploads/test/new.mjpeg",
+        },
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Completed avatars can only replace existing actions",
+    });
+  });
+
   it("saves one action category without requiring other categories", async () => {
     const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "processing" });
     const basicAction = fakeAvatarAction({

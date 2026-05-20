@@ -648,6 +648,7 @@ export default function Customization() {
   const funProgress = getCategoryProgress(selectedActions, "fun");
   const interactiveProgress = getCategoryProgress(selectedActions, "interactive");
   const canEditActions = selectedAvatarDetail?.status === "approved" || selectedAvatarDetail?.status === "processing";
+  const canReplaceCompletedActions = selectedAvatarDetail?.status === "done";
   const canSync =
     !!selectedAvatarDetail &&
     uploadedProgress.completed >= totalActionCount &&
@@ -828,6 +829,7 @@ export default function Customization() {
           const action = actionMap[actionType];
           const isDeleting = deletingActionId === action?.id;
           const isSelected = previewActionType === actionType;
+          const canUploadCurrentAction = canEditActions || (canReplaceCompletedActions && !!action);
 
           return (
             <Card
@@ -893,13 +895,13 @@ export default function Customization() {
                   type={action ? "default" : "primary"}
                   size="small"
                   icon={<UploadOutlined />}
-                  disabled={!canEditActions}
+                  disabled={!canUploadCurrentAction}
                   onClick={(event) => {
                     event.stopPropagation();
                     handleOpenUploadModal(actionType);
                   }}
                 >
-                  {action ? "替换素材" : "上传素材"}
+                  {action && canReplaceCompletedActions ? "替换" : action ? "替换素材" : "上传素材"}
                 </Button>
 
                 {action ? (

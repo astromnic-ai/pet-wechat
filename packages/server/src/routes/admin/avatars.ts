@@ -496,22 +496,31 @@ avatarsRoute.post("/avatars/:id/actions", async (c) => {
     return c.json({ error: "Avatar not found" }, 404);
   }
 
-  if (!EDITABLE_ACTION_STATUSES.has(row.avatar.status)) {
-    return c.json({ error: "Avatar must be approved or processing" }, 400);
+  const [existingAction] = await db
+    .select()
+    .from(petAvatarActions)
+    .where(
+      and(
+        eq(petAvatarActions.petAvatarId, avatarId),
+        eq(petAvatarActions.actionType, actionType),
+      ),
+    )
+    .limit(1);
+
+  const canReplaceDoneAction = row.avatar.status === "done" && !!existingAction;
+  if (!EDITABLE_ACTION_STATUSES.has(row.avatar.status) && !canReplaceDoneAction) {
+    return c.json(
+      {
+        error:
+          row.avatar.status === "done"
+            ? "Completed avatars can only replace existing actions"
+            : "Avatar must be approved or processing",
+      },
+      400,
+    );
   }
 
   const [action, avatar] = await db.transaction(async (tx) => {
-    const [existingAction] = await tx
-      .select()
-      .from(petAvatarActions)
-      .where(
-        and(
-          eq(petAvatarActions.petAvatarId, avatarId),
-          eq(petAvatarActions.actionType, actionType),
-        ),
-      )
-      .limit(1);
-
     const [lastAction] = await tx
       .select()
       .from(petAvatarActions)
