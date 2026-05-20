@@ -7,7 +7,6 @@ import {
   getCurrentWeekDateByDay,
   getPetCustomActionLabels,
   getPetModePlans,
-  setPetActivityMode,
   setPetModePlans,
   type PetModePlan,
   type PetModeRepeatType,
@@ -310,7 +309,6 @@ export default function PetModeSchedulePage() {
       : [...currentPlans, nextPlan];
 
     setPetModePlans(petId, nextPlans);
-    setPetActivityMode(petId, "custom");
     Taro.showToast({ title: "日程已保存", icon: "success" });
     setTimeout(() => {
       Taro.navigateBack();

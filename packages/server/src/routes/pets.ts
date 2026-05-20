@@ -5,17 +5,23 @@ import {
   petAvatars,
   petAvatarActions,
   petBehaviors,
+  petModePlans,
+  petModeSlots,
   interactionEvents,
   collarDevices,
   desktopPetBindings,
   deviceAuthorizations,
 } from "../db/schema";
-import { eq, and, isNull, inArray, gte, lte, desc, sql } from "drizzle-orm";
-import type { PetLatestBehavior } from "shared";
+import { eq, and, isNull, inArray, gte, lte, desc, asc, sql } from "drizzle-orm";
+import type { PetActivityMode, PetLatestBehavior, PetModePlanDTO, PetModeWeekday } from "shared";
 import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
+import { dispatchPetModeToBoundDesktops } from "../ota/pet-mode-dispatch";
 
 const petsRoute = new Hono();
+const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;
+const PET_MODE_REPEATS = ["once", "weekly"] as const;
+const PET_MODE_WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 function normalizeBehaviorTimestamp(timestamp: Date | string): string {
   return timestamp instanceof Date ? timestamp.toISOString() : timestamp;
@@ -244,6 +250,96 @@ async function getPetAccessState(userId: string, petId: string) {
   };
 }
 
+function isPetActivityMode(value: unknown): value is PetActivityMode {
+  return PET_ACTIVITY_MODES.includes(value as PetActivityMode);
+}
+
+function normalizePetModeDays(value: unknown): PetModeWeekday[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is PetModeWeekday =>
+    PET_MODE_WEEKDAYS.includes(item as PetModeWeekday),
+  );
+}
+
+function normalizePetModePlanInput(value: any, index: number): PetModePlanDTO {
+  const repeat = PET_MODE_REPEATS.includes(value?.repeat) ? value.repeat : "once";
+  const days = normalizePetModeDays(value?.days);
+  return {
+    id: typeof value?.id === "string" && value.id ? value.id : `plan-${Date.now()}-${index}`,
+    repeat,
+    days,
+    date: typeof value?.date === "string" && value.date ? value.date : null,
+    sortOrder: Number.isFinite(Number(value?.sortOrder)) ? Number(value.sortOrder) : index,
+    slots: Array.isArray(value?.slots)
+      ? value.slots.map((slot: any, slotIndex: number) => ({
+          id: typeof slot?.id === "string" && slot.id ? slot.id : `slot-${Date.now()}-${index}-${slotIndex}`,
+          start: typeof slot?.start === "string" ? slot.start : "00:00",
+          end: typeof slot?.end === "string" ? slot.end : "00:00",
+          action: typeof slot?.action === "string" ? slot.action : "",
+          sortOrder: Number.isFinite(Number(slot?.sortOrder)) ? Number(slot.sortOrder) : slotIndex,
+        }))
+      : [],
+  };
+}
+
+async function getPetModePlans(petId: string): Promise<PetModePlanDTO[]> {
+  const plans = await db
+    .select()
+    .from(petModePlans)
+    .where(eq(petModePlans.petId, petId))
+    .orderBy(asc(petModePlans.sortOrder), asc(petModePlans.id));
+
+  if (plans.length === 0) return [];
+
+  const slots = await db
+    .select()
+    .from(petModeSlots)
+    .where(inArray(petModeSlots.planId, plans.map((plan) => plan.id)))
+    .orderBy(asc(petModeSlots.sortOrder), asc(petModeSlots.id));
+
+  const slotsByPlanId = new Map<string, typeof slots>();
+  for (const slot of slots) {
+    const current = slotsByPlanId.get(slot.planId) ?? [];
+    current.push(slot);
+    slotsByPlanId.set(slot.planId, current);
+  }
+
+  return plans.map((plan) => ({
+    id: plan.id,
+    repeat: plan.repeat === "weekly" ? "weekly" : "once",
+    days: normalizePetModeDays(plan.days),
+    date: plan.date,
+    sortOrder: plan.sortOrder,
+    slots: (slotsByPlanId.get(plan.id) ?? []).map((slot) => ({
+      id: slot.id,
+      start: slot.start,
+      end: slot.end,
+      action: slot.action,
+      sortOrder: slot.sortOrder,
+    })),
+  }));
+}
+
+async function getPetModeResponse(petId: string, mode: PetActivityMode) {
+  return {
+    mode,
+    plans: await getPetModePlans(petId),
+  };
+}
+
+async function dispatchPetModeSafely(petId: string, mode: PetActivityMode) {
+  try {
+    const plans = mode === "custom" ? await getPetModePlans(petId) : undefined;
+    await dispatchPetModeToBoundDesktops(petId, {
+      v: 1,
+      mode,
+      ...(mode === "custom" ? { plans } : {}),
+    });
+  } catch (error) {
+    console.error("[pet-mode] dispatch failed:", error);
+  }
+}
+
 // 获取当前用户的所有宠物（含被授权的宠物）
 petsRoute.get("/", async (c) => {
   const userId = c.get("userId" as never) as string;
@@ -358,6 +454,96 @@ petsRoute.get("/:petId/interaction-stats", async (c) => {
         }
       : {}),
   });
+});
+
+petsRoute.get("/:petId/activity-mode", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const petId = c.req.param("petId");
+
+  const { pet, hasAccess } = await getPetAccessState(userId, petId);
+  if (!pet) return c.json({ error: "Pet not found" }, 404);
+  if (!hasAccess) return c.json({ error: "Unauthorized" }, 403);
+  if (pet.userId !== userId) return c.json({ error: "Pet not found" }, 404);
+
+  return c.json(await getPetModeResponse(petId, pet.activityMode));
+});
+
+petsRoute.put("/:petId/activity-mode", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const petId = c.req.param("petId");
+  const body = await c.req.json();
+
+  if (!isPetActivityMode(body?.mode)) {
+    return c.json({ error: "Invalid mode" }, 400);
+  }
+
+  const { pet, hasAccess } = await getPetAccessState(userId, petId);
+  if (!pet) return c.json({ error: "Pet not found" }, 404);
+  if (!hasAccess) return c.json({ error: "Unauthorized" }, 403);
+  if (pet.userId !== userId) return c.json({ error: "Pet not found" }, 404);
+
+  const [updated] = await db
+    .update(pets)
+    .set({ activityMode: body.mode, updatedAt: new Date() })
+    .where(eq(pets.id, petId))
+    .returning();
+
+  await dispatchPetModeSafely(petId, updated.activityMode);
+  return c.json(await getPetModeResponse(petId, updated.activityMode));
+});
+
+petsRoute.put("/:petId/custom-plans", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const petId = c.req.param("petId");
+  const body = await c.req.json();
+
+  if (!Array.isArray(body?.plans)) {
+    return c.json({ error: "Invalid plans" }, 400);
+  }
+
+  const { pet, hasAccess } = await getPetAccessState(userId, petId);
+  if (!pet) return c.json({ error: "Pet not found" }, 404);
+  if (!hasAccess) return c.json({ error: "Unauthorized" }, 403);
+  if (pet.userId !== userId) return c.json({ error: "Pet not found" }, 404);
+
+  const nextPlans: PetModePlanDTO[] = body.plans.map((plan: any, index: number) =>
+    normalizePetModePlanInput(plan, index),
+  );
+
+  await db.transaction(async (tx) => {
+    await tx.delete(petModePlans).where(eq(petModePlans.petId, petId));
+
+    for (const plan of nextPlans) {
+      await tx.insert(petModePlans).values({
+        id: plan.id,
+        petId,
+        repeat: plan.repeat,
+        days: plan.days,
+        date: plan.date,
+        sortOrder: plan.sortOrder ?? 0,
+        updatedAt: new Date(),
+      });
+
+      if (plan.slots.length > 0) {
+        await tx.insert(petModeSlots).values(
+          plan.slots.map((slot, slotIndex) => ({
+            id: slot.id,
+            planId: plan.id,
+            start: slot.start,
+            end: slot.end,
+            action: slot.action,
+            sortOrder: slot.sortOrder ?? slotIndex,
+          })),
+        );
+      }
+    }
+  });
+
+  if (pet.activityMode === "custom") {
+    await dispatchPetModeSafely(petId, "custom");
+  }
+
+  return c.json(await getPetModeResponse(petId, pet.activityMode));
 });
 
 // 获取单个宠物详情（含动态图像）

@@ -1,5 +1,5 @@
 import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
-import type { OtaCommandPayload } from "shared";
+import type { OtaCommandPayload, PetModeMqttPayload } from "shared";
 import { handleOtaMqttMessage } from "./mqtt-handlers";
 
 const STATUS_TOPIC = "pet/+/status";
@@ -93,6 +93,22 @@ export async function publishOtaCommand(
         else resolve();
       },
     );
+  });
+}
+
+export async function publishPetMode(
+  chipId: string,
+  payload: PetModeMqttPayload,
+) {
+  const activeClient = requireClient();
+  const topic = `pet/${chipId}/mode`;
+  const body = JSON.stringify(payload);
+
+  await new Promise<void>((resolve, reject) => {
+    activeClient.publish(topic, body, { qos: 1, retain: true }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
   });
 }
 
