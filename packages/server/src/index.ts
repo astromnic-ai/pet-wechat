@@ -34,6 +34,7 @@ import schedulesRoute from "./routes/schedules";
 import { runPreflight } from "./preflight";
 import { closeOtaMqtt, initOtaMqtt } from "./ota/mqtt-client";
 import { clearScheduledDispatches } from "./ota/dispatch";
+import { startPetModeScheduler, stopPetModeScheduler } from "./pet-mode/scheduler";
 import { saveLocalDevUpload } from "./utils/storage";
 import { wsHandler, type WsConnectionData } from "./ws";
 
@@ -256,6 +257,7 @@ if (import.meta.main) {
     await runPreflight();
     if (process.env.OTA_MQTT_DISABLED !== "1") {
       await initOtaMqtt();
+      startPetModeScheduler();
     }
     console.log(`Server running on http://localhost:${port}`);
   } catch (error) {
@@ -272,6 +274,7 @@ async function shutdown(signal: string) {
 
   try {
     clearScheduledDispatches();
+    stopPetModeScheduler();
     await closeOtaMqtt();
   } catch (error) {
     console.error("[ota:mqtt] close failed:", error);

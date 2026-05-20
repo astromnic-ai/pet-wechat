@@ -5,6 +5,7 @@ import { z } from "zod";
 import { ALL_ACTIONS } from "shared";
 import { db } from "../db";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
+import { dispatchPetAction } from "../pet-mode/scheduler";
 import {
   collarDevices,
   desktopDevices,
@@ -398,6 +399,18 @@ deviceReportRoute.post("/event", async (c) => {
         timestamp: occurredAt,
       })
       .returning();
+
+    const [pet] = await db
+      .select({ activityMode: pets.activityMode })
+      .from(pets)
+      .where(eq(pets.id, collar.petId))
+      .limit(1);
+
+    if (pet?.activityMode === "real") {
+      await dispatchPetAction(collar.petId).catch((error) => {
+        console.error("[pet-mode] real action dispatch failed:", error);
+      });
+    }
 
     return c.json(
       {

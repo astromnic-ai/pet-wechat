@@ -3,6 +3,7 @@ import { db } from "../db";
 import { petBehaviors, pets, collarDevices } from "../db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { broadcast } from "../ws";
+import { dispatchPetAction } from "../pet-mode/scheduler";
 
 const behaviorsRoute = new Hono();
 
@@ -71,6 +72,12 @@ behaviorsRoute.post("/", async (c) => {
       timestamp: normalizeBehaviorTimestamp(behavior.timestamp),
     },
   });
+
+  if (pet.activityMode === "real") {
+    await dispatchPetAction(body.petId).catch((error) => {
+      console.error("[pet-mode] real action dispatch failed:", error);
+    });
+  }
 
   return c.json({ behavior }, 201);
 });

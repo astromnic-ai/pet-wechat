@@ -1,5 +1,5 @@
 import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
-import type { OtaCommandPayload, PetModeMqttPayload } from "shared";
+import type { OtaCommandPayload, PetActionMqttPayload } from "shared";
 import { handleOtaMqttMessage } from "./mqtt-handlers";
 
 const STATUS_TOPIC = "pet/+/status";
@@ -60,6 +60,14 @@ export async function initOtaMqtt() {
     });
   });
 
+  // 等首次连接建立后再返回，确保启动后调度引擎的首发不会因 MQTT 未连接被跳过；
+  // broker 不可达时最多等 10s 后继续启动，由 reconnectPeriod 重连与定时 tick 兜底。
+  await new Promise<void>((resolve) => {
+    if (client?.connected) return resolve();
+    client?.once("connect", () => resolve());
+    setTimeout(resolve, 10_000);
+  });
+
   return client;
 }
 
@@ -96,12 +104,15 @@ export async function publishOtaCommand(
   });
 }
 
-export async function publishPetMode(
-  chipId: string,
-  payload: PetModeMqttPayload,
+export async function publishPetAction(
+  petId: string,
+  payload: PetActionMqttPayload,
 ) {
   const activeClient = requireClient();
-  const topic = `pet/${chipId}/mode`;
+  // 单机联调兼容固件当前硬编码设备 ID，关联 issue:
+  // https://github.com/astromnic-ai/pet-tabletop-mini/issues/1
+  const topicPetId = process.env.PET_ACTION_TOPIC_OVERRIDE?.trim() || petId;
+  const topic = `pet/${topicPetId}/action`;
   const body = JSON.stringify(payload);
 
   await new Promise<void>((resolve, reject) => {

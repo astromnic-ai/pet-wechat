@@ -16,7 +16,7 @@ import { eq, and, isNull, inArray, gte, lte, desc, asc, sql } from "drizzle-orm"
 import type { PetActivityMode, PetLatestBehavior, PetModePlanDTO, PetModeWeekday } from "shared";
 import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
-import { dispatchPetModeToBoundDesktops } from "../ota/pet-mode-dispatch";
+import { dispatchPetAction } from "../pet-mode/scheduler";
 
 const petsRoute = new Hono();
 const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;
@@ -327,16 +327,11 @@ async function getPetModeResponse(petId: string, mode: PetActivityMode) {
   };
 }
 
-async function dispatchPetModeSafely(petId: string, mode: PetActivityMode) {
+async function dispatchPetActionSafely(petId: string) {
   try {
-    const plans = mode === "custom" ? await getPetModePlans(petId) : undefined;
-    await dispatchPetModeToBoundDesktops(petId, {
-      v: 1,
-      mode,
-      ...(mode === "custom" ? { plans } : {}),
-    });
+    await dispatchPetAction(petId);
   } catch (error) {
-    console.error("[pet-mode] dispatch failed:", error);
+    console.error("[pet-mode] action dispatch failed:", error);
   }
 }
 
@@ -488,7 +483,7 @@ petsRoute.put("/:petId/activity-mode", async (c) => {
     .where(eq(pets.id, petId))
     .returning();
 
-  await dispatchPetModeSafely(petId, updated.activityMode);
+  await dispatchPetActionSafely(petId);
   return c.json(await getPetModeResponse(petId, updated.activityMode));
 });
 
@@ -540,7 +535,7 @@ petsRoute.put("/:petId/custom-plans", async (c) => {
   });
 
   if (pet.activityMode === "custom") {
-    await dispatchPetModeSafely(petId, "custom");
+    await dispatchPetActionSafely(petId);
   }
 
   return c.json(await getPetModeResponse(petId, pet.activityMode));
