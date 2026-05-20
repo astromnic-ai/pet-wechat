@@ -5,6 +5,7 @@ import { BASE_URL, request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, DeviceSummary, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
+import { fetchPetActivityMode, syncPetModeCache } from "../../utils/petModeApi";
 import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
 import { getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
@@ -175,6 +176,9 @@ export default function Index() {
   const [isWaitingVideoFrameReady, setIsWaitingVideoFrameReady] = useState(false);
   const [processingPreviewFailedMap, setProcessingPreviewFailedMap] = useState<Record<string, boolean>>({});
   const skipNextDidShowRef = useRef(true);
+  const hasPet = pets.length > 0;
+  const currentPet = pets[currentPetIndex] ?? null;
+  const petSlides = hasPet ? pets : [null];
 
   useDidShow(() => {
     Taro.hideTabBar();
@@ -188,7 +192,7 @@ export default function Index() {
     void loadUnreadCount();
     void loadDevices();
     setPetDetailRefreshKey((prev) => prev + 1);
-    setPetMode(getPetActivityMode(pets[currentPetIndex]?.id));
+    void loadPetActivityMode(pets[currentPetIndex]?.id);
   });
 
   useEffect(() => {
@@ -206,7 +210,7 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    setPetMode(getPetActivityMode(currentPet?.id));
+    void loadPetActivityMode(currentPet?.id);
   }, [currentPet?.id]);
 
   useEffect(() => {
@@ -352,9 +356,19 @@ export default function Index() {
     }
   };
 
-  const hasPet = pets.length > 0;
-  const currentPet = pets[currentPetIndex] ?? null;
-  const petSlides = hasPet ? pets : [null];
+  const loadPetActivityMode = async (petId?: string) => {
+    setPetMode(getPetActivityMode(petId));
+    if (!petId) return;
+
+    try {
+      const res = await fetchPetActivityMode(petId);
+      syncPetModeCache(petId, res);
+      setPetMode(res.mode);
+    } catch {
+      setPetMode(getPetActivityMode(petId));
+    }
+  };
+
   const activeCollar = useMemo(() => {
     if (!currentPet) return null;
     return devices.find((item) => item.deviceType === "collar" && item.petId === currentPet.id) ?? null;

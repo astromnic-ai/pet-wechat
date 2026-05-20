@@ -98,6 +98,11 @@ export const dispatchSourceEnum = pgEnum("dispatch_source", [
   "manual",
   "auto_full",
 ]);
+export const petActivityModeEnum = pgEnum("pet_activity_mode", [
+  "free",
+  "custom",
+  "real",
+]);
 
 // ===== 用户 =====
 
@@ -158,6 +163,7 @@ export const pets = pgTable("pets", {
   weight: real("weight"),
   draftAvatarSourceImageUrl: text("draft_avatar_source_image_url"),
   activityScore: integer("activity_score").notNull().default(0),
+  activityMode: petActivityModeEnum("activity_mode").notNull().default("free"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -343,6 +349,50 @@ export const petBehaviors = pgTable("pet_behaviors", {
     .notNull()
     .defaultNow(),
 });
+
+export const petModePlans = pgTable(
+  "pet_mode_plans",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    petId: text("pet_id")
+      .notNull()
+      .references(() => pets.id, { onDelete: "cascade" }),
+    repeat: text("repeat").notNull(),
+    days: jsonb("days").$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    date: text("date"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_pet_mode_plans_pet_sort").on(table.petId, table.sortOrder, table.id),
+    check("pet_mode_plans_repeat_check", sql`${table.repeat} IN ('once', 'weekly')`),
+  ],
+);
+
+export const petModeSlots = pgTable(
+  "pet_mode_slots",
+  {
+    id: text("id").primaryKey().$defaultFn(createId),
+    planId: text("plan_id").notNull(),
+    start: text("start").notNull(),
+    end: text("end").notNull(),
+    action: text("action").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (table) => [
+    foreignKey({
+      columns: [table.planId],
+      foreignColumns: [petModePlans.id],
+      name: "pet_mode_slots_plan_id_pet_mode_plans_id_fk",
+    }).onDelete("cascade"),
+    index("idx_pet_mode_slots_plan_sort").on(table.planId, table.sortOrder, table.id),
+  ],
+);
 
 export const behaviorSchedules = pgTable(
   "behavior_schedules",

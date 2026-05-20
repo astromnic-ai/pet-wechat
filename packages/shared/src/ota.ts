@@ -22,6 +22,33 @@ export type OtaCommandPayload = {
   minFromVersion?: string | null;
 };
 
+export type PetActivityMode = "free" | "custom" | "real";
+export type PetModeRepeatType = "once" | "weekly";
+export type PetModeWeekday = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+export type PetModeSlotDTO = {
+  id: string;
+  start: string;
+  end: string;
+  action: string;
+  sortOrder?: number;
+};
+
+export type PetModePlanDTO = {
+  id: string;
+  repeat: PetModeRepeatType;
+  days: PetModeWeekday[];
+  date: string | null;
+  sortOrder?: number;
+  slots: PetModeSlotDTO[];
+};
+
+export type PetModeMqttPayload = {
+  v: 1;
+  mode: PetActivityMode;
+  plans?: PetModePlanDTO[];
+};
+
 export type OtaProgressPayload = {
   v?: number;
   version: string;

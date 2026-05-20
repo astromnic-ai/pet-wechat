@@ -1,13 +1,15 @@
 import { View, Text, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import PageBack from "../../components/PageBack";
 import {
   getPersistedPetModePlans,
   setPetActivityMode,
+  setPetModePlans,
   type PetModePlan,
   type PetModeWeekday,
 } from "../../utils/storage";
+import { fetchPetActivityMode, syncPetModeCache, updatePetActivityMode, updatePetCustomPlans } from "../../utils/petModeApi";
 import "./index.scss";
 
 const WEEKDAY_OPTIONS: Array<{ key: PetModeWeekday; label: string }> = [
@@ -69,9 +71,25 @@ export default function PetModeCustomOverviewPage() {
   const router = useRouter();
   const petId = router.params.petId || "";
   const [plans, setPlans] = useState<PetModePlan[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const hasLoadedRemoteRef = useRef(false);
 
   useDidShow(() => {
-    setPlans(getPersistedPetModePlans(petId));
+    const localPlans = getPersistedPetModePlans(petId);
+    setPlans(localPlans);
+
+    if (hasLoadedRemoteRef.current || !petId) return;
+
+    void fetchPetActivityMode(petId)
+      .then((res) => {
+        hasLoadedRemoteRef.current = true;
+        syncPetModeCache(petId, res);
+        setPlans(res.plans);
+      })
+      .catch(() => {
+        hasLoadedRemoteRef.current = true;
+        setPlans(getPersistedPetModePlans(petId));
+      });
   });
 
   const handleOpenSchedule = (scheduleId?: string) => {
@@ -85,10 +103,22 @@ export default function PetModeCustomOverviewPage() {
   };
 
   const handleConfirmApply = () => {
-    if (plans.length === 0) return;
-    setPetActivityMode(petId, "custom");
-    Taro.showToast({ title: "已应用个性自定义", icon: "success" });
-    Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+    if (plans.length === 0 || isSubmitting) return;
+
+    setIsSubmitting(true);
+    void updatePetCustomPlans(petId, plans)
+      .then(() => updatePetActivityMode(petId, "custom"))
+      .then((res) => {
+        syncPetModeCache(petId, res);
+        setPetModePlans(petId, plans);
+        setPetActivityMode(petId, "custom");
+        Taro.showToast({ title: "已应用个性自定义", icon: "success" });
+        Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) });
+      })
+      .catch((error) => {
+        Taro.showToast({ title: error?.message || "应用失败", icon: "none" });
+      })
+      .finally(() => setIsSubmitting(false));
   };
 
   return (
@@ -149,7 +179,7 @@ export default function PetModeCustomOverviewPage() {
             className={`custom-overview-confirm-btn ${plans.length === 0 ? "custom-overview-confirm-btn--disabled" : ""}`}
             onClick={handleConfirmApply}
           >
-            <Text className="custom-overview-confirm-btn-text">确认应用模式 →</Text>
+            <Text className="custom-overview-confirm-btn-text">{isSubmitting ? "正在应用..." : "确认应用模式 →"}</Text>
           </View>
         </View>
       </ScrollView>

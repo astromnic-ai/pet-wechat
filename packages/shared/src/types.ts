@@ -4,6 +4,7 @@ import {
   SCHEDULE_SPECIES,
   type ActionType,
 } from "./constants";
+import type { PetActivityMode } from "./ota";
 
 // ===== 枚举 =====
 
@@ -75,6 +76,7 @@ export interface Pet {
   weight: number | null;
   draftAvatarSourceImageUrl?: string | null;
   activityScore: number;
+  activityMode?: PetActivityMode;
   latestBehavior?: PetLatestBehavior | null;
   avatarImageUrl?: string | null;
   createdAt: string;
