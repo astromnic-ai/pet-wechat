@@ -40,6 +40,8 @@ export interface User {
   email: string | null;
   nickname: string;
   avatarUrl: string | null;
+  gender: Gender;
+  birthday: string | null;
   avatarQuota: number;
   createdAt: string;
   updatedAt: string;

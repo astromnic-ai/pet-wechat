@@ -74,7 +74,7 @@ const modeMeta: Record<
   },
   custom: {
     label: "日程定制模式",
-    description: "按后台行为日程推断",
+    description: "按用户当前选择统计",
     color: "#36CFC9",
     track: "rgba(54, 207, 201, 0.18)",
   },
@@ -193,7 +193,7 @@ export default function AnalyticsPage() {
                 }))
               : emptyAnalytics.modeDistribution,
             modeDistributionBase: Number(result?.modeDistributionBase ?? 0),
-            modeDistributionInferred: Boolean(result?.modeDistributionInferred ?? true),
+            modeDistributionInferred: Boolean(result?.modeDistributionInferred ?? false),
           });
         }
       } catch (err) {
@@ -376,7 +376,7 @@ export default function AnalyticsPage() {
                   message={`当前在线样本 ${analytics.modeDistributionBase} 个`}
                   description={
                     analytics.modeDistributionInferred
-                      ? "模式分布当前按今日在线宠物、项圈行为记录和生效中的行为日程进行推断。"
+                      ? "模式分布当前按今日在线宠物的真实活动模式字段统计。"
                       : "模式分布为真实记录结果。"
                   }
                 />

@@ -115,6 +115,8 @@ export const users = pgTable(
     email: varchar("email", { length: 255 }),
     nickname: text("nickname").notNull(),
     avatarUrl: text("avatar_url"),
+    gender: genderEnum("gender").notNull().default("unknown"),
+    birthday: text("birthday"),
     avatarQuota: integer("avatar_quota").notNull().default(2),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

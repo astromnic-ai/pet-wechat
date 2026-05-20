@@ -9,6 +9,8 @@ export const updateMeSchema = z
   .object({
     nickname: z.string().trim().min(1).max(64).optional(),
     avatarUrl: z.string().trim().url().nullable().optional(),
+    gender: z.enum(["male", "female", "unknown"]).optional(),
+    birthday: z.string().trim().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   })
   .strict();
 

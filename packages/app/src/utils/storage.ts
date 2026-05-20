@@ -30,12 +30,6 @@ export interface PetModePlan {
 
 export type ProfileGender = "male" | "female" | "unknown";
 
-export interface UserProfileExtras {
-  gender: ProfileGender;
-  birthday: string | null;
-  verified: boolean;
-}
-
 export function isLoggedIn(): boolean {
   return !!Taro.getStorageSync("token");
 }
@@ -47,35 +41,6 @@ export function getUserInfo(): any {
 
 export function setUserInfo(user: any) {
   Taro.setStorageSync("userInfo", JSON.stringify(user));
-}
-
-function getUserProfileExtrasKey(userId?: string | null) {
-  return `userProfileExtras_${userId || "default"}`;
-}
-
-export function getUserProfileExtras(userId?: string | null): UserProfileExtras {
-  const raw = Taro.getStorageSync(getUserProfileExtrasKey(userId));
-  if (raw && typeof raw === "object") {
-    return {
-      gender: raw.gender === "male" || raw.gender === "female" ? raw.gender : "unknown",
-      birthday: typeof raw.birthday === "string" && raw.birthday ? raw.birthday : "2002-08-15",
-      verified: raw.verified !== false,
-    };
-  }
-
-  return {
-    gender: "female",
-    birthday: "2002-08-15",
-    verified: true,
-  };
-}
-
-export function setUserProfileExtras(userId: string | null | undefined, extras: UserProfileExtras) {
-  Taro.setStorageSync(getUserProfileExtrasKey(userId), {
-    gender: extras.gender,
-    birthday: extras.birthday || null,
-    verified: extras.verified,
-  });
 }
 
 export function isFirstLogin(userId: string): boolean {

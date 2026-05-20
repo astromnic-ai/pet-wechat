@@ -1,12 +1,44 @@
+import { createHash } from "node:crypto";
 import { Hono } from "hono";
 import { db } from "../db";
 import { messages, petAvatars, petAvatarActions, pets, users } from "../db/schema";
-import { eq, and, ne, asc } from "drizzle-orm";
+import { eq, and, ne, asc, desc } from "drizzle-orm";
 import { broadcast } from "../ws";
 import { getUserAvatarQuotaSummary } from "../utils/avatarQuota";
-import { isManagedStorageUrl } from "../utils/storage";
+import { isManagedStorageUrl, normalizePublicFileUrl, uploadFile } from "../utils/storage";
 
 const avatarsRoute = new Hono();
+const MAX_CUSTOM_ACTION_VIDEO_SIZE = 50 * 1024 * 1024;
+const CUSTOM_ACTION_VIDEO_TYPES = new Set([
+  "video/mp4",
+  "video/quicktime",
+  "video/mpeg",
+  "video/mjpeg",
+  "video/x-motion-jpeg",
+]);
+
+function resolveCustomActionVideoContentType(file: File) {
+  if (CUSTOM_ACTION_VIDEO_TYPES.has(file.type)) {
+    return file.type;
+  }
+
+  if (/\.(mp4|mov|mpeg|mpg|mjpeg|mjpg)$/i.test(file.name)) {
+    if (/\.(mjpeg|mjpg)$/i.test(file.name)) return "video/mjpeg";
+    if (/\.mov$/i.test(file.name)) return "video/quicktime";
+    if (/\.(mpeg|mpg)$/i.test(file.name)) return "video/mpeg";
+    return "video/mp4";
+  }
+
+  return null;
+}
+
+function toPetAvatarActionResponse(action: typeof petAvatarActions.$inferSelect) {
+  return {
+    ...action,
+    imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
+    videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
+  };
+}
 
 // 上传图片，创建定制任务
 avatarsRoute.post("/", async (c) => {
@@ -88,6 +120,98 @@ avatarsRoute.get("/:id", async (c) => {
     .where(eq(petAvatarActions.petAvatarId, avatarId));
 
   return c.json({ avatar, actions });
+});
+
+avatarsRoute.post("/custom-action", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const body = await c.req.parseBody().catch(() => null);
+  if (!body) {
+    return c.json({ error: "Invalid request body" }, 400);
+  }
+
+  const petId = typeof body.petId === "string" ? body.petId.trim() : "";
+  const actionName = typeof body.actionName === "string" ? body.actionName.trim() : "";
+  const file = body.file;
+
+  if (!petId) {
+    return c.json({ error: "petId is required" }, 400);
+  }
+  if (!actionName || actionName.length > 64) {
+    return c.json({ error: "Invalid actionName" }, 400);
+  }
+  if (!file || typeof file === "string" || Array.isArray(file)) {
+    return c.json({ error: "未检测到上传文件" }, 400);
+  }
+
+  const uploadedFile = file as File;
+  const contentType = resolveCustomActionVideoContentType(uploadedFile);
+  if (!contentType) {
+    return c.json({ error: "不支持的视频格式，请上传 MP4/MOV/MJPEG 视频" }, 400);
+  }
+  if (uploadedFile.size > MAX_CUSTOM_ACTION_VIDEO_SIZE) {
+    return c.json({ error: "文件过大，请上传 50MB 以内的视频" }, 400);
+  }
+
+  const [pet] = await db
+    .select()
+    .from(pets)
+    .where(and(eq(pets.id, petId), eq(pets.userId, userId)));
+  if (!pet) return c.json({ error: "Pet not found" }, 404);
+
+  const [avatar] = await db
+    .select()
+    .from(petAvatars)
+    .where(and(eq(petAvatars.petId, petId), eq(petAvatars.status, "done")))
+    .orderBy(desc(petAvatars.createdAt))
+    .limit(1);
+  if (!avatar) {
+    return c.json({ error: "请先完成宠物形象定制，再添加自定义动作" }, 400);
+  }
+
+  const buffer = Buffer.from(await uploadedFile.arrayBuffer());
+  const videoHash = createHash("sha256").update(buffer).digest("hex");
+  const safeActionKey = actionName.replace(/[^a-zA-Z0-9_-]+/g, "-").replace(/^-+|-+$/g, "") || "custom";
+  const ext = contentType === "video/quicktime"
+    ? "mov"
+    : contentType === "video/mpeg"
+      ? "mpeg"
+      : contentType === "video/mjpeg" || contentType === "video/x-motion-jpeg"
+        ? "mjpeg"
+        : "mp4";
+  const videoUrl = await uploadFile(
+    `avatars/${avatar.id}/custom-${safeActionKey}-${Date.now()}.${ext}`,
+    buffer,
+    contentType,
+  );
+
+  const [lastAction] = await db
+    .select()
+    .from(petAvatarActions)
+    .where(eq(petAvatarActions.petAvatarId, avatar.id))
+    .orderBy(desc(petAvatarActions.sortOrder), desc(petAvatarActions.id))
+    .limit(1);
+
+  const [action] = await db
+    .insert(petAvatarActions)
+    .values({
+      petAvatarId: avatar.id,
+      actionType: actionName,
+      imageUrl: avatar.sourceImageUrl,
+      videoUrl,
+      videoHash,
+      sortOrder: (lastAction?.sortOrder ?? -1) + 1,
+    })
+    .onConflictDoUpdate({
+      target: [petAvatarActions.petAvatarId, petAvatarActions.actionType],
+      set: {
+        imageUrl: avatar.sourceImageUrl,
+        videoUrl,
+        videoHash,
+      },
+    })
+    .returning();
+
+  return c.json({ avatar, action: toPetAvatarActionResponse(action) }, 201);
 });
 
 avatarsRoute.post("/:id/actions", async (c) => {

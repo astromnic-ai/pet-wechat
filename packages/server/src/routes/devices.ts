@@ -234,7 +234,7 @@ async function releaseDesktopOwnership(userId: string, id: string) {
   return desktop ?? null;
 }
 
-// ===== 无主设备（模拟蓝牙搜索） =====
+// ===== 无主设备（供蓝牙发现后的认领流程匹配） =====
 
 devicesRoute.get("/collars/unowned", async (c) => {
   const result = await db
@@ -434,7 +434,7 @@ devicesRoute.post("/desktops/register", async (c) => {
   return c.json({ error: "Desktop is already registered to another user" }, 409);
 });
 
-// ===== 设备认领（模拟蓝牙配对绑定） =====
+// ===== 设备认领（蓝牙配对后的账号绑定） =====
 
 devicesRoute.post("/collars/:id/claim", async (c) => {
   const userId = c.get("userId" as never) as string;

@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import { and, asc, desc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
 import { ALL_ACTIONS } from "shared";
@@ -13,8 +13,12 @@ import {
   petAvatarActions,
   petAvatars,
   petBehaviors,
+  petModePlans,
+  petModeSlots,
+  pets,
 } from "../db/schema";
 import { normalizePublicFileUrl } from "../utils/storage";
+import type { PetModePlanDTO, PetModeWeekday } from "shared";
 
 const deviceReportRoute = new Hono();
 
@@ -164,6 +168,67 @@ async function buildAvatarManifestFiles(petId: string) {
     }));
 }
 
+function normalizePetModeDays(value: unknown): PetModeWeekday[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is PetModeWeekday =>
+    ["mon", "tue", "wed", "thu", "fri", "sat", "sun"].includes(String(item)),
+  );
+}
+
+async function getPetModeManifest(petId: string) {
+  const [pet] = await db
+    .select({ activityMode: pets.activityMode })
+    .from(pets)
+    .where(eq(pets.id, petId))
+    .limit(1);
+
+  const mode = pet?.activityMode ?? "free";
+  if (mode !== "custom") {
+    return { mode, plans: [] as PetModePlanDTO[] };
+  }
+
+  const plans = await db
+    .select()
+    .from(petModePlans)
+    .where(eq(petModePlans.petId, petId))
+    .orderBy(asc(petModePlans.sortOrder), asc(petModePlans.id));
+
+  if (plans.length === 0) {
+    return { mode, plans: [] as PetModePlanDTO[] };
+  }
+
+  const slots = await db
+    .select()
+    .from(petModeSlots)
+    .where(inArray(petModeSlots.planId, plans.map((plan) => plan.id)))
+    .orderBy(asc(petModeSlots.sortOrder), asc(petModeSlots.id));
+
+  const slotsByPlanId = new Map<string, typeof slots>();
+  for (const slot of slots) {
+    const current = slotsByPlanId.get(slot.planId) ?? [];
+    current.push(slot);
+    slotsByPlanId.set(slot.planId, current);
+  }
+
+  return {
+    mode,
+    plans: plans.map((plan) => ({
+      id: plan.id,
+      repeat: plan.repeat === "weekly" ? "weekly" : "once",
+      days: normalizePetModeDays(plan.days),
+      date: plan.date,
+      sortOrder: plan.sortOrder,
+      slots: (slotsByPlanId.get(plan.id) ?? []).map((slot) => ({
+        id: slot.id,
+        start: slot.start,
+        end: slot.end,
+        action: slot.action,
+        sortOrder: slot.sortOrder,
+      })),
+    })),
+  };
+}
+
 deviceReportRoute.use("*", async (c, next) => {
   if (c.req.path.endsWith("/tabletop/manifest")) {
     await next();
@@ -215,12 +280,19 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
     return c.json({ collarChipId: null, files: [], allActionTypes: ALL_ACTIONS });
   }
 
-  const [collarChipId, files] = await Promise.all([
+  const [collarChipId, files, activityMode] = await Promise.all([
     getCollarChipId(petId),
     buildAvatarManifestFiles(petId),
+    getPetModeManifest(petId),
   ]);
 
-  return c.json({ collarChipId, files, allActionTypes: ALL_ACTIONS });
+  return c.json({
+    collarChipId,
+    files,
+    allActionTypes: ALL_ACTIONS,
+    activityMode: activityMode.mode,
+    modePlans: activityMode.plans,
+  });
 });
 
 deviceReportRoute.post("/heartbeat", async (c) => {

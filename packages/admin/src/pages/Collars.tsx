@@ -104,12 +104,12 @@ export default function CollarsPage() {
       <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
         <h2 style={{ margin: 0 }}>项圈管理</h2>
         <Button type="primary" icon={<PlusOutlined />} onClick={() => { setEditingId(null); form.resetFields(); setModalOpen(true); }}>
-          新建模拟项圈
+          新建项圈
         </Button>
       </div>
       <Table dataSource={data} columns={columns} rowKey="id" loading={loading} size="middle" scroll={{ x: 1200 }} />
       <Modal
-        title={editingId ? "编辑项圈" : "新建模拟项圈"}
+        title={editingId ? "编辑项圈" : "新建项圈"}
         open={modalOpen}
         onOk={handleSubmit}
         onCancel={() => { setModalOpen(false); setEditingId(null); form.resetFields(); }}
@@ -125,7 +125,7 @@ export default function CollarsPage() {
             />
           </Form.Item>
           <Form.Item name="name" label="设备名称">
-            <Input placeholder="模拟项圈" />
+            <Input placeholder="项圈" />
           </Form.Item>
           <Form.Item name="macAddress" label="MAC 地址">
             <Input placeholder="留空自动生成" />
