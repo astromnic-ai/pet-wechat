@@ -624,7 +624,7 @@ export default function PetInfo() {
               >
                 <Image
                   className="species-avatar"
-                  src={require("@/assets/images/black cat 3.png")}
+                  src={require("@/assets/images/pet-type-cat-blue.png")}
                   mode="aspectFit"
                 />
                 <Text className="species-face-label">猫</Text>
@@ -635,7 +635,7 @@ export default function PetInfo() {
               >
                 <Image
                   className="species-avatar"
-                  src={require("@/assets/images/dog-hero.png")}
+                  src={require("@/assets/images/pet-type-dog-corgi.png")}
                   mode="aspectFit"
                 />
                 <Text className="species-face-label">狗</Text>

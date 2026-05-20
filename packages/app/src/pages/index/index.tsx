@@ -1,7 +1,7 @@
-import { View, Text, Image, Swiper, SwiperItem, Video } from "@tarojs/components";
+import { View, Text, Image, Swiper, SwiperItem } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BASE_URL, request } from "../../utils/request";
+import { request } from "../../utils/request";
 import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, DeviceSummary, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
@@ -13,10 +13,9 @@ import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petAction
 import "./index.scss";
 
 const HOME_LOGO_IMAGE = require("@/assets/images/logo.png");
-const HOME_PET_SIT_IMAGE = require("@/assets/home/pet-sit.png");
-const HOME_PET_LIE_IMAGE = require("@/assets/home/pet-lie.png");
-const HOME_WAITING_VIDEO = `${BASE_URL}/static/home/pet-waiting-loop.mp4`;
-const HOME_WAITING_POSTER = `${BASE_URL}/static/home/pet-waiting-poster.png`;
+const HOME_CAT_LIE_IMAGE = require("@/assets/images/home-cat-lie-blue.png");
+const HOME_DOG_LIE_IMAGE = require("@/assets/images/home-dog-lie-corgi.png");
+const HOME_PET_QUESTION_IMAGE = require("@/assets/images/home-pet-question.png");
 const ACTION_LABELS: Record<string, string> = {
   ...SHARED_ACTION_LABELS,
   walking: "散步",
@@ -64,16 +63,16 @@ function isAvatarUnavailableStatus(status?: AvatarStatus | null) {
   return !status || status === "failed" || status === "rejected";
 }
 
-function isHttpsAssetUrl(url?: string | null) {
-  return typeof url === "string" && /^https:\/\//i.test(url.trim());
-}
-
 function getHomeHeroState(pet: Pet | null, avatarStatus?: AvatarStatus | null) {
   if (!pet) return "empty" as const;
   if (pet.avatarImageUrl) return "done" as const;
   if (isAvatarGeneratingStatus(avatarStatus)) return "processing" as const;
   if (isAvatarUnavailableStatus(avatarStatus)) return "upload" as const;
   return "upload" as const;
+}
+
+function getHomeCustomizingImage(pet?: Pick<Pet, "species"> | null) {
+  return pet?.species === "dog" ? HOME_DOG_LIE_IMAGE : HOME_CAT_LIE_IMAGE;
 }
 
 function normalizeActionKeyword(value?: string | null) {
@@ -169,12 +168,7 @@ export default function Index() {
   const [currentPetIndex, setCurrentPetIndex] = useState(0);
   const [unreadCount, setUnreadCount] = useState(0);
   const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
-  const [frameIndex, setFrameIndex] = useState(0);
   const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
-  const [isWaitingVideoRequested, setIsWaitingVideoRequested] = useState(false);
-  const [isWaitingVideoVisible, setIsWaitingVideoVisible] = useState(false);
-  const [isWaitingVideoFrameReady, setIsWaitingVideoFrameReady] = useState(false);
-  const [processingPreviewFailedMap, setProcessingPreviewFailedMap] = useState<Record<string, boolean>>({});
   const skipNextDidShowRef = useRef(true);
   const hasPet = pets.length > 0;
   const currentPet = pets[currentPetIndex] ?? null;
@@ -397,34 +391,23 @@ export default function Index() {
     currentPetAvatarTask?.status ?? currentPet?.latestAvatarStatus ?? null;
   const isAvatarGenerating = isAvatarGeneratingStatus(currentPetAvatarStatus);
   const homeHeroState = getHomeHeroState(currentPet, currentPetAvatarStatus);
-  const hasWaitingPreviewImage = Boolean(
-    currentPet?.id &&
-      isHttpsAssetUrl(currentPet.latestAvatarSourceImageUrl) &&
-      !processingPreviewFailedMap[currentPet.id],
-  );
   const bubbleText = !currentPet
     ? "点击开始创建宠物"
     : homeHeroState === "done"
       ? "在家开水龙头喝水？"
       : "";
   const heroOverlayText = homeHeroState === "processing"
-    ? isWaitingVideoVisible
-      ? ""
-      : hasWaitingPreviewImage
-        ? "正在生成中，点击播放等待动画"
-        : "点击猫咪播放等待动画"
+    ? "宠物形象定制中..."
     : homeHeroState === "upload"
-      ? "上传您的宠物照片"
+      ? "点击创建专属宠物"
       : "";
   const topCardAvatarImage = currentPet?.avatarImageUrl || HOME_LOGO_IMAGE;
   const petHeroImage =
     homeHeroState === "done"
       ? currentPet?.avatarImageUrl || defaultPetHeroImage
       : homeHeroState === "processing"
-        ? currentPet?.latestAvatarSourceImageUrl || HOME_PET_LIE_IMAGE
-        : HOME_PET_SIT_IMAGE;
-  const waitingVideoId = `home-waiting-video-${currentPet?.id || "default"}`;
-  const waitingVideoPoster = HOME_WAITING_POSTER;
+        ? getHomeCustomizingImage(currentPet)
+        : HOME_PET_QUESTION_IMAGE;
   const currentPetDescription = currentPet?.id ? petDescriptionMap[currentPet.id] : "";
   const petSubtitle = getPetSubtitle(currentPet, currentPetDescription);
   const currentPetActions = currentPet?.id ? petActionMap[currentPet.id] || [] : [];
@@ -448,38 +431,9 @@ export default function Index() {
     return currentPetActions.slice(0, Math.min(currentPetActions.length, 4));
   }, [currentPet, currentPetActions, petMode, homeHeroState]);
 
-  useEffect(() => {
-    setFrameIndex(0);
-  }, [currentPet?.id, petMode]);
-
-  useEffect(() => {
-    setIsWaitingVideoRequested(false);
-    setIsWaitingVideoVisible(false);
-    setIsWaitingVideoFrameReady(false);
-  }, [currentPet?.id, homeHeroState]);
-
-  useEffect(() => {
-    if (!currentPet?.id) return;
-    setProcessingPreviewFailedMap((prev) =>
-      prev[currentPet.id]
-        ? { ...prev, [currentPet.id]: false }
-        : prev,
-    );
-  }, [currentPet?.id, currentPet?.latestAvatarSourceImageUrl]);
-
-  useEffect(() => {
-    if (currentModeFrames.length <= 1) return;
-
-    const timer = setInterval(() => {
-      setFrameIndex((prev) => (prev + 1) % currentModeFrames.length);
-    }, 1200);
-
-    return () => clearInterval(timer);
-  }, [currentModeFrames]);
-
   const currentFrameImage =
     homeHeroState === "done"
-      ? currentModeFrames[frameIndex]?.imageUrl || petHeroImage
+      ? currentModeFrames[0]?.imageUrl || petHeroImage
       : petHeroImage;
 
   const handleOpenPetInfo = () => {
@@ -525,7 +479,7 @@ export default function Index() {
   const getSlideHeroState = (pet: Pet | null) => getHomeHeroState(pet, getSlideAvatarStatus(pet));
 
   const getSlideImage = (pet: Pet | null) => {
-    if (!pet) return HOME_PET_SIT_IMAGE;
+    if (!pet) return HOME_PET_QUESTION_IMAGE;
 
     const slideState = getSlideHeroState(pet);
     if (slideState === "done") {
@@ -537,47 +491,14 @@ export default function Index() {
     }
 
     if (slideState === "processing") {
-      const canUsePreview =
-        isHttpsAssetUrl(pet.latestAvatarSourceImageUrl) &&
-        !processingPreviewFailedMap[pet.id];
-      return canUsePreview ? pet.latestAvatarSourceImageUrl || HOME_PET_LIE_IMAGE : HOME_PET_LIE_IMAGE;
+      return getHomeCustomizingImage(pet);
     }
 
-    return HOME_PET_SIT_IMAGE;
+    return HOME_PET_QUESTION_IMAGE;
   };
 
   const handlePetStageClick = () => {
-    if (homeHeroState === "processing") {
-      setIsWaitingVideoRequested(true);
-      setIsWaitingVideoVisible(true);
-      setIsWaitingVideoFrameReady(false);
-
-      try {
-        const context = Taro.createVideoContext(waitingVideoId);
-        context.seek(0);
-        context.play();
-      } catch {
-        setIsWaitingVideoRequested(false);
-        setIsWaitingVideoVisible(false);
-      }
-      return;
-    }
-
     handleOpenPetAvatar();
-  };
-
-  const handlePauseWaitingVideo = () => {
-    if (!isWaitingVideoVisible) return;
-
-    try {
-      Taro.createVideoContext(waitingVideoId).pause();
-    } catch {
-      // Hiding the layer below is enough to restore the swipe gesture.
-    }
-
-    setIsWaitingVideoRequested(false);
-    setIsWaitingVideoVisible(false);
-    setIsWaitingVideoFrameReady(false);
   };
 
   const modeLabelMap = {
@@ -649,11 +570,7 @@ export default function Index() {
                   current={currentPetIndex}
                   circular={false}
                   duration={280}
-                  onChange={(e) => {
-                    setIsWaitingVideoRequested(false);
-                    setIsWaitingVideoVisible(false);
-                    setCurrentPetIndex(e.detail.current);
-                  }}
+                  onChange={(e) => setCurrentPetIndex(e.detail.current)}
                 >
                   {petSlides.map((pet, index) => (
                     <SwiperItem key={pet?.id ?? `pet-${index}`}>
@@ -661,31 +578,13 @@ export default function Index() {
                         className="pet-slide"
                         onClick={handlePetStageClick}
                       >
-{pet?.id === currentPet?.id && homeHeroState === "processing" ? (
-                          <View className="pet-showcase-media-stage">
-                            <Image
-                              className={`pet-showcase ${isWaitingVideoFrameReady ? "pet-showcase--hidden" : ""}`}
-                              src={getSlideImage(pet)}
-                              mode="widthFix"
-                              onError={() => {
-                                if (!pet?.id) return;
-                                console.warn("processing preview image fallback", {
-                                  petId: pet.id,
-                                  imageUrl: pet.latestAvatarSourceImageUrl || "",
-                                });
-                                setProcessingPreviewFailedMap((prev) => ({ ...prev, [pet.id]: true }));
-                              }}
-                            />
-                          </View>
-                        ) : (
-                          <Image
-                            className="pet-showcase"
-                            src={getSlideImage(pet)}
-                            mode="widthFix"
-                          />
-                        )}
+                        <Image
+                          className="pet-showcase"
+                          src={getSlideImage(pet)}
+                          mode="widthFix"
+                        />
                         {pet?.id === currentPet?.id && heroOverlayText ? (
-                          <View className="pet-showcase-overlay">
+                          <View className={`pet-showcase-overlay pet-showcase-overlay--${homeHeroState}`}>
                             <Text className="pet-showcase-overlay-text">{heroOverlayText}</Text>
                           </View>
                         ) : null}
@@ -693,63 +592,6 @@ export default function Index() {
                     </SwiperItem>
                   ))}
                 </Swiper>
-                {homeHeroState === "processing" && currentPet?.id ? (
-                  <View
-                    className={`pet-video-layer ${isWaitingVideoVisible ? "pet-video-layer--active" : ""}`}
-                    onClick={handlePauseWaitingVideo}
-                  >
-                    <Video
-                      id={waitingVideoId}
-                      className={`pet-showcase-video ${
-                        isWaitingVideoFrameReady ? "pet-showcase-video--active" : "pet-showcase-video--hidden"
-                      }`}
-                      src={HOME_WAITING_VIDEO}
-                      poster={waitingVideoPoster}
-                      autoplay={isWaitingVideoRequested}
-                      loop={false}
-                      muted
-                      controls={isWaitingVideoRequested && !isWaitingVideoVisible}
-                      showCenterPlayBtn={isWaitingVideoRequested && !isWaitingVideoVisible}
-                      enableProgressGesture={false}
-                      objectFit="contain"
-                      onLoadedMetaData={() => {
-                        if (isWaitingVideoRequested) {
-                          setTimeout(() => {
-                            try {
-                              const context = Taro.createVideoContext(waitingVideoId);
-                              context.seek(0);
-                              context.play();
-                            } catch {
-                              setIsWaitingVideoRequested(false);
-                              setIsWaitingVideoVisible(false);
-                              setIsWaitingVideoFrameReady(false);
-                            }
-                          }, 0);
-                        }
-                      }}
-                      onPlay={() => {
-                        setIsWaitingVideoRequested(false);
-                        setIsWaitingVideoVisible(true);
-                      }}
-                      onEnded={() => {
-                        setIsWaitingVideoRequested(false);
-                        setIsWaitingVideoVisible(false);
-                        setIsWaitingVideoFrameReady(false);
-                      }}
-                      onError={() => {
-                        setIsWaitingVideoRequested(false);
-                        setIsWaitingVideoVisible(false);
-                        setIsWaitingVideoFrameReady(false);
-                        Taro.showToast({ title: "等待动画播放失败", icon: "none" });
-                      }}
-                      onTimeUpdate={(event) => {
-                        if (Number(event.detail?.currentTime ?? 0) > 0) {
-                          setIsWaitingVideoFrameReady(true);
-                        }
-                      }}
-                    />
-                  </View>
-                ) : null}
               </View>
               <View className="switch-hint">
                 <Text className="switch-arrow">〈</Text>
@@ -763,7 +605,7 @@ export default function Index() {
             <View className="empty-pet" onClick={handleAddPet}>
               <Image
                 className="empty-pet-image"
-                src={HOME_PET_SIT_IMAGE}
+                src={HOME_PET_QUESTION_IMAGE}
                 mode="widthFix"
               />
               <Text className="empty-pet-text">点击创建新宠物</Text>
