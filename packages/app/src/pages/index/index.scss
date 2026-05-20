@@ -218,6 +218,11 @@
   max-height: 760rpx;
 }
 
+.pet-showcase--upload {
+  width: 78%;
+  max-width: 520rpx;
+}
+
 .pet-showcase-overlay {
   position: absolute;
   left: 50%;
@@ -247,6 +252,14 @@
 .pet-showcase-overlay--processing .pet-showcase-overlay-text {
   color: #5b94ff;
   font-size: 32rpx;
+}
+
+.pet-showcase-overlay--processing.theme-dog .pet-showcase-overlay-text {
+  color: #f6b51f;
+}
+
+.pet-showcase-overlay--processing.theme-cat .pet-showcase-overlay-text {
+  color: #5b94ff;
 }
 
 .switch-hint {

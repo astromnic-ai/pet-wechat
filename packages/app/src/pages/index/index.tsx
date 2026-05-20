@@ -13,7 +13,9 @@ import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petAction
 import "./index.scss";
 
 const HOME_LOGO_IMAGE = require("@/assets/images/logo.png");
+const HOME_CAT_SIT_IMAGE = require("@/assets/images/home-cat-sit-blue.png");
 const HOME_CAT_LIE_IMAGE = require("@/assets/images/home-cat-lie-blue.png");
+const HOME_DOG_SIT_IMAGE = require("@/assets/images/home-dog-sit-corgi.png");
 const HOME_DOG_LIE_IMAGE = require("@/assets/images/home-dog-lie-corgi.png");
 const HOME_PET_QUESTION_IMAGE = require("@/assets/images/home-pet-question.png");
 const ACTION_LABELS: Record<string, string> = {
@@ -71,8 +73,16 @@ function getHomeHeroState(pet: Pet | null, avatarStatus?: AvatarStatus | null) {
   return "upload" as const;
 }
 
-function getHomeCustomizingImage(pet?: Pick<Pet, "species"> | null) {
-  return pet?.species === "dog" ? HOME_DOG_LIE_IMAGE : HOME_CAT_LIE_IMAGE;
+function getHomeCustomizingImage(pet?: Pick<Pet, "species"> | null, pose: "sit" | "lie" = "lie") {
+  if (pet?.species === "dog") {
+    return pose === "sit" ? HOME_DOG_SIT_IMAGE : HOME_DOG_LIE_IMAGE;
+  }
+
+  return pose === "sit" ? HOME_CAT_SIT_IMAGE : HOME_CAT_LIE_IMAGE;
+}
+
+function getPetThemeClass(pet?: Pick<Pet, "species"> | null) {
+  return pet?.species === "dog" ? "theme-dog" : "theme-cat";
 }
 
 function normalizeActionKeyword(value?: string | null) {
@@ -169,6 +179,7 @@ export default function Index() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [petMode, setPetMode] = useState<"free" | "custom" | "real">("free");
   const [petDetailRefreshKey, setPetDetailRefreshKey] = useState(0);
+  const [customizingPose, setCustomizingPose] = useState<"sit" | "lie">("sit");
   const skipNextDidShowRef = useRef(true);
   const hasPet = pets.length > 0;
   const currentPet = pets[currentPetIndex] ?? null;
@@ -201,6 +212,14 @@ export default function Index() {
 
   useEffect(() => {
     void loadPets();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCustomizingPose((prev) => (prev === "sit" ? "lie" : "sit"));
+    }, 1800);
+
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -406,7 +425,7 @@ export default function Index() {
     homeHeroState === "done"
       ? currentPet?.avatarImageUrl || defaultPetHeroImage
       : homeHeroState === "processing"
-        ? getHomeCustomizingImage(currentPet)
+        ? getHomeCustomizingImage(currentPet, customizingPose)
         : HOME_PET_QUESTION_IMAGE;
   const currentPetDescription = currentPet?.id ? petDescriptionMap[currentPet.id] : "";
   const petSubtitle = getPetSubtitle(currentPet, currentPetDescription);
@@ -491,10 +510,15 @@ export default function Index() {
     }
 
     if (slideState === "processing") {
-      return getHomeCustomizingImage(pet);
+      return getHomeCustomizingImage(pet, customizingPose);
     }
 
     return HOME_PET_QUESTION_IMAGE;
+  };
+
+  const getSlideImageClassName = (pet: Pet | null) => {
+    const slideState = getSlideHeroState(pet);
+    return `pet-showcase pet-showcase--${slideState}`;
   };
 
   const handlePetStageClick = () => {
@@ -579,12 +603,12 @@ export default function Index() {
                         onClick={handlePetStageClick}
                       >
                         <Image
-                          className="pet-showcase"
+                          className={getSlideImageClassName(pet)}
                           src={getSlideImage(pet)}
                           mode="widthFix"
                         />
                         {pet?.id === currentPet?.id && heroOverlayText ? (
-                          <View className={`pet-showcase-overlay pet-showcase-overlay--${homeHeroState}`}>
+                          <View className={`pet-showcase-overlay pet-showcase-overlay--${homeHeroState} ${getPetThemeClass(pet)}`}>
                             <Text className="pet-showcase-overlay-text">{heroOverlayText}</Text>
                           </View>
                         ) : null}
