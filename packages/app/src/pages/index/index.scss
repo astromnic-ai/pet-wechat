@@ -223,6 +223,16 @@
   max-width: 520rpx;
 }
 
+.pet-showcase--processing.pet-showcase--pose-sit {
+  width: 74%;
+  max-width: 480rpx;
+}
+
+.pet-showcase--processing.pet-showcase--pose-lie {
+  width: 96%;
+  max-width: 628rpx;
+}
+
 .pet-showcase-overlay {
   position: absolute;
   left: 50%;

@@ -518,7 +518,8 @@ export default function Index() {
 
   const getSlideImageClassName = (pet: Pet | null) => {
     const slideState = getSlideHeroState(pet);
-    return `pet-showcase pet-showcase--${slideState}`;
+    const poseClass = slideState === "processing" ? `pet-showcase--pose-${customizingPose}` : "";
+    return `pet-showcase pet-showcase--${slideState} ${poseClass}`;
   };
 
   const handlePetStageClick = () => {
