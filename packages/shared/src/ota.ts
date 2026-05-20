@@ -43,11 +43,25 @@ export type PetModePlanDTO = {
   slots: PetModeSlotDTO[];
 };
 
-export type PetModeMqttPayload = {
+export type PetActionMqttPayload = {
   v: 1;
-  mode: PetActivityMode;
-  plans?: PetModePlanDTO[];
+  action: string;
+  label?: number;
 };
+
+export const ACTION_LABEL_MAP: Record<string, number> = {
+  "base-lay": 0,
+  "base-seat": 1,
+  "base-walk": 2,
+  "base-run": 3,
+  "base-eat": 4,
+  "base-sleep": 5,
+  "base-stand": 6,
+};
+
+export function actionToLabel(action: string): number | undefined {
+  return ACTION_LABEL_MAP[action];
+}
 
 export type OtaProgressPayload = {
   v?: number;
