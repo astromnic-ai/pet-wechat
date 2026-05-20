@@ -609,7 +609,7 @@ export default function Index() {
                           mode="widthFix"
                         />
                         {pet?.id === currentPet?.id && heroOverlayText ? (
-                          <View className={`pet-showcase-overlay pet-showcase-overlay--${homeHeroState} ${getPetThemeClass(pet)}`}>
+                          <View className={`pet-showcase-overlay pet-showcase-overlay--${homeHeroState} pet-showcase-overlay--pose-${customizingPose} ${getPetThemeClass(pet)}`}>
                             <Text className="pet-showcase-overlay-text">{heroOverlayText}</Text>
                           </View>
                         ) : null}
