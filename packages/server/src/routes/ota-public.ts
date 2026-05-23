@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { createFirmwarePresignedGetUrl } from "../ota/firmware-storage";
+import { createFirmwareDownloadUrl } from "../ota/firmware-storage";
 import { resolveFirmwareVersion } from "../ota/version-resolver";
 
 const otaPublicRoute = new Hono();
@@ -17,7 +17,7 @@ otaPublicRoute.get("/check", async (c) => {
     return c.json({ v: 1, hasUpdate: false });
   }
 
-  const url = await createFirmwarePresignedGetUrl(firmware.storageKey, 3600);
+  const url = await createFirmwareDownloadUrl(firmware.storageKey);
   return c.json({
     v: 1,
     hasUpdate: true,

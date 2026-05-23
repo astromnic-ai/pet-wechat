@@ -1,7 +1,7 @@
 import type { OtaCommandPayload } from "shared";
 import { db } from "../db";
 import { dispatchJobs } from "../db/schema";
-import { createFirmwarePresignedGetUrl } from "./firmware-storage";
+import { createFirmwareDownloadUrl } from "./firmware-storage";
 import { publishOtaCommand } from "./mqtt-client";
 
 const BATCH_SIZE = 20;
@@ -18,7 +18,7 @@ type FirmwareRow = {
 };
 
 async function publishBatch(chipIds: string[], firmware: FirmwareRow) {
-  const url = await createFirmwarePresignedGetUrl(firmware.storageKey, 3600);
+  const url = await createFirmwareDownloadUrl(firmware.storageKey);
   const payload: OtaCommandPayload = {
     v: 1,
     version: firmware.version,
