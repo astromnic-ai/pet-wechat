@@ -1,5 +1,5 @@
 import type { OtaProgressPayload, OtaStage, StatusPayload } from "shared";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   desktopDevices,
@@ -8,6 +8,7 @@ import {
   otaProgress,
 } from "../db/schema";
 import { dispatchPetAction } from "../pet-mode/scheduler";
+import { normalizeMac } from "../utils/mac";
 import { clearRetainedOtaCommand } from "./mqtt-client";
 import { handleRollback } from "./rollback-handler";
 
@@ -94,6 +95,7 @@ async function handleStatus(chipId: string, payload: Buffer) {
     });
 
   if (status.online) {
+    const normalizedChipId = normalizeMac(chipId);
     const [binding] = await db
       .select({ petId: desktopPetBindings.petId })
       .from(desktopDevices)
@@ -103,7 +105,10 @@ async function handleStatus(chipId: string, payload: Buffer) {
       )
       .where(
         and(
-          eq(desktopDevices.chipId, chipId),
+          eq(
+            sql<string>`UPPER(REPLACE(${desktopDevices.chipId}, ':', ''))`,
+            normalizedChipId,
+          ),
           isNull(desktopPetBindings.unboundAt),
         ),
       )
