@@ -49,6 +49,13 @@ export type PetActionMqttPayload = {
   label?: number;
 };
 
+export type DesktopConfigMqttPayload = {
+  v: 1;
+  petId: string;
+  bindingId: string;
+  bindingType: "owner" | "authorized";
+};
+
 export const ACTION_LABEL_MAP: Record<string, number> = {
   "base-lay": 0,
   "base-seat": 1,

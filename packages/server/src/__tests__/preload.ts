@@ -76,3 +76,30 @@ mock.module(storagePath, () => ({
   isManagedStorageUrl,
   ALLOWED_IMAGE_CONTENT_TYPES,
 }));
+
+const mqttPublishes: Array<{ type: string; chipId: string; payload: unknown }> = [];
+(globalThis as any).__mqttPublishes = mqttPublishes;
+
+const mqttClientMock = {
+  initOtaMqtt: async () => null,
+  closeOtaMqtt: async () => undefined,
+  isConnected: () => true,
+  publishOtaCommand: async (chipId: string, payload: unknown) => {
+    mqttPublishes.push({ type: "ota", chipId, payload });
+  },
+  publishPetAction: async (petId: string, payload: unknown) => {
+    mqttPublishes.push({ type: "action", chipId: petId, payload });
+  },
+  publishDesktopConfig: async (chipId: string, payload: unknown) => {
+    mqttPublishes.push({ type: "config", chipId, payload });
+  },
+  clearRetainedOtaCommand: async (chipId: string) => {
+    mqttPublishes.push({ type: "clear-ota", chipId, payload: null });
+  },
+};
+
+mock.module("../ota/mqtt-client", () => mqttClientMock);
+mock.module("../ota/mqtt-client.ts", () => mqttClientMock);
+
+const mqttClientPath = new URL("../ota/mqtt-client.ts", import.meta.url).pathname;
+mock.module(mqttClientPath, () => mqttClientMock);
