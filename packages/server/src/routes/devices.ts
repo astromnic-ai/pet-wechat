@@ -16,6 +16,7 @@ import { generateInviteCode, verifyInviteCode } from "../utils/invite";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { getEffectiveDeviceStatus } from "../utils/device-status";
 import { deviceTypeSchema } from "../validators/user-end";
+import { publishDesktopConfig } from "../ota/mqtt-client";
 
 const devicesRoute = new Hono();
 
@@ -816,6 +817,29 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
 
     return { binding, created: true };
   });
+
+  if (desktop.chipId) {
+    try {
+      await publishDesktopConfig(desktop.chipId, {
+        v: 1,
+        petId: result.binding.petId,
+        bindingId: result.binding.id,
+        bindingType: result.binding.bindingType,
+      });
+    } catch (error) {
+      console.error("[devices] failed to publish desktop config after binding", {
+        desktopId,
+        chipId: desktop.chipId,
+        petId: result.binding.petId,
+        error,
+      });
+    }
+  } else {
+    console.warn("[devices] skip desktop config publish because chipId is missing", {
+      desktopId,
+      petId: result.binding.petId,
+    });
+  }
 
   return c.json({ binding: result.binding }, result.created ? 201 : 200);
 });

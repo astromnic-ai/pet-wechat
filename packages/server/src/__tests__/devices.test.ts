@@ -15,6 +15,7 @@ const app = createApp();
 describe("Device Routes", () => {
   beforeEach(() => {
     mockDb._reset();
+    ((globalThis as any).__mqttPublishes as unknown[]).length = 0;
   });
 
   it("returns 401 without token", async () => {
@@ -478,7 +479,7 @@ describe("Device Routes", () => {
   describe("POST /api/devices/desktops/:id/bind", () => {
     it("binds a pet to a desktop", async () => {
       // select 1: desktop check, select 2: pet ownership check, select 3: no existing binding
-      mockDb._results.select = [[fakeDesktop()], [fakePet()], []];
+      mockDb._results.select = [[fakeDesktop({ chipId: "chip-desktop-1" })], [fakePet()], []];
       mockDb._results.insert = [[fakeBinding()]];
 
       const headers = await authHeader("user-1");
@@ -491,6 +492,16 @@ describe("Device Routes", () => {
       expect(res.status).toBe(201);
       const json = await res.json();
       expect(json.binding.petId).toBe("pet-1");
+      expect((globalThis as any).__mqttPublishes).toContainEqual({
+        type: "config",
+        chipId: "chip-desktop-1",
+        payload: {
+          v: 1,
+          petId: "pet-1",
+          bindingId: "binding-1",
+          bindingType: "owner",
+        },
+      });
     });
 
     it("returns the existing active binding instead of creating duplicates", async () => {

@@ -1,5 +1,5 @@
 import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
-import type { OtaCommandPayload, PetActionMqttPayload } from "shared";
+import type { DesktopConfigMqttPayload, OtaCommandPayload, PetActionMqttPayload } from "shared";
 import { handleOtaMqttMessage } from "./mqtt-handlers";
 
 const STATUS_TOPIC = "pet/+/status";
@@ -113,6 +113,22 @@ export async function publishPetAction(
   // https://github.com/astromnic-ai/pet-tabletop-mini/issues/1
   const topicPetId = process.env.PET_ACTION_TOPIC_OVERRIDE?.trim() || petId;
   const topic = `pet/${topicPetId}/action`;
+  const body = JSON.stringify(payload);
+
+  await new Promise<void>((resolve, reject) => {
+    activeClient.publish(topic, body, { qos: 1, retain: true }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+export async function publishDesktopConfig(
+  chipId: string,
+  payload: DesktopConfigMqttPayload,
+) {
+  const activeClient = requireClient();
+  const topic = `pet/${chipId}/config`;
   const body = JSON.stringify(payload);
 
   await new Promise<void>((resolve, reject) => {
