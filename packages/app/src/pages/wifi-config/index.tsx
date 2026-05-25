@@ -8,6 +8,22 @@ import "./index.scss";
 type WifiState = "loading" | "ready" | "manual";
 type DeviceType = "collar" | "desktop";
 
+const BLE_SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+const BLE_CONTROL_UUID = "1b9a473a-4493-4536-8b2b-9d4133488256";
+const BLE_NOTIFY_UUID = "2a9b473a-4493-4536-8b2b-9d4133488257";
+const BLE_FRAME_HEAD = 0xaa;
+const BLE_CMD_WIFI_CONFIG = 0x01;
+const BLE_RESP_FAIL = 0x00;
+const BLE_RESP_SUCCESS = 0x01;
+const BLE_WIFI_CONNECT_TIMEOUT_MS = 45000;
+
+const BLE_ERROR_TEXT: Record<number, string> = {
+  1: "WiFi 名称不能为空",
+  2: "设备拒绝了配网参数",
+  3: "设备连接 WiFi 失败，请检查密码",
+  4: "配网数据校验失败，请重试",
+};
+
 function getWifiErrorText(error?: unknown) {
   const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
   if (message.includes("not init")) return "WiFi 模块未初始化";
@@ -31,6 +47,68 @@ function inferDeviceType(name?: string): DeviceType {
   return "collar";
 }
 
+function getBleErrorText(error?: unknown) {
+  const message = typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg) : "";
+  if (message.includes("10006") || message.includes("no connection")) return "蓝牙连接已断开，请重新搜索设备";
+  if (message.includes("10004") || message.includes("no service")) return "未找到设备配网服务，请确认固件版本";
+  if (message.includes("10005") || message.includes("no characteristic")) return "未找到设备配网通道，请确认固件版本";
+  if (message.includes("not init")) return "蓝牙未初始化，请返回重新连接设备";
+  return message || "蓝牙配网失败，请重试";
+}
+
+function encodeUtf8(text: string) {
+  const encoded = encodeURIComponent(text);
+  const bytes: number[] = [];
+  for (let i = 0; i < encoded.length; i++) {
+    const char = encoded[i];
+    if (char === "%") {
+      bytes.push(parseInt(encoded.slice(i + 1, i + 3), 16));
+      i += 2;
+    } else {
+      bytes.push(char.charCodeAt(0));
+    }
+  }
+  return bytes;
+}
+
+function xor(bytes: number[]) {
+  return bytes.reduce((sum, item) => sum ^ item, 0) & 0xff;
+}
+
+function buildBleFrame(cmd: number, data: number[]) {
+  const len = 1 + data.length;
+  const bytes = [BLE_FRAME_HEAD, (len >> 8) & 0xff, len & 0xff, cmd, ...data];
+  bytes.push(xor(bytes));
+  return new Uint8Array(bytes).buffer;
+}
+
+function buildWifiConfigFrame(ssid: string, password: string) {
+  const ssidBytes = encodeUtf8(ssid);
+  const passwordBytes = encodeUtf8(password);
+  if (ssidBytes.length === 0 || ssidBytes.length > 32) throw new Error("WiFi 名称需为 1-32 字节");
+  if (passwordBytes.length > 64) throw new Error("WiFi 密码不能超过 64 字节");
+  return buildBleFrame(BLE_CMD_WIFI_CONFIG, [ssidBytes.length, ...ssidBytes, passwordBytes.length, ...passwordBytes]);
+}
+
+function parseBleResponse(buffer: ArrayBuffer) {
+  const bytes = Array.from(new Uint8Array(buffer));
+  if (bytes.length < 5 || bytes[0] !== BLE_FRAME_HEAD) return null;
+  const payloadLen = (bytes[1] << 8) | bytes[2];
+  if (bytes.length !== payloadLen + 4) return null;
+  if (xor(bytes.slice(0, -1)) !== bytes[bytes.length - 1]) return null;
+
+  const status = bytes[3];
+  const data = bytes.slice(4, -1);
+  if (status === BLE_RESP_SUCCESS) {
+    return { ok: true, message: data.length ? String.fromCharCode(...data) : "" };
+  }
+  if (status === BLE_RESP_FAIL) {
+    const code = data[0] ?? 0;
+    return { ok: false, message: BLE_ERROR_TEXT[code] || `设备配网失败（错误码 ${code}）` };
+  }
+  return null;
+}
+
 export default function WifiConfig() {
   const router = useRouter();
   const bleDeviceId = decodeURIComponent(router.params.bleDeviceId || "");
@@ -41,6 +119,7 @@ export default function WifiConfig() {
   const [ssid, setSsid] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [bleHint, setBleHint] = useState("等待下发 WiFi 信息");
   const [wifiState, setWifiState] = useState<WifiState>("loading");
   const [wifiHint, setWifiHint] = useState("正在读取当前连接的 WiFi…");
 
@@ -116,7 +195,113 @@ export default function WifiConfig() {
     return registered.collar;
   };
 
+  const findBleCharacteristics = async () => {
+    const servicesRes = await (Taro as any).getBLEDeviceServices({ deviceId: bleDeviceId });
+    const services = Array.isArray(servicesRes?.services) ? servicesRes.services : [];
+    const service = services.find((item: any) => String(item.uuid || "").toLowerCase() === BLE_SERVICE_UUID);
+    if (!service?.uuid) throw new Error("未找到设备配网服务，请确认设备处于配网模式");
+
+    const characteristicsRes = await (Taro as any).getBLEDeviceCharacteristics({
+      deviceId: bleDeviceId,
+      serviceId: service.uuid,
+    });
+    const characteristics = Array.isArray(characteristicsRes?.characteristics) ? characteristicsRes.characteristics : [];
+    const control = characteristics.find((item: any) => String(item.uuid || "").toLowerCase() === BLE_CONTROL_UUID);
+    const notify = characteristics.find((item: any) => String(item.uuid || "").toLowerCase() === BLE_NOTIFY_UUID);
+    if (!control?.uuid) throw new Error("未找到设备写入通道，请确认固件版本");
+    if (!notify?.uuid) throw new Error("未找到设备通知通道，请确认固件版本");
+
+    return { serviceId: service.uuid, controlId: control.uuid, notifyId: notify.uuid };
+  };
+
+  const sendWifiConfigByBle = async () => {
+    if (!bleDeviceId) throw new Error("缺少蓝牙设备 ID，请返回重新搜索设备");
+
+    const { serviceId, controlId, notifyId } = await findBleCharacteristics();
+    const frame = buildWifiConfigFrame(ssid.trim(), password);
+    setBleHint("正在订阅设备配网结果…");
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let writeStarted = false;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      const cleanup = () => {
+        if (timeout) clearTimeout(timeout);
+        if (typeof (Taro as any).offBLECharacteristicValueChange === "function") {
+          (Taro as any).offBLECharacteristicValueChange(onNotify);
+        }
+        if (typeof (Taro as any).offBLEConnectionStateChange === "function") {
+          (Taro as any).offBLEConnectionStateChange(onConnectionChange);
+        }
+      };
+
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error);
+        else resolve();
+      };
+
+      const onNotify = (res: any) => {
+        if (res?.deviceId && res.deviceId !== bleDeviceId) return;
+        const characteristicId = String(res?.characteristicId || "").toLowerCase();
+        if (characteristicId && characteristicId !== String(notifyId).toLowerCase()) return;
+
+        const parsed = parseBleResponse(res?.value);
+        if (!parsed) return;
+        if (parsed.ok) {
+          setBleHint(parsed.message ? `设备已联网：${parsed.message}` : "设备已联网");
+          finish();
+          return;
+        }
+        finish(new Error(parsed.message));
+      };
+
+      const onConnectionChange = (res: any) => {
+        if (res?.deviceId !== bleDeviceId || res?.connected || !writeStarted) return;
+        // 当前设备固件在 WiFi 连接成功后会释放 BLE；失败路径会保留连接并 notify 错误。
+        setBleHint("设备已接收 WiFi 信息并断开蓝牙");
+        finish();
+      };
+
+      (Taro as any).onBLECharacteristicValueChange(onNotify);
+      (Taro as any).onBLEConnectionStateChange(onConnectionChange);
+
+      timeout = setTimeout(() => {
+        finish(new Error("等待设备联网超时，请确认 WiFi 密码和设备距离"));
+      }, BLE_WIFI_CONNECT_TIMEOUT_MS);
+
+      (Taro as any)
+        .notifyBLECharacteristicValueChange({
+          deviceId: bleDeviceId,
+          serviceId,
+          characteristicId: notifyId,
+          state: true,
+        })
+        .then(() => {
+          setBleHint("正在下发 WiFi 信息到设备…");
+          writeStarted = true;
+          return (Taro as any).writeBLECharacteristicValue({
+            deviceId: bleDeviceId,
+            serviceId,
+            characteristicId: controlId,
+            value: frame,
+          });
+        })
+        .then(() => {
+          setBleHint("WiFi 信息已下发，等待设备联网…");
+        })
+        .catch((error: unknown) => {
+          finish(new Error(getBleErrorText(error)));
+        });
+    });
+  };
+
   const handleConnectWifi = async () => {
+    if (loading) return;
+
     if (!ssid.trim()) {
       Taro.showToast({ title: "请输入 WiFi 名称", icon: "none" });
       return;
@@ -128,7 +313,9 @@ export default function WifiConfig() {
     }
 
     setLoading(true);
+    setBleHint("准备下发 WiFi 信息…");
     try {
+      await sendWifiConfigByBle();
       const device = await ensureDeviceRecord();
 
       Taro.navigateTo({
@@ -138,6 +325,7 @@ export default function WifiConfig() {
       });
     } catch (e: any) {
       Taro.showToast({ title: e.message || "连接网络失败", icon: "none" });
+      setBleHint(e.message || "连接网络失败");
     } finally {
       setLoading(false);
     }
@@ -203,10 +391,11 @@ export default function WifiConfig() {
 
         <View className="wifi-hint-panel">
           <Text className="wifi-hint-title">提示</Text>
-          <Text className="wifi-hint-text">请确保设备已靠近手机，且 WiFi 信号稳定。确认后进入下一步绑定宠物。</Text>
+          <Text className="wifi-hint-text">请确保设备已靠近手机，且 WiFi 信号稳定。确认后会通过蓝牙下发 WiFi 信息。</Text>
+          <Text className="wifi-ble-status">{bleHint}</Text>
         </View>
 
-        <View className="wifi-submit-btn" onClick={handleConnectWifi}>
+        <View className={`wifi-submit-btn ${loading ? "wifi-submit-btn--disabled" : ""}`} onClick={handleConnectWifi}>
           <Text className="wifi-submit-btn-text">{loading ? "处理中..." : "连接网络"}</Text>
         </View>
       </View>
