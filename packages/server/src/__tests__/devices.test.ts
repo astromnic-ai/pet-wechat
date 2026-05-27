@@ -563,6 +563,11 @@ describe("Device Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
+      expect((globalThis as any).__mqttPublishes).toContainEqual({
+        type: "clear-config",
+        chipId: "desktop-chip-1",
+        payload: null,
+      });
     });
 
     it("returns 404 when desktop not owned by user", async () => {

@@ -139,6 +139,21 @@ export async function publishDesktopConfig(
   });
 }
 
+export async function clearRetainedDesktopConfig(chipId: string) {
+  const activeClient = requireClient();
+  await new Promise<void>((resolve, reject) => {
+    activeClient.publish(
+      `pet/${chipId}/config`,
+      Buffer.alloc(0),
+      { qos: 1, retain: true },
+      (error) => {
+        if (error) reject(error);
+        else resolve();
+      },
+    );
+  });
+}
+
 export async function clearRetainedOtaCommand(chipId: string) {
   const activeClient = requireClient();
   await new Promise<void>((resolve, reject) => {

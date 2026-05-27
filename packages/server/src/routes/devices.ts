@@ -16,7 +16,7 @@ import { generateInviteCode, verifyInviteCode } from "../utils/invite";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { getEffectiveDeviceStatus } from "../utils/device-status";
 import { deviceTypeSchema } from "../validators/user-end";
-import { publishDesktopConfig } from "../ota/mqtt-client";
+import { clearRetainedDesktopConfig, publishDesktopConfig } from "../ota/mqtt-client";
 
 const devicesRoute = new Hono();
 
@@ -69,6 +69,9 @@ async function findDesktopByChipId(chipId: string) {
   return desktop;
 }
 
+type DesktopBindingRow = typeof desktopPetBindings.$inferSelect;
+type DesktopDeviceRow = typeof desktopDevices.$inferSelect;
+
 function normalizeDeviceRegisterBody(body: { macAddress?: string; chipId?: string }) {
   const chipId = body.chipId?.trim() || "";
   const normalizedMac = normalizeMac(body.macAddress ?? "");
@@ -86,6 +89,39 @@ function normalizeDeviceRegisterBody(body: { macAddress?: string; chipId?: strin
     chipId: chipId || null,
     macAddress: normalizedMac || chipId,
   } as const;
+}
+
+async function publishDesktopBindingConfig(
+  desktop: Pick<DesktopDeviceRow, "id" | "chipId">,
+  binding: DesktopBindingRow | null,
+) {
+  if (!desktop.chipId) {
+    console.warn("[devices] skip desktop config publish because chipId is missing", {
+      desktopId: desktop.id,
+      petId: binding?.petId,
+    });
+    return;
+  }
+
+  try {
+    if (binding) {
+      await publishDesktopConfig(desktop.chipId, {
+        v: 1,
+        petId: binding.petId,
+        bindingId: binding.id,
+        bindingType: binding.bindingType,
+      });
+    } else {
+      await clearRetainedDesktopConfig(desktop.chipId);
+    }
+  } catch (error) {
+    console.error("[devices] failed to publish desktop config", {
+      desktopId: desktop.id,
+      chipId: desktop.chipId,
+      petId: binding?.petId,
+      error,
+    });
+  }
 }
 
 function getInactiveMeta(lastOnlineAt: Date | string | null) {
@@ -231,6 +267,10 @@ async function releaseDesktopOwnership(userId: string, id: string) {
     })
     .where(eq(desktopDevices.id, id))
     .returning();
+
+  if (desktop) {
+    await publishDesktopBindingConfig(desktop, null);
+  }
 
   return desktop ?? null;
 }
@@ -818,28 +858,7 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
     return { binding, created: true };
   });
 
-  if (desktop.chipId) {
-    try {
-      await publishDesktopConfig(desktop.chipId, {
-        v: 1,
-        petId: result.binding.petId,
-        bindingId: result.binding.id,
-        bindingType: result.binding.bindingType,
-      });
-    } catch (error) {
-      console.error("[devices] failed to publish desktop config after binding", {
-        desktopId,
-        chipId: desktop.chipId,
-        petId: result.binding.petId,
-        error,
-      });
-    }
-  } else {
-    console.warn("[devices] skip desktop config publish because chipId is missing", {
-      desktopId,
-      petId: result.binding.petId,
-    });
-  }
+  await publishDesktopBindingConfig(desktop, result.binding);
 
   return c.json({ binding: result.binding }, result.created ? 201 : 200);
 });
@@ -869,6 +888,18 @@ devicesRoute.delete("/desktops/:id/bind/:bindingId", async (c) => {
     )
     .returning();
   if (!binding) return c.json({ error: "Binding not found" }, 404);
+
+  const [remainingBinding] = await db
+    .select()
+    .from(desktopPetBindings)
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktopId),
+        isNull(desktopPetBindings.unboundAt),
+      )
+    );
+  await publishDesktopBindingConfig(desktop, remainingBinding ?? null);
+
   return c.json({ success: true });
 });
 

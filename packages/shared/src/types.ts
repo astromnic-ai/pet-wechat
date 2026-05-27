@@ -115,6 +115,7 @@ export interface DesktopDevice {
   id: string;
   userId: string | null;
   name: string;
+  chipId: string | null;
   macAddress: string;
   status: DeviceStatus;
   firmwareVersion: string | null;

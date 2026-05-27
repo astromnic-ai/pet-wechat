@@ -19,6 +19,7 @@ import { normalizeMac, NORMALIZED_MAC_REGEX } from "../../utils/mac";
 import { buildPageResponse, parsePagination } from "../../utils/pagination";
 import { normalizePublicFileUrl } from "../../utils/storage";
 import { pick } from "./utils";
+import { clearRetainedDesktopConfig } from "../../ota/mqtt-client";
 
 function normalizeMacOrError(raw: unknown): { ok: true; mac: string } | { ok: false; error: string } {
   if (typeof raw !== "string" || !raw.trim()) {
@@ -854,8 +855,20 @@ devicesRoute.put("/desktops/:id", async (c) => {
 
 devicesRoute.delete("/desktops/:id", async (c) => {
   const id = c.req.param("id");
+  const [desktop] = await db.select().from(desktopDevices).where(eq(desktopDevices.id, id));
   await db.update(desktopPetBindings).set({ unboundAt: new Date() }).where(eq(desktopPetBindings.desktopDeviceId, id));
   await db.delete(desktopDevices).where(eq(desktopDevices.id, id));
+  if (desktop?.chipId) {
+    try {
+      await clearRetainedDesktopConfig(desktop.chipId);
+    } catch (error) {
+      console.error("[admin/devices] failed to clear desktop config after delete", {
+        desktopId: id,
+        chipId: desktop.chipId,
+        error,
+      });
+    }
+  }
   return c.json({ success: true });
 });
 
