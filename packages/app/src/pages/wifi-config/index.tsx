@@ -13,9 +13,11 @@ const BLE_CONTROL_UUID = "1b9a473a-4493-4536-8b2b-9d4133488256";
 const BLE_NOTIFY_UUID = "2a9b473a-4493-4536-8b2b-9d4133488257";
 const BLE_FRAME_HEAD = 0xaa;
 const BLE_CMD_WIFI_CONFIG = 0x01;
+const BLE_CMD_DEVICE_INFO = 0x02;
 const BLE_RESP_FAIL = 0x00;
 const BLE_RESP_SUCCESS = 0x01;
 const BLE_WIFI_CONNECT_TIMEOUT_MS = 45000;
+const BLE_DEVICE_INFO_TIMEOUT_MS = 8000;
 
 const BLE_ERROR_TEXT: Record<number, string> = {
   1: "WiFi 名称不能为空",
@@ -109,10 +111,60 @@ function parseBleResponse(buffer: ArrayBuffer) {
   return null;
 }
 
+function decodeAscii(bytes: number[]) {
+  return bytes
+    .filter((item) => item !== 0)
+    .map((item) => String.fromCharCode(item))
+    .join("");
+}
+
+function normalizeChipId(value?: string) {
+  const compact = (value || "").trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
+  return /^[a-f0-9]{12,32}$/.test(compact) ? compact : "";
+}
+
+function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
+  const bytes = Array.from(new Uint8Array(buffer));
+  if (bytes.length < 5 || bytes[0] !== BLE_FRAME_HEAD) return "";
+  const payloadLen = (bytes[1] << 8) | bytes[2];
+  if (bytes.length !== payloadLen + 4) return "";
+  if (xor(bytes.slice(0, -1)) !== bytes[bytes.length - 1]) return "";
+  if (bytes[3] === BLE_RESP_FAIL) return "";
+
+  const data =
+    bytes[3] === BLE_CMD_DEVICE_INFO && bytes[4] === BLE_RESP_SUCCESS
+      ? bytes.slice(5, -1)
+      : bytes.slice(4, -1);
+  const text = decodeAscii(data);
+
+  try {
+    const json = JSON.parse(text);
+    const jsonChipId = normalizeChipId(json?.CHIP_ID || json?.chipId || json?.chip_id);
+    if (jsonChipId) return jsonChipId;
+  } catch {}
+
+  const labelled = text.match(/(?:CHIP_ID|chipId|chip_id|chip)[:=\s"_-]*([a-fA-F0-9: -]{12,40})/);
+  const labelledChipId = normalizeChipId(labelled?.[1]);
+  if (labelledChipId) return labelledChipId;
+
+  const plainTextChipId = normalizeChipId(text.match(/[a-fA-F0-9]{12,32}/)?.[0]);
+  if (plainTextChipId) return plainTextChipId;
+
+  if (data.length >= 6) {
+    const raw = data
+      .slice(0, 6)
+      .reverse()
+      .map((item) => item.toString(16).padStart(2, "0"))
+      .join("");
+    return normalizeChipId(raw);
+  }
+
+  return "";
+}
+
 export default function WifiConfig() {
   const router = useRouter();
   const bleDeviceId = decodeURIComponent(router.params.bleDeviceId || "");
-  const chipId = decodeURIComponent(router.params.chipId || "") || bleDeviceId;
   const deviceName = decodeURIComponent(router.params.deviceName || "");
   const deviceType = ((router.params.deviceType as DeviceType | undefined) || inferDeviceType(deviceName)) as DeviceType;
 
@@ -161,7 +213,7 @@ export default function WifiConfig() {
     }
   };
 
-  const ensureDeviceRecord = async () => {
+  const ensureDeviceRecord = async (chipId: string) => {
     if (deviceType === "desktop") {
       const existing = await request<{ desktops: Array<DesktopDevice & { bindings?: any[] }> }>({ url: "/api/devices/desktops" });
       const matched = existing.desktops.find((item) => item.chipId === chipId || item.macAddress === bleDeviceId);
@@ -214,10 +266,66 @@ export default function WifiConfig() {
     return { serviceId: service.uuid, controlId: control.uuid, notifyId: notify.uuid };
   };
 
-  const sendWifiConfigByBle = async () => {
-    if (!bleDeviceId) throw new Error("缺少蓝牙设备 ID，请返回重新搜索设备");
+  const readChipIdByBle = async (ids: { serviceId: string; controlId: string; notifyId: string }) => {
+    setBleHint("正在读取设备 Chip ID…");
 
-    const { serviceId, controlId, notifyId } = await findBleCharacteristics();
+    return await new Promise<string>((resolve, reject) => {
+      let settled = false;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+
+      const cleanup = () => {
+        if (timeout) clearTimeout(timeout);
+        if (typeof (Taro as any).offBLECharacteristicValueChange === "function") {
+          (Taro as any).offBLECharacteristicValueChange(onNotify);
+        }
+      };
+
+      const finish = (chipId?: string, error?: Error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        if (error) reject(error);
+        else if (chipId) resolve(chipId);
+        else reject(new Error("未读取到设备 Chip ID，请确认固件支持 0x02 指令"));
+      };
+
+      const onNotify = (res: any) => {
+        if (res?.deviceId && res.deviceId !== bleDeviceId) return;
+        const characteristicId = String(res?.characteristicId || "").toLowerCase();
+        if (characteristicId && characteristicId !== String(ids.notifyId).toLowerCase()) return;
+
+        const chipId = extractChipIdFromDeviceInfo(res?.value);
+        if (chipId) finish(chipId);
+      };
+
+      (Taro as any).onBLECharacteristicValueChange(onNotify);
+
+      timeout = setTimeout(() => {
+        finish(undefined, new Error("读取设备 Chip ID 超时，请重新搜索设备后再试"));
+      }, BLE_DEVICE_INFO_TIMEOUT_MS);
+
+      (Taro as any)
+        .notifyBLECharacteristicValueChange({
+          deviceId: bleDeviceId,
+          serviceId: ids.serviceId,
+          characteristicId: ids.notifyId,
+          state: true,
+        })
+        .then(() =>
+          (Taro as any).writeBLECharacteristicValue({
+            deviceId: bleDeviceId,
+            serviceId: ids.serviceId,
+            characteristicId: ids.controlId,
+            value: buildBleFrame(BLE_CMD_DEVICE_INFO, []),
+          })
+        )
+        .catch((error: unknown) => {
+          finish(undefined, new Error(getBleErrorText(error)));
+        });
+    });
+  };
+
+  const writeWifiConfigByBle = async (ids: { serviceId: string; controlId: string; notifyId: string }) => {
     const frame = buildWifiConfigFrame(ssid.trim(), password);
     setBleHint("正在订阅设备配网结果…");
 
@@ -299,6 +407,15 @@ export default function WifiConfig() {
     });
   };
 
+  const sendWifiConfigByBle = async () => {
+    if (!bleDeviceId) throw new Error("缺少蓝牙设备 ID，请返回重新搜索设备");
+
+    const ids = await findBleCharacteristics();
+    const chipId = await readChipIdByBle(ids);
+    await writeWifiConfigByBle(ids);
+    return chipId;
+  };
+
   const handleConnectWifi = async () => {
     if (loading) return;
 
@@ -315,8 +432,8 @@ export default function WifiConfig() {
     setLoading(true);
     setBleHint("准备下发 WiFi 信息…");
     try {
-      await sendWifiConfigByBle();
-      const device = await ensureDeviceRecord();
+      const chipId = await sendWifiConfigByBle();
+      const device = await ensureDeviceRecord(chipId);
 
       Taro.navigateTo({
         url: `/pages/bind-pet/index?deviceType=${deviceType}&deviceId=${encodeURIComponent(device.id)}&deviceName=${encodeURIComponent(
