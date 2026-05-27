@@ -135,6 +135,9 @@ function extractChipIdFromPayload(data: number[]) {
   const labelledChipId = normalizeChipId(text.match(/(?:CHIP_ID|chipId|chip_id|chip)[:=\s"_-]*([a-fA-F0-9: -]{12,40})/)?.[1]);
   if (labelledChipId) return labelledChipId;
 
+  const embeddedChipId = normalizeChipId(text.match(/[a-fA-F0-9]{12}/)?.[0]);
+  if (embeddedChipId) return embeddedChipId;
+
   return normalizeChipId(bytesToHex(data));
 }
 
