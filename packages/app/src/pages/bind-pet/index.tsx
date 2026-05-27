@@ -2,8 +2,12 @@ import { View, Text, Image } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
-import type { Pet } from "@pet-wechat/shared";
+import type { DesktopDevice, Pet } from "@pet-wechat/shared";
 import "./index.scss";
+
+type DesktopWithBindings = DesktopDevice & {
+  bindings?: Array<{ id: string; petId: string; bindingType: "owner" | "authorized" }>;
+};
 
 export default function BindPet() {
   const router = useRouter();
@@ -49,12 +53,35 @@ export default function BindPet() {
     setLoading(true);
     try {
       if (deviceType === "desktop") {
+        const res = await request<{ desktops: DesktopWithBindings[] }>({
+          url: "/api/devices/desktops",
+        });
+        const currentDesktop = res.desktops.find((item) => item.id === deviceId);
+        const currentBinding = currentDesktop?.bindings?.[0];
+        const shouldReplace =
+          Boolean(currentBinding?.petId && currentBinding.petId !== selectedPetId) &&
+          (await new Promise<boolean>((resolve) => {
+            Taro.showModal({
+              title: "更换绑定宠物",
+              content: "该桌面摆台已绑定过宠物，继续后会更换为当前选择的宠物。",
+              confirmText: "确认更换",
+              cancelText: "取消",
+              success: (modalRes) => resolve(Boolean(modalRes.confirm)),
+              fail: () => resolve(false),
+            });
+          }));
+
+        if (currentBinding?.petId && currentBinding.petId !== selectedPetId && !shouldReplace) {
+          return;
+        }
+
         await request({
           url: `/api/devices/desktops/${deviceId}/bind`,
           method: "POST",
           data: {
             petId: selectedPetId,
             bindingType: "owner",
+            replace: shouldReplace,
           },
         });
       } else {

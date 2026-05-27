@@ -810,7 +810,11 @@ devicesRoute.delete("/:type/:id", async (c) => {
 devicesRoute.post("/desktops/:id/bind", async (c) => {
   const userId = c.get("userId" as never) as string;
   const desktopId = c.req.param("id");
-  const body = await c.req.json<{ petId: string; bindingType: "owner" | "authorized" }>();
+  const body = await c.req.json<{
+    petId: string;
+    bindingType: "owner" | "authorized";
+    replace?: boolean;
+  }>();
 
   const [desktop] = await db
     .select()
@@ -831,20 +835,38 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
       .set(buildOnlineDeviceState())
       .where(eq(desktopDevices.id, desktopId));
 
-    const [activeBinding] = await tx
+    const activeBindings = await tx
       .select()
       .from(desktopPetBindings)
       .where(
         and(
           eq(desktopPetBindings.desktopDeviceId, desktopId),
-          eq(desktopPetBindings.petId, body.petId),
           isNull(desktopPetBindings.unboundAt),
         ),
       );
+    const activeBinding = activeBindings.find((binding) => binding.petId === body.petId);
 
     if (activeBinding) {
       return { binding: activeBinding, created: false };
     }
+
+    if (activeBindings.length > 0 && !body.replace) {
+      return {
+        error: "Desktop already bound to another pet",
+        currentPetId: activeBindings[0].petId,
+        requiresReplace: true,
+      } as const;
+    }
+
+    await tx
+      .update(desktopPetBindings)
+      .set({ unboundAt: new Date() })
+      .where(
+        and(
+          eq(desktopPetBindings.desktopDeviceId, desktopId),
+          isNull(desktopPetBindings.unboundAt),
+        ),
+      );
 
     const [binding] = await tx
       .insert(desktopPetBindings)
@@ -857,6 +879,10 @@ devicesRoute.post("/desktops/:id/bind", async (c) => {
 
     return { binding, created: true };
   });
+
+  if ("error" in result) {
+    return c.json(result, 409);
+  }
 
   await publishDesktopBindingConfig(desktop, result.binding);
 
