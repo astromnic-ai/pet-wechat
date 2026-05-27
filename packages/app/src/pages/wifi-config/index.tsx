@@ -17,6 +17,7 @@ const BLE_CMD_DEVICE_INFO = 0x02;
 const BLE_RESP_FAIL = 0x00;
 const BLE_RESP_SUCCESS = 0x01;
 const BLE_WIFI_CONNECT_TIMEOUT_MS = 45000;
+const BLE_WIFI_RESULT_GRACE_MS = 8000;
 const BLE_DEVICE_INFO_TIMEOUT_MS = 15000;
 const BLE_DEVICE_INFO_RETRY_DELAYS_MS = [0, 3000, 8000];
 
@@ -375,9 +376,11 @@ export default function WifiConfig() {
       let settled = false;
       let writeStarted = false;
       let timeout: ReturnType<typeof setTimeout> | undefined;
+      let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
 
       const cleanup = () => {
         if (timeout) clearTimeout(timeout);
+        if (fallbackTimer) clearTimeout(fallbackTimer);
         if (typeof (Taro as any).offBLECharacteristicValueChange === "function") {
           (Taro as any).offBLECharacteristicValueChange(onNotify);
         }
@@ -442,6 +445,10 @@ export default function WifiConfig() {
         })
         .then(() => {
           setBleHint("WiFi 信息已下发，等待设备联网…");
+          fallbackTimer = setTimeout(() => {
+            setBleHint("WiFi 信息已下发，继续完成设备绑定");
+            finish();
+          }, BLE_WIFI_RESULT_GRACE_MS);
         })
         .catch((error: unknown) => {
           finish(new Error(getBleErrorText(error)));
