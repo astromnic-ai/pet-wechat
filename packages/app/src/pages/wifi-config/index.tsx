@@ -111,16 +111,9 @@ function parseBleResponse(buffer: ArrayBuffer) {
   return null;
 }
 
-function decodeAscii(bytes: number[]) {
-  return bytes
-    .filter((item) => item !== 0)
-    .map((item) => String.fromCharCode(item))
-    .join("");
-}
-
 function normalizeChipId(value?: string) {
   const compact = (value || "").trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
-  return /^[a-f0-9]{12,32}$/.test(compact) ? compact : "";
+  return /^[a-f0-9]{12}$/.test(compact) ? compact : "";
 }
 
 function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
@@ -129,37 +122,9 @@ function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
   const payloadLen = (bytes[1] << 8) | bytes[2];
   if (bytes.length !== payloadLen + 4) return "";
   if (xor(bytes.slice(0, -1)) !== bytes[bytes.length - 1]) return "";
-  if (bytes[3] === BLE_RESP_FAIL) return "";
+  if (bytes[3] !== BLE_RESP_SUCCESS) return "";
 
-  const data =
-    bytes[3] === BLE_CMD_DEVICE_INFO && bytes[4] === BLE_RESP_SUCCESS
-      ? bytes.slice(5, -1)
-      : bytes.slice(4, -1);
-  const text = decodeAscii(data);
-
-  try {
-    const json = JSON.parse(text);
-    const jsonChipId = normalizeChipId(json?.CHIP_ID || json?.chipId || json?.chip_id);
-    if (jsonChipId) return jsonChipId;
-  } catch {}
-
-  const labelled = text.match(/(?:CHIP_ID|chipId|chip_id|chip)[:=\s"_-]*([a-fA-F0-9: -]{12,40})/);
-  const labelledChipId = normalizeChipId(labelled?.[1]);
-  if (labelledChipId) return labelledChipId;
-
-  const plainTextChipId = normalizeChipId(text.match(/[a-fA-F0-9]{12,32}/)?.[0]);
-  if (plainTextChipId) return plainTextChipId;
-
-  if (data.length >= 6) {
-    const raw = data
-      .slice(0, 6)
-      .reverse()
-      .map((item) => item.toString(16).padStart(2, "0"))
-      .join("");
-    return normalizeChipId(raw);
-  }
-
-  return "";
+  return normalizeChipId(String.fromCharCode(...bytes.slice(4, -1)));
 }
 
 export default function WifiConfig() {
