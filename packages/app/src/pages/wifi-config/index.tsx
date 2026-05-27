@@ -355,7 +355,7 @@ export default function WifiConfig() {
       const onNotify = (res: any) => {
         if (res?.deviceId && res.deviceId !== bleDeviceId) return;
         const characteristicId = String(res?.characteristicId || "").toLowerCase();
-        if (characteristicId && characteristicId !== String(notifyId).toLowerCase()) return;
+        if (characteristicId && characteristicId !== String(ids.notifyId).toLowerCase()) return;
 
         const parsed = parseBleResponse(res?.value);
         if (!parsed) return;
@@ -384,8 +384,8 @@ export default function WifiConfig() {
       (Taro as any)
         .notifyBLECharacteristicValueChange({
           deviceId: bleDeviceId,
-          serviceId,
-          characteristicId: notifyId,
+          serviceId: ids.serviceId,
+          characteristicId: ids.notifyId,
           state: true,
         })
         .then(() => {
@@ -393,8 +393,8 @@ export default function WifiConfig() {
           writeStarted = true;
           return (Taro as any).writeBLECharacteristicValue({
             deviceId: bleDeviceId,
-            serviceId,
-            characteristicId: controlId,
+            serviceId: ids.serviceId,
+            characteristicId: ids.controlId,
             value: frame,
           });
         })
