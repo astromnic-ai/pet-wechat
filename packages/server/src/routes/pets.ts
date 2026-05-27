@@ -9,6 +9,7 @@ import {
   petModeSlots,
   interactionEvents,
   collarDevices,
+  desktopDevices,
   desktopPetBindings,
   deviceAuthorizations,
 } from "../db/schema";
@@ -17,6 +18,7 @@ import type { PetActivityMode, PetLatestBehavior, PetModePlanDTO, PetModeWeekday
 import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
 import { dispatchPetAction } from "../pet-mode/scheduler";
+import { clearRetainedDesktopConfig } from "../ota/mqtt-client";
 
 const petsRoute = new Hono();
 const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;
@@ -333,6 +335,36 @@ async function dispatchPetActionSafely(petId: string) {
   } catch (error) {
     console.error("[pet-mode] action dispatch failed:", error);
   }
+}
+
+async function clearDesktopConfigsSafely(chipIds: string[]) {
+  await Promise.all(
+    Array.from(new Set(chipIds.filter(Boolean))).map((chipId) =>
+      clearRetainedDesktopConfig(chipId).catch((error) => {
+        console.error("[pets] failed to clear desktop config after pet unbind", {
+          chipId,
+          error,
+        });
+      }),
+    ),
+  );
+}
+
+async function getDesktopChipIdsBoundToPet(petId: string) {
+  const bindings = await db
+    .select({ desktopDeviceId: desktopPetBindings.desktopDeviceId })
+    .from(desktopPetBindings)
+    .where(and(eq(desktopPetBindings.petId, petId), isNull(desktopPetBindings.unboundAt)));
+
+  const desktopIds = bindings.map((binding) => binding.desktopDeviceId);
+  if (desktopIds.length === 0) return [];
+
+  const desktops = await db
+    .select({ chipId: desktopDevices.chipId })
+    .from(desktopDevices)
+    .where(inArray(desktopDevices.id, desktopIds));
+
+  return desktops.map((desktop) => desktop.chipId).filter((chipId): chipId is string => Boolean(chipId));
 }
 
 // 获取当前用户的所有宠物（含被授权的宠物）
@@ -679,6 +711,8 @@ petsRoute.delete("/:id", async (c) => {
     .where(and(eq(pets.id, petId), eq(pets.userId, userId)));
   if (!existing) return c.json({ error: "Pet not found" }, 404);
 
+  const desktopChipIdsToClear = await getDesktopChipIdsBoundToPet(petId);
+
   // 级联删除关联数据
   const avatars = await db
     .select({ id: petAvatars.id })
@@ -705,6 +739,7 @@ petsRoute.delete("/:id", async (c) => {
     .where(eq(collarDevices.petId, petId));
 
   await db.delete(pets).where(eq(pets.id, petId));
+  await clearDesktopConfigsSafely(desktopChipIdsToClear);
   return c.json({ success: true });
 });
 

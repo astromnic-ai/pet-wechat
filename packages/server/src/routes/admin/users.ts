@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, inArray, sql, desc } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql, desc } from "drizzle-orm";
 import { db } from "../../db";
 import {
   users,
@@ -13,8 +13,22 @@ import {
   deviceAuthorizations,
 } from "../../db/schema";
 import { pick } from "./utils";
+import { clearRetainedDesktopConfig } from "../../ota/mqtt-client";
 
 const usersRoute = new Hono();
+
+async function clearDesktopConfigsSafely(chipIds: string[]) {
+  await Promise.all(
+    Array.from(new Set(chipIds.filter(Boolean))).map((chipId) =>
+      clearRetainedDesktopConfig(chipId).catch((error) => {
+        console.error("[admin/users] failed to clear desktop config after user delete", {
+          chipId,
+          error,
+        });
+      }),
+    ),
+  );
+}
 
 usersRoute.get("/users", async (c) => {
   const result = await db.select().from(users).orderBy(desc(users.createdAt));
@@ -107,10 +121,27 @@ usersRoute.put("/users/:id", async (c) => {
 
 usersRoute.delete("/users/:id", async (c) => {
   const id = c.req.param("id");
-  await db.transaction(async (tx) => {
-    const userPets = await tx.select({ id: pets.id }).from(pets).where(eq(pets.userId, id));
-    const petIds = userPets.map((pet) => pet.id);
+  const userPets = await db.select({ id: pets.id }).from(pets).where(eq(pets.userId, id));
+  const petIds = userPets.map((pet) => pet.id);
+  const ownedDesktops = await db.select({ chipId: desktopDevices.chipId }).from(desktopDevices).where(eq(desktopDevices.userId, id));
+  const boundDesktopIds =
+    petIds.length > 0
+      ? (
+          await db
+            .select({ desktopDeviceId: desktopPetBindings.desktopDeviceId })
+            .from(desktopPetBindings)
+            .where(and(inArray(desktopPetBindings.petId, petIds), isNull(desktopPetBindings.unboundAt)))
+        ).map((binding) => binding.desktopDeviceId)
+      : [];
+  const boundDesktops =
+    boundDesktopIds.length > 0
+      ? await db.select({ chipId: desktopDevices.chipId }).from(desktopDevices).where(inArray(desktopDevices.id, boundDesktopIds))
+      : [];
+  const chipIdsToClear = [...ownedDesktops, ...boundDesktops]
+    .map((desktop) => desktop.chipId)
+    .filter((chipId): chipId is string => Boolean(chipId));
 
+  await db.transaction(async (tx) => {
     if (petIds.length > 0) {
       const avatars = await tx.select({ id: petAvatars.id }).from(petAvatars).where(inArray(petAvatars.petId, petIds));
       const avatarIds = avatars.map((avatar) => avatar.id);
@@ -141,6 +172,7 @@ usersRoute.delete("/users/:id", async (c) => {
     await tx.delete(pets).where(eq(pets.userId, id));
     await tx.delete(users).where(eq(users.id, id));
   });
+  await clearDesktopConfigsSafely(chipIdsToClear);
   return c.json({ success: true });
 });
 

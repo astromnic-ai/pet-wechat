@@ -276,6 +276,58 @@ describe("Device Report Routes", () => {
       expect(updateSet.signal).toBeUndefined();
     });
 
+    it("finds a desktop by chipId when macAddress does not match registration", async () => {
+      const updatedDesktop = fakeDesktop({
+        chipId: "31f45ac5e658",
+        macAddress: "31f45ac5e658",
+        status: "online",
+        lastOnlineAt: new Date("2026-04-18T06:00:00.000Z"),
+      });
+      mockDb._results.select = [[], [fakeDesktop({ chipId: "31f45ac5e658", macAddress: "31f45ac5e658" })]];
+      mockDb._results.update = [[updatedDesktop]];
+
+      const res = await app.request(
+        jsonReq("POST", "/api/device-report/heartbeat", {
+          headers: deviceSecretHeaders(),
+          body: {
+            macAddress: "58:E6:C5:5A:F4:31",
+            chipId: "31f45ac5e658",
+            type: "desktop",
+            status: "online",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect((mockDb._calls.update[0] as any).set).toMatchObject({
+        status: "online",
+      });
+    });
+
+    it("falls back to reversed mac chipId for desktop heartbeat", async () => {
+      const updatedDesktop = fakeDesktop({
+        chipId: "31f45ac5e658",
+        macAddress: "31f45ac5e658",
+        status: "online",
+        lastOnlineAt: new Date("2026-04-18T06:00:00.000Z"),
+      });
+      mockDb._results.select = [[], [fakeDesktop({ chipId: "31f45ac5e658", macAddress: "31f45ac5e658" })]];
+      mockDb._results.update = [[updatedDesktop]];
+
+      const res = await app.request(
+        jsonReq("POST", "/api/device-report/heartbeat", {
+          headers: deviceSecretHeaders(),
+          body: {
+            macAddress: "58:E6:C5:5A:F4:31",
+            type: "desktop",
+            status: "online",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+    });
+
     it("returns 404 for an unregistered mac address", async () => {
       mockDb._results.select = [[]];
 

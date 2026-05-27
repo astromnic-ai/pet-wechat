@@ -1,10 +1,11 @@
 import { Hono } from "hono";
-import { eq, inArray, desc } from "drizzle-orm";
+import { and, eq, inArray, isNull, desc } from "drizzle-orm";
 import { db } from "../../db";
 import {
   users,
   pets,
   collarDevices,
+  desktopDevices,
   desktopPetBindings,
   petBehaviors,
   petAvatars,
@@ -12,8 +13,22 @@ import {
   deviceAuthorizations,
 } from "../../db/schema";
 import { pick } from "./utils";
+import { clearRetainedDesktopConfig } from "../../ota/mqtt-client";
 
 const petsRoute = new Hono();
+
+async function clearDesktopConfigsSafely(chipIds: string[]) {
+  await Promise.all(
+    Array.from(new Set(chipIds.filter(Boolean))).map((chipId) =>
+      clearRetainedDesktopConfig(chipId).catch((error) => {
+        console.error("[admin/pets] failed to clear desktop config after pet delete", {
+          chipId,
+          error,
+        });
+      }),
+    ),
+  );
+}
 
 petsRoute.get("/pets", async (c) => {
   const result = await db
@@ -61,6 +76,17 @@ petsRoute.put("/pets/:id", async (c) => {
 
 petsRoute.delete("/pets/:id", async (c) => {
   const id = c.req.param("id");
+  const activeBindings = await db
+    .select({ desktopDeviceId: desktopPetBindings.desktopDeviceId })
+    .from(desktopPetBindings)
+    .where(and(eq(desktopPetBindings.petId, id), isNull(desktopPetBindings.unboundAt)));
+  const desktopIds = activeBindings.map((binding) => binding.desktopDeviceId);
+  const boundDesktops =
+    desktopIds.length > 0
+      ? await db.select({ chipId: desktopDevices.chipId }).from(desktopDevices).where(inArray(desktopDevices.id, desktopIds))
+      : [];
+  const chipIdsToClear = boundDesktops.map((desktop) => desktop.chipId).filter((chipId): chipId is string => Boolean(chipId));
+
   await db.transaction(async (tx) => {
     const avatars = await tx.select({ id: petAvatars.id }).from(petAvatars).where(eq(petAvatars.petId, id));
     const avatarIds = avatars.map((avatar) => avatar.id);
@@ -74,6 +100,7 @@ petsRoute.delete("/pets/:id", async (c) => {
     await tx.update(collarDevices).set({ petId: null }).where(eq(collarDevices.petId, id));
     await tx.delete(pets).where(eq(pets.id, id));
   });
+  await clearDesktopConfigsSafely(chipIdsToClear);
   return c.json({ success: true });
 });
 

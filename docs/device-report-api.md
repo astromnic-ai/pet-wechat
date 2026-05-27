@@ -42,6 +42,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `macAddress` | string | 是 | 设备 MAC，12 位 hex 或带分隔符 |
+| `chipId` | string | 否 | 设备 Chip ID；推荐新固件同时上报，用于兼容 iOS 小程序配网场景 |
 | `type` | `"collar"` \| `"desktop"` | 是 | 设备类型 |
 | `status` | `"online"` \| `"offline"` \| `"pairing"` | 否 | 默认 `"online"` |
 | `firmwareVersion` | string | 否 | 固件版本号，如 `"1.2.3"` |
@@ -98,6 +99,7 @@ curl -X POST https://pet-wechat.yangl.com.cn/api/device-report/heartbeat \
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `macAddress` | string | 是 | 设备 MAC |
+| `chipId` | string | 否 | 设备 Chip ID；推荐新固件同时上报 |
 | `type` | `"collar"` \| `"desktop"` | 是 | 设备类型 |
 | `actionType` | string | 是 | 事件标识符，1–64 字符。建议 snake_case |
 | `occurredAt` | ISO 8601 | 否 | 事件实际发生时间；不传则用服务器当前时间 |

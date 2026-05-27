@@ -39,6 +39,7 @@ const heartbeatBodySchema = z.object({
     .refine((value) => NORMALIZED_MAC_REGEX.test(value), {
       message: "macAddress must be a 12-digit hexadecimal MAC address",
     }),
+  chipId: z.string().trim().min(1).optional(),
   type: deviceTypeSchema,
   status: deviceStatusSchema.default("online"),
   firmwareVersion: z.string().trim().min(1).optional(),
@@ -54,6 +55,7 @@ const eventBodySchema = z.object({
     .refine((value) => NORMALIZED_MAC_REGEX.test(value), {
       message: "macAddress must be a 12-digit hexadecimal MAC address",
     }),
+  chipId: z.string().trim().min(1).optional(),
   type: deviceTypeSchema,
   actionType: z.string().trim().min(1).max(64),
   occurredAt: isoDatetimeSchema.optional(),
@@ -97,6 +99,15 @@ async function findCollarByMac(macAddress: string) {
   return collar ?? null;
 }
 
+async function findCollarByChipId(chipId: string) {
+  const [collar] = await db
+    .select()
+    .from(collarDevices)
+    .where(eq(collarDevices.chipId, chipId));
+
+  return collar ?? null;
+}
+
 async function findDesktopByMac(macAddress: string) {
   const [desktop] = await db
     .select()
@@ -113,6 +124,48 @@ async function findDesktopByChipId(chipId: string) {
     .where(eq(desktopDevices.chipId, chipId));
 
   return desktop ?? null;
+}
+
+function normalizeChipId(value?: string) {
+  return (value || "").trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
+}
+
+function macToChipId(macAddress: string) {
+  const normalized = normalizeMac(macAddress);
+  if (!NORMALIZED_MAC_REGEX.test(normalized)) return "";
+  return normalized
+    .match(/.{2}/g)!
+    .reverse()
+    .join("")
+    .toLowerCase();
+}
+
+async function findCollarByIdentity(identity: { macAddress: string; chipId?: string }) {
+  const byMac = await findCollarByMac(identity.macAddress);
+  if (byMac) return byMac;
+
+  const chipId = normalizeChipId(identity.chipId);
+  if (chipId) {
+    const byChipId = await findCollarByChipId(chipId);
+    if (byChipId) return byChipId;
+  }
+
+  const chipIdFromMac = macToChipId(identity.macAddress);
+  return chipIdFromMac ? await findCollarByChipId(chipIdFromMac) : null;
+}
+
+async function findDesktopByIdentity(identity: { macAddress: string; chipId?: string }) {
+  const byMac = await findDesktopByMac(identity.macAddress);
+  if (byMac) return byMac;
+
+  const chipId = normalizeChipId(identity.chipId);
+  if (chipId) {
+    const byChipId = await findDesktopByChipId(chipId);
+    if (byChipId) return byChipId;
+  }
+
+  const chipIdFromMac = macToChipId(identity.macAddress);
+  return chipIdFromMac ? await findDesktopByChipId(chipIdFromMac) : null;
 }
 
 async function getActiveDesktopPetId(desktopDeviceId: string) {
@@ -307,7 +360,7 @@ deviceReportRoute.post("/heartbeat", async (c) => {
   const now = new Date();
 
   if (body.type === "collar") {
-    const collar = await findCollarByMac(body.macAddress);
+    const collar = await findCollarByIdentity(body);
     if (!collar) {
       return c.json({ error: "Device not registered" }, 404);
     }
@@ -342,7 +395,7 @@ deviceReportRoute.post("/heartbeat", async (c) => {
     });
   }
 
-  const desktop = await findDesktopByMac(body.macAddress);
+  const desktop = await findDesktopByIdentity(body);
   if (!desktop) {
     return c.json({ error: "Device not registered" }, 404);
   }
@@ -382,7 +435,7 @@ deviceReportRoute.post("/event", async (c) => {
   const occurredAt = body.occurredAt ? new Date(body.occurredAt) : new Date();
 
   if (body.type === "collar") {
-    const collar = await findCollarByMac(body.macAddress);
+    const collar = await findCollarByIdentity(body);
     if (!collar) {
       return c.json({ error: "Device not registered" }, 404);
     }
@@ -422,7 +475,7 @@ deviceReportRoute.post("/event", async (c) => {
     );
   }
 
-  const desktop = await findDesktopByMac(body.macAddress);
+  const desktop = await findDesktopByIdentity(body);
   if (!desktop) {
     return c.json({ error: "Device not registered" }, 404);
   }
