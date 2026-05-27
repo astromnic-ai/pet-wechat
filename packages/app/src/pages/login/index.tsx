@@ -29,6 +29,10 @@ function isLocalDevApi() {
   return /127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[0-1])\./.test(BASE_URL);
 }
 
+function hideLoadingSafely() {
+  void Taro.hideLoading().catch(() => {});
+}
+
 function isPhoneAuthDenied(event: any) {
   const errMsg = String(event?.detail?.errMsg || "");
   return errMsg.includes("deny") || errMsg.includes("cancel");
@@ -82,7 +86,7 @@ export default function Login() {
     Taro.removeStorageSync(LOGIN_DRAFT_KEY);
     setAvatarPromptVisible(false);
     Taro.setStorageSync("userId", userId);
-    Taro.hideLoading();
+    hideLoadingSafely();
     Taro.showLoading({
       title: "进入主页中",
       mask: false,
@@ -92,9 +96,9 @@ export default function Login() {
     });
     Taro.reLaunch({
       url: "/pages/index/index",
-      success: () => Taro.hideLoading(),
-      fail: () => Taro.hideLoading(),
-      complete: () => Taro.hideLoading(),
+      success: hideLoadingSafely,
+      fail: hideLoadingSafely,
+      complete: hideLoadingSafely,
     });
   };
 

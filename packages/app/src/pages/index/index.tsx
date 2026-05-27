@@ -30,6 +30,10 @@ const ACTION_LABELS: Record<string, string> = {
   idle: "发呆",
 };
 
+function hideLoadingSafely() {
+  void Taro.hideLoading().catch(() => {});
+}
+
 function getBehaviorLabel(actionType?: string | null) {
   if (!actionType) return "暂无行为记录";
   return ACTION_LABELS[actionType] ?? actionType;
@@ -187,7 +191,7 @@ export default function Index() {
 
   useDidShow(() => {
     Taro.hideTabBar();
-    Taro.hideLoading();
+    hideLoadingSafely();
     if (skipNextDidShowRef.current) {
       skipNextDidShowRef.current = false;
       return;
