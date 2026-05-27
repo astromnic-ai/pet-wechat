@@ -17,7 +17,7 @@ const BLE_CMD_DEVICE_INFO = 0x02;
 const BLE_RESP_FAIL = 0x00;
 const BLE_RESP_SUCCESS = 0x01;
 const BLE_WIFI_CONNECT_TIMEOUT_MS = 45000;
-const BLE_DEVICE_INFO_TIMEOUT_MS = 8000;
+const BLE_DEVICE_INFO_TIMEOUT_MS = 15000;
 
 const BLE_ERROR_TEXT: Record<number, string> = {
   1: "WiFi 名称不能为空",
@@ -116,15 +116,48 @@ function normalizeChipId(value?: string) {
   return /^[a-f0-9]{12}$/.test(compact) ? compact : "";
 }
 
+function bytesToHex(bytes: number[]) {
+  return bytes.map((item) => item.toString(16).padStart(2, "0")).join("");
+}
+
+function decodeAscii(bytes: number[]) {
+  return bytes
+    .filter((item) => item !== 0)
+    .map((item) => String.fromCharCode(item))
+    .join("");
+}
+
+function extractChipIdFromPayload(data: number[]) {
+  const text = decodeAscii(data);
+  const plainTextChipId = normalizeChipId(text);
+  if (plainTextChipId) return plainTextChipId;
+
+  const labelledChipId = normalizeChipId(text.match(/(?:CHIP_ID|chipId|chip_id|chip)[:=\s"_-]*([a-fA-F0-9: -]{12,40})/)?.[1]);
+  if (labelledChipId) return labelledChipId;
+
+  return normalizeChipId(bytesToHex(data));
+}
+
 function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
   const bytes = Array.from(new Uint8Array(buffer));
   if (bytes.length < 5 || bytes[0] !== BLE_FRAME_HEAD) return "";
   const payloadLen = (bytes[1] << 8) | bytes[2];
   if (bytes.length !== payloadLen + 4) return "";
   if (xor(bytes.slice(0, -1)) !== bytes[bytes.length - 1]) return "";
-  if (bytes[3] !== BLE_RESP_SUCCESS) return "";
 
-  return normalizeChipId(String.fromCharCode(...bytes.slice(4, -1)));
+  if (bytes[3] === BLE_RESP_SUCCESS) {
+    return extractChipIdFromPayload(bytes.slice(4, -1));
+  }
+
+  if (bytes[3] === BLE_CMD_DEVICE_INFO && bytes[4] === BLE_RESP_SUCCESS) {
+    return extractChipIdFromPayload(bytes.slice(5, -1));
+  }
+
+  if (bytes[3] === BLE_CMD_DEVICE_INFO) {
+    return extractChipIdFromPayload(bytes.slice(4, -1));
+  }
+
+  return "";
 }
 
 export default function WifiConfig() {
@@ -259,8 +292,16 @@ export default function WifiConfig() {
         const characteristicId = String(res?.characteristicId || "").toLowerCase();
         if (characteristicId && characteristicId !== String(ids.notifyId).toLowerCase()) return;
 
+        const rawBytes = Array.from(new Uint8Array(res?.value || new ArrayBuffer(0)));
         const chipId = extractChipIdFromDeviceInfo(res?.value);
-        if (chipId) finish(chipId);
+        console.log("[wifi-config] device info notify", {
+          raw: bytesToHex(rawBytes),
+          chipId: chipId || null,
+        });
+        if (chipId) {
+          setBleHint(`已读取设备 Chip ID：${chipId}`);
+          finish(chipId);
+        }
       };
 
       (Taro as any).onBLECharacteristicValueChange(onNotify);
