@@ -18,6 +18,7 @@ const BLE_RESP_FAIL = 0x00;
 const BLE_RESP_SUCCESS = 0x01;
 const BLE_WIFI_CONNECT_TIMEOUT_MS = 45000;
 const BLE_DEVICE_INFO_TIMEOUT_MS = 15000;
+const BLE_DEVICE_INFO_RETRY_DELAYS_MS = [0, 3000, 8000];
 
 const BLE_ERROR_TEXT: Record<number, string> = {
   1: "WiFi 名称不能为空",
@@ -273,9 +274,11 @@ export default function WifiConfig() {
     return await new Promise<string>((resolve, reject) => {
       let settled = false;
       let timeout: ReturnType<typeof setTimeout> | undefined;
+      const retryTimers: Array<ReturnType<typeof setTimeout>> = [];
 
       const cleanup = () => {
         if (timeout) clearTimeout(timeout);
+        retryTimers.forEach((timer) => clearTimeout(timer));
         if (typeof (Taro as any).offBLECharacteristicValueChange === "function") {
           (Taro as any).offBLECharacteristicValueChange(onNotify);
         }
@@ -293,11 +296,12 @@ export default function WifiConfig() {
       const onNotify = (res: any) => {
         if (res?.deviceId && res.deviceId !== bleDeviceId) return;
         const characteristicId = String(res?.characteristicId || "").toLowerCase();
-        if (characteristicId && characteristicId !== String(ids.notifyId).toLowerCase()) return;
 
         const rawBytes = Array.from(new Uint8Array(res?.value || new ArrayBuffer(0)));
         const chipId = extractChipIdFromDeviceInfo(res?.value);
         console.log("[wifi-config] device info notify", {
+          characteristicId,
+          expectedNotifyId: String(ids.notifyId).toLowerCase(),
           raw: bytesToHex(rawBytes),
           chipId: chipId || null,
         });
@@ -310,6 +314,12 @@ export default function WifiConfig() {
       (Taro as any).onBLECharacteristicValueChange(onNotify);
 
       timeout = setTimeout(() => {
+        console.warn("[wifi-config] device info timeout", {
+          deviceId: bleDeviceId,
+          serviceId: ids.serviceId,
+          controlId: ids.controlId,
+          notifyId: ids.notifyId,
+        });
         finish(undefined, new Error("读取设备 Chip ID 超时，请重新搜索设备后再试"));
       }, BLE_DEVICE_INFO_TIMEOUT_MS);
 
@@ -320,14 +330,37 @@ export default function WifiConfig() {
           characteristicId: ids.notifyId,
           state: true,
         })
-        .then(() =>
-          (Taro as any).writeBLECharacteristicValue({
+        .then(() => {
+          console.log("[wifi-config] device info notify enabled", {
             deviceId: bleDeviceId,
             serviceId: ids.serviceId,
-            characteristicId: ids.controlId,
-            value: buildBleFrame(BLE_CMD_DEVICE_INFO, []),
+            controlId: ids.controlId,
+            notifyId: ids.notifyId,
           })
-        )
+          BLE_DEVICE_INFO_RETRY_DELAYS_MS.forEach((delayMs, index) => {
+            const timer = setTimeout(() => {
+              if (settled) return;
+              console.log("[wifi-config] write device info command", { attempt: index + 1 });
+              void (Taro as any)
+                .writeBLECharacteristicValue({
+                  deviceId: bleDeviceId,
+                  serviceId: ids.serviceId,
+                  characteristicId: ids.controlId,
+                  value: buildBleFrame(BLE_CMD_DEVICE_INFO, []),
+                })
+                .catch((error: unknown) => {
+                  console.warn("[wifi-config] write device info failed", {
+                    attempt: index + 1,
+                    message: getBleErrorText(error),
+                  });
+                  if (index === BLE_DEVICE_INFO_RETRY_DELAYS_MS.length - 1) {
+                    finish(undefined, new Error(getBleErrorText(error)));
+                  }
+                });
+            }, delayMs);
+            retryTimers.push(timer);
+          });
+        })
         .catch((error: unknown) => {
           finish(undefined, new Error(getBleErrorText(error)));
         });
