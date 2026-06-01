@@ -122,47 +122,15 @@ function bytesToHex(bytes: number[]) {
   return bytes.map((item) => item.toString(16).padStart(2, "0")).join("");
 }
 
-function decodeAscii(bytes: number[]) {
-  return bytes
-    .filter((item) => item !== 0)
-    .map((item) => String.fromCharCode(item))
-    .join("");
-}
-
-function extractChipIdFromPayload(data: number[]) {
-  const text = decodeAscii(data);
-  const plainTextChipId = normalizeChipId(text);
-  if (plainTextChipId) return plainTextChipId;
-
-  const labelledChipId = normalizeChipId(text.match(/(?:CHIP_ID|chipId|chip_id|chip)[:=\s"_-]*([a-fA-F0-9: -]{12,40})/)?.[1]);
-  if (labelledChipId) return labelledChipId;
-
-  const embeddedChipId = normalizeChipId(text.match(/[a-fA-F0-9]{12}/)?.[0]);
-  if (embeddedChipId) return embeddedChipId;
-
-  return normalizeChipId(bytesToHex(data));
-}
-
 function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
   const bytes = Array.from(new Uint8Array(buffer));
   if (bytes.length < 5 || bytes[0] !== BLE_FRAME_HEAD) return "";
   const payloadLen = (bytes[1] << 8) | bytes[2];
   if (bytes.length !== payloadLen + 4) return "";
   if (xor(bytes.slice(0, -1)) !== bytes[bytes.length - 1]) return "";
-
-  if (bytes[3] === BLE_RESP_SUCCESS) {
-    return extractChipIdFromPayload(bytes.slice(4, -1));
-  }
-
-  if (bytes[3] === BLE_CMD_DEVICE_INFO && bytes[4] === BLE_RESP_SUCCESS) {
-    return extractChipIdFromPayload(bytes.slice(5, -1));
-  }
-
-  if (bytes[3] === BLE_CMD_DEVICE_INFO) {
-    return extractChipIdFromPayload(bytes.slice(4, -1));
-  }
-
-  return "";
+  if (bytes[3] !== BLE_RESP_SUCCESS) return "";
+  const chipId = String.fromCharCode(...bytes.slice(4, bytes.length - 1));
+  return normalizeChipId(chipId);
 }
 
 export default function WifiConfig() {
