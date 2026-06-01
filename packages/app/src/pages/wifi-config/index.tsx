@@ -1,5 +1,5 @@
 import { View, Text, Image, Input } from "@tarojs/components";
-import Taro, { useDidShow, useRouter } from "@tarojs/taro";
+import Taro, { useDidHide, useDidShow, useRouter, useUnload } from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
@@ -133,6 +133,28 @@ function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
   return normalizeChipId(chipId);
 }
 
+async function closeBleConnectionQuietly(deviceId: string) {
+  if (!deviceId) return;
+
+  try {
+    await (Taro as any).closeBLEConnection?.({ deviceId });
+  } catch {}
+}
+
+function removeBleListenersQuietly() {
+  try {
+    if (typeof (Taro as any).offBLECharacteristicValueChange === "function") {
+      (Taro as any).offBLECharacteristicValueChange();
+    }
+  } catch {}
+
+  try {
+    if (typeof (Taro as any).offBLEConnectionStateChange === "function") {
+      (Taro as any).offBLEConnectionStateChange();
+    }
+  } catch {}
+}
+
 export default function WifiConfig() {
   const router = useRouter();
   const bleDeviceId = decodeURIComponent(router.params.bleDeviceId || "");
@@ -159,6 +181,14 @@ export default function WifiConfig() {
   useDidShow(() => {
     void initializeWifi();
   });
+
+  const cleanupBleLifecycle = () => {
+    removeBleListenersQuietly();
+    void closeBleConnectionQuietly(bleDeviceId);
+  };
+
+  useDidHide(cleanupBleLifecycle);
+  useUnload(cleanupBleLifecycle);
 
   const initializeWifi = async () => {
     setWifiState("loading");
