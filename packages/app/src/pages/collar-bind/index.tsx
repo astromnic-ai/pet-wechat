@@ -100,6 +100,14 @@ function inferDeviceType(name?: string): DeviceType {
   return "collar";
 }
 
+async function closeBleConnectionQuietly(deviceId: string) {
+  if (!deviceId) return;
+
+  try {
+    await (Taro as any).closeBLEConnection?.({ deviceId });
+  } catch {}
+}
+
 export default function CollarBind() {
   const [devices, setDevices] = useState<BleDevice[]>([]);
   const [searching, setSearching] = useState(false);
@@ -219,6 +227,7 @@ export default function CollarBind() {
       const deviceType = inferDeviceType(device.name);
       setConnectingId(device.deviceId);
       try {
+        await closeBleConnectionQuietly(device.deviceId);
         await (Taro as any).createBLEConnection({ deviceId: device.deviceId, timeout: 12000 });
         await stopDiscovery();
 
