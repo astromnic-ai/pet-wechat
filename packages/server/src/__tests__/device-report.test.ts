@@ -55,6 +55,24 @@ describe("Device Report Routes", () => {
       });
     });
 
+    it("normalizes manifest chipId before lookup and auto create", async () => {
+      mockDb._results.select = [[], []];
+      mockDb._results.insert = [[fakeDesktop({ id: "desktop-new", chipId: "30f45ac5e658" })]];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=30:F4:5A:C5:E6:58"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ collarChipId: null, files: [], allActionTypes: [...ALL_ACTIONS] });
+      expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+        name: "摆台-c5e658",
+        chipId: "30f45ac5e658",
+        macAddress: "30f45ac5e658",
+        claimStatus: "unclaimed",
+      });
+    });
+
     it("returns empty files for an existing desktop without pet binding", async () => {
       mockDb._results.select = [
         [fakeDesktop({ chipId: "desktop-chip-1" })],
@@ -70,12 +88,12 @@ describe("Device Report Routes", () => {
       expect(mockDb._calls.insert).toHaveLength(0);
     });
 
-    it("returns collar chipId and avatar video files for bound pet", async () => {
+    it("returns collar chipId and done avatar video files for bound pet", async () => {
       mockDb._results.select = [
         [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
-        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" })],
         [fakePet({ id: "pet-1", activityMode: "free" })],
         [
           fakeAvatarAction({

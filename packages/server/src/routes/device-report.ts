@@ -199,7 +199,7 @@ async function buildAvatarManifestFiles(petId: string) {
   const [avatar] = await db
     .select()
     .from(petAvatars)
-    .where(and(eq(petAvatars.petId, petId), eq(petAvatars.status, "approved")))
+    .where(and(eq(petAvatars.petId, petId), inArray(petAvatars.status, ["approved", "processing", "done"])))
     .orderBy(desc(petAvatars.createdAt))
     .limit(1);
 
@@ -308,7 +308,7 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
     return c.json({ error: "chipId is required" }, 400);
   }
 
-  const { chipId } = parsedQuery.data;
+  const chipId = normalizeChipId(parsedQuery.data.chipId);
   let desktop = await findDesktopByChipId(chipId);
 
   if (!desktop) {
