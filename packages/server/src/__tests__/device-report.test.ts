@@ -52,7 +52,9 @@ describe("Device Report Routes", () => {
         chipId: "8c4718feff49fd8c",
         macAddress: "8c4718feff49fd8c",
         claimStatus: "unclaimed",
+        status: "online",
       });
+      expect((mockDb._calls.insert[0] as any).values.lastOnlineAt).toBeInstanceOf(Date);
     });
 
     it("normalizes manifest chipId before lookup and auto create", async () => {
@@ -75,17 +77,22 @@ describe("Device Report Routes", () => {
 
     it("returns empty files for an existing desktop without pet binding", async () => {
       mockDb._results.select = [
-        [fakeDesktop({ chipId: "desktop-chip-1" })],
+        [fakeDesktop({ chipId: "30f45ac5e658", status: "offline", lastOnlineAt: null })],
         [],
       ];
+      mockDb._results.update = [[fakeDesktop({ chipId: "30f45ac5e658", status: "online" })]];
 
       const res = await app.request(
-        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=30:F4:5A:C5:E6:58"),
       );
 
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({ collarChipId: null, files: [], allActionTypes: [...ALL_ACTIONS] });
       expect(mockDb._calls.insert).toHaveLength(0);
+      expect((mockDb._calls.update[0] as any).set).toMatchObject({
+        status: "online",
+      });
+      expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeInstanceOf(Date);
     });
 
     it("returns collar chipId and done avatar video files for bound pet", async () => {
@@ -104,6 +111,7 @@ describe("Device Report Routes", () => {
           }),
         ],
       ];
+      mockDb._results.update = [[fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1", status: "online" })]];
 
       const res = await app.request(
         jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),

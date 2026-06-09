@@ -1,14 +1,13 @@
 import type { OtaProgressPayload, OtaStage, StatusPayload } from "shared";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
-  desktopDevices,
   desktopPetBindings,
   deviceRegistry,
   otaProgress,
 } from "../db/schema";
 import { dispatchPetAction } from "../pet-mode/scheduler";
-import { normalizeMac } from "../utils/mac";
+import { markDesktopOnlineByChipId } from "../utils/device-status";
 import { clearRetainedOtaCommand } from "./mqtt-client";
 import { handleRollback } from "./rollback-handler";
 
@@ -95,20 +94,15 @@ async function handleStatus(chipId: string, payload: Buffer) {
     });
 
   if (status.online) {
-    const normalizedChipId = normalizeMac(chipId);
+    const desktop = await markDesktopOnlineByChipId(chipId, { firmwareVersion: status.fw, now });
+
+    if (!desktop) return;
     const [binding] = await db
       .select({ petId: desktopPetBindings.petId })
-      .from(desktopDevices)
-      .innerJoin(
-        desktopPetBindings,
-        eq(desktopPetBindings.desktopDeviceId, desktopDevices.id),
-      )
+      .from(desktopPetBindings)
       .where(
         and(
-          eq(
-            sql<string>`UPPER(REPLACE(${desktopDevices.chipId}, ':', ''))`,
-            normalizedChipId,
-          ),
+          eq(desktopPetBindings.desktopDeviceId, desktop.id),
           isNull(desktopPetBindings.unboundAt),
         ),
       )

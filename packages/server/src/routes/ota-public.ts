@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createFirmwareDownloadUrl } from "../ota/firmware-storage";
 import { resolveFirmwareVersion } from "../ota/version-resolver";
+import { markDesktopOnlineByChipId } from "../utils/device-status";
 
 const otaPublicRoute = new Hono();
 
@@ -11,6 +12,8 @@ otaPublicRoute.get("/check", async (c) => {
   if (!chipId || !fw) {
     return c.json({ v: 1, hasUpdate: false });
   }
+
+  await markDesktopOnlineByChipId(chipId, { firmwareVersion: fw });
 
   const firmware = await resolveFirmwareVersion({ chipId, currentFw: fw });
   if (!firmware) {

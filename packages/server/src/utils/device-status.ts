@@ -1,4 +1,8 @@
 import type { DeviceStatus, DeviceType } from "shared";
+import { eq, sql } from "drizzle-orm";
+import { db } from "../db";
+import { desktopDevices } from "../db/schema";
+import { normalizeMac } from "./mac";
 
 export const DEVICE_ONLINE_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -23,4 +27,40 @@ export function getEffectiveDeviceStatus(options: {
 
   const nowTime = options.now?.getTime() ?? Date.now();
   return nowTime - lastOnlineTime > DEVICE_ONLINE_TIMEOUT_MS ? "offline" : "online";
+}
+
+export function normalizeDeviceChipId(value: string | null | undefined) {
+  return (value || "").trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
+}
+
+export async function markDesktopOnlineByChipId(
+  chipId: string | null | undefined,
+  options: { firmwareVersion?: string | null; now?: Date } = {},
+) {
+  const normalizedChipId = normalizeMac(normalizeDeviceChipId(chipId));
+  if (!normalizedChipId) return null;
+
+  const now = options.now ?? new Date();
+  const updatePayload: Partial<typeof desktopDevices.$inferInsert> = {
+    status: "online",
+    lastOnlineAt: now,
+    updatedAt: now,
+  };
+
+  if (options.firmwareVersion) {
+    updatePayload.firmwareVersion = options.firmwareVersion;
+  }
+
+  const [desktop] = await db
+    .update(desktopDevices)
+    .set(updatePayload)
+    .where(
+      eq(
+        sql<string>`UPPER(REPLACE(${desktopDevices.chipId}, ':', ''))`,
+        normalizedChipId,
+      ),
+    )
+    .returning();
+
+  return desktop ?? null;
 }

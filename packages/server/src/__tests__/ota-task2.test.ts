@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from "bun:test";
+import { handleOtaMqttMessage } from "../ota/mqtt-handlers";
 import { handleRollback } from "../ota/rollback-handler";
 import { compare, isValid } from "../ota/version-cmp";
 import { mockDb } from "./setup";
@@ -55,5 +56,36 @@ describe("OTA rollback handler", () => {
     expect(cleared).toEqual(["chip-a", "chip-a"]);
     expect(quarantined).toEqual(["v1.2.3"]);
     expect(mockDb._calls.update).toHaveLength(1);
+  });
+});
+
+describe("OTA MQTT status handler", () => {
+  beforeEach(() => {
+    mockDb._reset();
+  });
+
+  it("marks the matching desktop device online when a status packet arrives", async () => {
+    mockDb._results.select = [[]];
+    mockDb._results.insert = [[]];
+    mockDb._results.update = [[]];
+
+    await handleOtaMqttMessage(
+      "pet/30f45ac5e658/status",
+      Buffer.from(JSON.stringify({ online: true, fw: "v0.8.87", rssi: -52 })),
+    );
+
+    expect(mockDb._calls.insert).toHaveLength(1);
+    expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+      chipId: "30f45ac5e658",
+      online: true,
+      fw: "v0.8.87",
+      rssi: -52,
+    });
+    expect(mockDb._calls.update).toHaveLength(1);
+    expect((mockDb._calls.update[0] as any).set).toMatchObject({
+      status: "online",
+      firmwareVersion: "v0.8.87",
+    });
+    expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeInstanceOf(Date);
   });
 });
