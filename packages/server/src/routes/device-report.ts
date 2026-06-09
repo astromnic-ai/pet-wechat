@@ -20,6 +20,7 @@ import {
 } from "../db/schema";
 import { normalizePublicFileUrl } from "../utils/storage";
 import type { PetModePlanDTO, PetModeWeekday } from "shared";
+import { markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
 
 const deviceReportRoute = new Hono();
 
@@ -126,10 +127,6 @@ async function findDesktopByChipId(chipId: string) {
   return desktop ?? null;
 }
 
-function normalizeChipId(value?: string) {
-  return (value || "").trim().replace(/[^a-fA-F0-9]/g, "").toLowerCase();
-}
-
 function macToChipId(macAddress: string) {
   const normalized = normalizeMac(macAddress);
   if (!NORMALIZED_MAC_REGEX.test(normalized)) return "";
@@ -144,7 +141,7 @@ async function findCollarByIdentity(identity: { macAddress: string; chipId?: str
   const byMac = await findCollarByMac(identity.macAddress);
   if (byMac) return byMac;
 
-  const chipId = normalizeChipId(identity.chipId);
+  const chipId = normalizeDeviceChipId(identity.chipId);
   if (chipId) {
     const byChipId = await findCollarByChipId(chipId);
     if (byChipId) return byChipId;
@@ -158,7 +155,7 @@ async function findDesktopByIdentity(identity: { macAddress: string; chipId?: st
   const byMac = await findDesktopByMac(identity.macAddress);
   if (byMac) return byMac;
 
-  const chipId = normalizeChipId(identity.chipId);
+  const chipId = normalizeDeviceChipId(identity.chipId);
   if (chipId) {
     const byChipId = await findDesktopByChipId(chipId);
     if (byChipId) return byChipId;
@@ -308,7 +305,8 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
     return c.json({ error: "chipId is required" }, 400);
   }
 
-  const chipId = normalizeChipId(parsedQuery.data.chipId);
+  const chipId = normalizeDeviceChipId(parsedQuery.data.chipId);
+  const now = new Date();
   let desktop = await findDesktopByChipId(chipId);
 
   if (!desktop) {
@@ -319,10 +317,15 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
         chipId,
         macAddress: chipId,
         claimStatus: "unclaimed",
+        status: "online",
+        lastOnlineAt: now,
+        updatedAt: now,
       })
       .returning();
 
     desktop = createdDesktop ?? null;
+  } else {
+    desktop = await markDesktopOnlineByChipId(chipId, { now }) ?? desktop;
   }
 
   if (!desktop) {
