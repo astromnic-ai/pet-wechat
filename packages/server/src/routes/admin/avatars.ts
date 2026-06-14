@@ -72,6 +72,8 @@ function toAvatarResponse(row: AvatarRow) {
     ...row.avatar,
     sourceImageUrl:
       normalizePublicFileUrl(row.avatar.sourceImageUrl) ?? row.avatar.sourceImageUrl,
+    homepageImageUrl:
+      normalizePublicFileUrl(row.avatar.homepageImageUrl) ?? row.avatar.homepageImageUrl,
     additionalImageUrls: normalizedAdditionalImages,
     pet: row.petId
       ? {
@@ -465,6 +467,47 @@ avatarsRoute.put("/avatars/:id/meta", async (c) => {
         ...row.avatar,
         petDescription: petDescription || null,
         funFact: funFact || null,
+      },
+    }),
+  });
+});
+
+avatarsRoute.put("/avatars/:id/homepage-image", async (c) => {
+  const avatarId = c.req.param("id");
+  const body = await c.req.json<{ homepageImageUrl?: string | null }>();
+  const homepageImageUrl =
+    typeof body.homepageImageUrl === "string" ? body.homepageImageUrl.trim() : body.homepageImageUrl;
+
+  if (homepageImageUrl !== null && typeof homepageImageUrl !== "string") {
+    return c.json({ error: "Invalid homepageImageUrl" }, 400);
+  }
+
+  if (homepageImageUrl && !isManagedStorageUrl(homepageImageUrl)) {
+    return c.json({ error: "Invalid homepageImageUrl" }, 400);
+  }
+
+  const row = await getAvatarRow(avatarId);
+
+  if (!row) {
+    return c.json({ error: "Avatar not found" }, 404);
+  }
+
+  if (!["approved", "processing", "done"].includes(row.avatar.status)) {
+    return c.json({ error: "Avatar must be approved, processing, or done" }, 400);
+  }
+
+  const [avatar] = await db
+    .update(petAvatars)
+    .set({ homepageImageUrl: homepageImageUrl || null })
+    .where(eq(petAvatars.id, avatarId))
+    .returning();
+
+  return c.json({
+    avatar: toAvatarResponse({
+      ...row,
+      avatar: avatar ?? {
+        ...row.avatar,
+        homepageImageUrl: homepageImageUrl || null,
       },
     }),
   });

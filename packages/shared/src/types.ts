@@ -264,6 +264,7 @@ export interface PetAvatar {
   id: string;
   petId: string;
   sourceImageUrl: string;
+  homepageImageUrl?: string | null;
   additionalImageUrls?: string | null;
   petDescription?: string | null;
   funFact?: string | null;

@@ -456,7 +456,7 @@ export default function Index() {
 
   const currentFrameImage =
     homeHeroState === "done"
-      ? currentModeFrames[0]?.imageUrl || petHeroImage
+      ? currentPet?.avatarImageUrl || currentModeFrames[0]?.imageUrl || petHeroImage
       : petHeroImage;
 
   const handleOpenPetInfo = () => {
