@@ -201,7 +201,7 @@ export default function PetModeSchedulePage() {
       }
 
       if (exists) {
-        if (prev.length === 1) return prev;
+        if (prev.length === 1) return [];
         const nextDays = prev.filter((item) => item !== day);
         const nextActiveDay = nextDays[0] || "mon";
         setActiveDay(nextActiveDay);

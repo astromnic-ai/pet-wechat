@@ -23,9 +23,9 @@ schedulesRoute.get("/current", async (c) => {
   }
 
   const isWeekday = isShanghaiWeekday();
-  const effectiveTypes: Array<"weekday" | "everyday"> = isWeekday
+  const effectiveTypes: Array<"weekday" | "weekend" | "everyday"> = isWeekday
     ? ["weekday", "everyday"]
-    : ["everyday"];
+    : ["weekend", "everyday"];
 
   const schedules = await db
     .select()
@@ -40,8 +40,8 @@ schedulesRoute.get("/current", async (c) => {
     .orderBy(asc(behaviorSchedules.createdAt));
 
   const schedule = schedules.sort((a, b) => {
-    const aPriority = a.effectiveType === "weekday" ? 0 : 1;
-    const bPriority = b.effectiveType === "weekday" ? 0 : 1;
+    const aPriority = a.effectiveType === "weekday" || a.effectiveType === "weekend" ? 0 : 1;
+    const bPriority = b.effectiveType === "weekday" || b.effectiveType === "weekend" ? 0 : 1;
     return aPriority - bPriority;
   })[0];
 

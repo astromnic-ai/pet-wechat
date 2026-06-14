@@ -127,6 +127,13 @@
       "when": 1781395200000,
       "tag": "0017_pet_avatar_homepage_image",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1781398800000,
+      "tag": "0018_rename_friday_schedule_to_weekend",
+      "breakpoints": true
     }
   ]
 }

@@ -29,20 +29,20 @@ function getLocalMinutes(date: Date) {
   return date.getHours() * 60 + date.getMinutes();
 }
 
-function getEffectiveTypes(date: Date): Array<"friday" | "weekday" | "everyday"> {
+function getEffectiveTypes(date: Date): Array<"weekend" | "weekday" | "everyday"> {
   const day = date.getDay();
-  const types: Array<"friday" | "weekday" | "everyday"> = ["everyday"];
+  const types: Array<"weekend" | "weekday" | "everyday"> = ["everyday"];
   if (day >= 1 && day <= 5) {
     types.unshift("weekday");
   }
-  if (day === 5) {
-    types.unshift("friday");
+  if (day === 0 || day === 6) {
+    types.unshift("weekend");
   }
   return types;
 }
 
 function getEffectiveTypePriority(type: string) {
-  if (type === "friday") return 0;
+  if (type === "weekend") return 0;
   if (type === "weekday") return 1;
   return 2;
 }
