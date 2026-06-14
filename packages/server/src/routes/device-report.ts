@@ -7,6 +7,12 @@ import { db } from "../db";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { dispatchPetAction } from "../pet-mode/scheduler";
 import {
+  getBeijingEffectiveTypes,
+  PET_SCHEDULE_TIME_ZONE,
+} from "../utils/beijing-time";
+import {
+  behaviorScheduleBlocks,
+  behaviorSchedules,
   collarDevices,
   desktopDevices,
   desktopPetBindings,
@@ -21,6 +27,7 @@ import {
 import { normalizePublicFileUrl } from "../utils/storage";
 import type { PetModePlanDTO, PetModeWeekday } from "shared";
 import { DEVICE_ONLINE_TIMEOUT_MS, markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
+import { normalizePetActionType } from "../utils/pet-actions";
 
 const deviceReportRoute = new Hono();
 type DeviceHeartbeatUpdate<T> = Omit<Partial<T>, "usageDurationMinutes"> & {
@@ -211,31 +218,47 @@ async function getCollarChipId(petId: string) {
 }
 
 async function buildAvatarManifestFiles(petId: string) {
-  const [avatar] = await db
+  const avatars = await db
     .select()
     .from(petAvatars)
-    .where(and(eq(petAvatars.petId, petId), inArray(petAvatars.status, ["approved", "processing", "done"])))
+    .where(and(eq(petAvatars.petId, petId), eq(petAvatars.status, "done")))
     .orderBy(desc(petAvatars.createdAt))
-    .limit(1);
+    .limit(5);
 
-  if (!avatar) {
+  if (avatars.length === 0) {
     return [];
   }
 
   const actions = await db
     .select()
     .from(petAvatarActions)
-    .where(eq(petAvatarActions.petAvatarId, avatar.id))
+    .where(inArray(petAvatarActions.petAvatarId, avatars.map((avatar) => avatar.id)))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
 
-  return actions
-    .filter((action) => action.videoUrl && action.videoHash)
-    .map((action) => ({
-      actionType: action.actionType,
-      path: `/${action.actionType}/${action.actionType}.mjpeg`,
-      hash: action.videoHash as string,
-      url: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl as string,
-    }));
+  const actionsByAvatarId = new Map<string, typeof actions>();
+  for (const action of actions) {
+    const current = actionsByAvatarId.get(action.petAvatarId) ?? [];
+    current.push(action);
+    actionsByAvatarId.set(action.petAvatarId, current);
+  }
+
+  for (const avatar of avatars) {
+    const files = (actionsByAvatarId.get(avatar.id) ?? [])
+      .filter((action) => ALL_ACTIONS.includes(action.actionType as typeof ALL_ACTIONS[number]))
+      .filter((action) => action.videoUrl && action.videoHash)
+      .map((action) => ({
+        actionType: action.actionType,
+        path: `${action.actionType}/${action.actionType}.mjpeg`,
+        hash: action.videoHash as string,
+        url: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl as string,
+      }));
+
+    if (new Set(files.map((file) => file.actionType)).size === ALL_ACTIONS.length) {
+      return files;
+    }
+  }
+
+  return [];
 }
 
 function normalizePetModeDays(value: unknown): PetModeWeekday[] {
@@ -247,14 +270,14 @@ function normalizePetModeDays(value: unknown): PetModeWeekday[] {
 
 async function getPetModeManifest(petId: string) {
   const [pet] = await db
-    .select({ activityMode: pets.activityMode })
+    .select({ activityMode: pets.activityMode, species: pets.species })
     .from(pets)
     .where(eq(pets.id, petId))
     .limit(1);
 
   const mode = pet?.activityMode ?? "free";
   if (mode !== "custom") {
-    return { mode, plans: [] as PetModePlanDTO[] };
+    return { mode, species: pet?.species ?? null, plans: [] as PetModePlanDTO[] };
   }
 
   const plans = await db
@@ -264,7 +287,7 @@ async function getPetModeManifest(petId: string) {
     .orderBy(asc(petModePlans.sortOrder), asc(petModePlans.id));
 
   if (plans.length === 0) {
-    return { mode, plans: [] as PetModePlanDTO[] };
+    return { mode, species: pet?.species ?? null, plans: [] as PetModePlanDTO[] };
   }
 
   const slots = await db
@@ -282,6 +305,7 @@ async function getPetModeManifest(petId: string) {
 
   return {
     mode,
+    species: pet?.species ?? null,
     plans: plans.map((plan) => ({
       id: plan.id,
       repeat: plan.repeat === "weekly" ? "weekly" : "once",
@@ -292,10 +316,47 @@ async function getPetModeManifest(petId: string) {
         id: slot.id,
         start: slot.start,
         end: slot.end,
-        action: slot.action,
+        action: normalizePetActionType(slot.action),
         sortOrder: slot.sortOrder,
       })),
     })),
+  };
+}
+
+async function getSystemScheduleManifest(species: string, now = new Date()) {
+  const effectiveTypes = getBeijingEffectiveTypes(now);
+  const schedules = await db
+    .select()
+    .from(behaviorSchedules)
+    .where(
+      and(
+        eq(behaviorSchedules.species, species),
+        eq(behaviorSchedules.isActive, true),
+        inArray(behaviorSchedules.effectiveType, effectiveTypes),
+      ),
+    )
+    .orderBy(asc(behaviorSchedules.createdAt));
+
+  const schedule = schedules.sort((a, b) => {
+    const aPriority = effectiveTypes.indexOf(a.effectiveType);
+    const bPriority = effectiveTypes.indexOf(b.effectiveType);
+    return aPriority - bPriority;
+  })[0];
+
+  if (!schedule) {
+    return { timeZone: PET_SCHEDULE_TIME_ZONE, schedule: null, blocks: [] };
+  }
+
+  const blocks = await db
+    .select()
+    .from(behaviorScheduleBlocks)
+    .where(eq(behaviorScheduleBlocks.scheduleId, schedule.id))
+    .orderBy(asc(behaviorScheduleBlocks.sortOrder), asc(behaviorScheduleBlocks.startMinutes));
+
+  return {
+    timeZone: PET_SCHEDULE_TIME_ZONE,
+    schedule,
+    blocks,
   };
 }
 
@@ -361,13 +422,18 @@ deviceReportRoute.get("/tabletop/manifest", async (c) => {
     buildAvatarManifestFiles(petId),
     getPetModeManifest(petId),
   ]);
+  const systemSchedule = activityMode.species
+    ? await getSystemScheduleManifest(activityMode.species)
+    : { timeZone: PET_SCHEDULE_TIME_ZONE, schedule: null, blocks: [] };
 
   return c.json({
     collarChipId,
     files,
     allActionTypes: ALL_ACTIONS,
+    scheduleTimeZone: PET_SCHEDULE_TIME_ZONE,
     activityMode: activityMode.mode,
     modePlans: activityMode.plans,
+    systemSchedule,
   });
 });
 

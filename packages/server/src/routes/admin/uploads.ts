@@ -5,10 +5,22 @@ import { ALLOWED_IMAGE_CONTENT_TYPES, createPresignedPutUrl, uploadFile } from "
 
 const uploadsRoute = new Hono();
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const ADMIN_UPLOAD_CONTENT_TYPES = {
+  ...ALLOWED_IMAGE_CONTENT_TYPES,
+  "video/mp4": "mp4",
+} as const;
 
-type AllowedContentType = keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
+type AllowedContentType = keyof typeof ADMIN_UPLOAD_CONTENT_TYPES;
+type PresignContentType = keyof typeof ALLOWED_IMAGE_CONTENT_TYPES;
 
 function isAllowedContentType(value: unknown): value is AllowedContentType {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(ADMIN_UPLOAD_CONTENT_TYPES, value)
+  );
+}
+
+function isAllowedPresignContentType(value: unknown): value is PresignContentType {
   return (
     typeof value === "string" &&
     Object.prototype.hasOwnProperty.call(ALLOWED_IMAGE_CONTENT_TYPES, value)
@@ -26,7 +38,7 @@ function isAllowedAdminUploadType(fileType: string, fallbackContentType?: Allowe
 uploadsRoute.post("/uploads/presign", async (c) => {
   const body = await c.req.json<{ contentType?: unknown }>();
 
-  if (!isAllowedContentType(body.contentType)) {
+  if (!isAllowedPresignContentType(body.contentType)) {
     return c.json({ error: "Unsupported contentType" }, 400);
   }
 
@@ -52,7 +64,7 @@ uploadsRoute.post("/uploads", async (c) => {
     const resolvedContentType = isAllowedAdminUploadType(uploadedFile.type, fallbackContentType);
 
     if (!resolvedContentType) {
-      return c.json({ error: "不支持的文件格式，请上传 JPG/PNG/WEBP/MJPEG 文件" }, 400);
+      return c.json({ error: "不支持的文件格式，请上传 JPG/PNG/WEBP/MP4/MJPEG 文件" }, 400);
     }
 
     if (uploadedFile.size > MAX_FILE_SIZE) {
@@ -60,7 +72,7 @@ uploadsRoute.post("/uploads", async (c) => {
     }
 
     const fileId = createId();
-    const ext = ALLOWED_IMAGE_CONTENT_TYPES[resolvedContentType];
+    const ext = ADMIN_UPLOAD_CONTENT_TYPES[resolvedContentType];
     const key = `uploads/admin/${new Date().getUTCFullYear()}/${String(new Date().getUTCMonth() + 1).padStart(2, "0")}/${fileId}.${ext}`;
     const buffer = Buffer.from(await uploadedFile.arrayBuffer());
     const isMjpeg = resolvedContentType === "video/mjpeg" || resolvedContentType === "video/x-motion-jpeg";

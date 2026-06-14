@@ -95,21 +95,24 @@ describe("Device Report Routes", () => {
       expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeInstanceOf(Date);
     });
 
-    it("returns collar chipId and done avatar video files for bound pet", async () => {
+    it("returns collar chipId and complete done avatar video files for bound pet", async () => {
+      const completeActions = ALL_ACTIONS.map((actionType, index) =>
+        fakeAvatarAction({
+          petAvatarId: "avatar-1",
+          actionType,
+          sortOrder: index,
+          videoUrl: `https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/${actionType}.mjpeg`,
+          videoHash: `sha256-${actionType}`,
+        }),
+      );
+
       mockDb._results.select = [
         [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
         [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" })],
         [fakePet({ id: "pet-1", activityMode: "free" })],
-        [
-          fakeAvatarAction({
-            petAvatarId: "avatar-1",
-            actionType: "lay",
-            videoUrl: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
-            videoHash: "sha256-lay",
-          }),
-        ],
+        completeActions,
       ];
       mockDb._results.update = [[fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1", status: "online" })]];
 
@@ -120,17 +123,21 @@ describe("Device Report Routes", () => {
       expect(res.status).toBe(200);
       expect(await res.json()).toEqual({
         collarChipId: "collar-chip-1",
-        files: [
-          {
-            actionType: "lay",
-            path: "/lay/lay.mjpeg",
-            hash: "sha256-lay",
-            url: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
-          },
-        ],
+        files: completeActions.map((action) => ({
+          actionType: action.actionType,
+          path: `${action.actionType}/${action.actionType}.mjpeg`,
+          hash: action.videoHash,
+          url: action.videoUrl,
+        })),
         allActionTypes: [...ALL_ACTIONS],
+        scheduleTimeZone: "Asia/Shanghai",
         activityMode: "free",
         modePlans: [],
+        systemSchedule: {
+          timeZone: "Asia/Shanghai",
+          schedule: null,
+          blocks: [],
+        },
       });
     });
 
@@ -139,15 +146,17 @@ describe("Device Report Routes", () => {
         [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [],
-        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" })],
         [fakePet({ id: "pet-1", activityMode: "free" })],
-        [
+        ALL_ACTIONS.map((actionType, index) =>
           fakeAvatarAction({
             petAvatarId: "avatar-1",
-            videoUrl: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
-            videoHash: "sha256-lay",
+            actionType,
+            sortOrder: index,
+            videoUrl: `https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/${actionType}.mjpeg`,
+            videoHash: `sha256-${actionType}`,
           }),
-        ],
+        ),
       ];
 
       const res = await app.request(
@@ -163,7 +172,7 @@ describe("Device Report Routes", () => {
         [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
         [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
         [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
-        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "approved" })],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" })],
         [fakePet({ id: "pet-1", activityMode: "free" })],
         [fakeAvatarAction({ petAvatarId: "avatar-1", videoUrl: null, videoHash: null })],
       ];
@@ -177,8 +186,52 @@ describe("Device Report Routes", () => {
         collarChipId: "collar-chip-1",
         files: [],
         allActionTypes: [...ALL_ACTIONS],
+        scheduleTimeZone: "Asia/Shanghai",
         activityMode: "free",
         modePlans: [],
+        systemSchedule: {
+          timeZone: "Asia/Shanghai",
+          schedule: null,
+          blocks: [],
+        },
+      });
+    });
+
+    it("does not return a partial avatar manifest", async () => {
+      mockDb._results.select = [
+        [fakeDesktop({ id: "desktop-1", chipId: "desktop-chip-1" })],
+        [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
+        [fakeCollar({ petId: "pet-1", chipId: "collar-chip-1" })],
+        [fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" })],
+        [fakePet({ id: "pet-1", activityMode: "free" })],
+        ALL_ACTIONS.slice(0, 3).map((actionType, index) =>
+          fakeAvatarAction({
+            petAvatarId: "avatar-1",
+            actionType,
+            sortOrder: index,
+            videoUrl: `https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/${actionType}.mjpeg`,
+            videoHash: `sha256-${actionType}`,
+          }),
+        ),
+      ];
+
+      const res = await app.request(
+        jsonReq("GET", "/api/device-report/tabletop/manifest?chipId=desktop-chip-1"),
+      );
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({
+        collarChipId: "collar-chip-1",
+        files: [],
+        allActionTypes: [...ALL_ACTIONS],
+        scheduleTimeZone: "Asia/Shanghai",
+        activityMode: "free",
+        modePlans: [],
+        systemSchedule: {
+          timeZone: "Asia/Shanghai",
+          schedule: null,
+          blocks: [],
+        },
       });
     });
 

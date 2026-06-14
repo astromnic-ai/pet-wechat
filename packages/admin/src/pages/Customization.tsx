@@ -42,6 +42,7 @@ import { api } from "../api/client";
 
 const { Text, Title } = Typography;
 const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg";
+const HOMEPAGE_IMAGE_ACCEPT = ".png,image/png";
 
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskTab = "pending" | "done";
@@ -75,6 +76,7 @@ type UploadContentType =
   | "image/jpeg"
   | "image/png"
   | "image/webp"
+  | "video/mp4"
   | "video/mjpeg"
   | "video/x-motion-jpeg";
 
@@ -205,12 +207,34 @@ function resolveMjpegContentType(file: File): UploadContentType {
   return "video/x-motion-jpeg";
 }
 
-function isMjpegUrl(url?: string | null) {
+function isHomepageImageFile(file: File) {
+  const ext = getFileExtension(file.name);
+  const allowedTypes = new Set(["image/png", "application/octet-stream", ""]);
+  return ext === "png" && allowedTypes.has(file.type);
+}
+
+function isPngUrl(url?: string | null) {
   if (!url) {
     return false;
   }
 
-  return /\.mjpeg(?:$|[?#])|\.mjpg(?:$|[?#])/i.test(url);
+  return /\.png(?:$|[?#])/i.test(url);
+}
+
+function isVideoUrl(url?: string | null) {
+  if (!url) {
+    return false;
+  }
+
+  return /\.(mp4|mjpeg|mjpg)(?:$|[?#])/i.test(url);
+}
+
+function shouldPreviewAsVideo(mode: "action" | "homepage", file: File | null, previewUrl: string) {
+  if (mode === "action") {
+    return (file ? isMjpegFile(file) : false) || isVideoUrl(previewUrl);
+  }
+
+  return false;
 }
 
 function parseAdditionalImages(rawValue?: string | null) {
@@ -468,6 +492,7 @@ export default function Customization() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [previewActionType, setPreviewActionType] = useState<ActionType | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [uploadMode, setUploadMode] = useState<"action" | "homepage">("action");
   const [uploadActionType, setUploadActionType] = useState<ActionType | null>(null);
   const [uploadImageUrl, setUploadImageUrl] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -648,6 +673,10 @@ export default function Customization() {
   const funProgress = getCategoryProgress(selectedActions, "fun");
   const interactiveProgress = getCategoryProgress(selectedActions, "interactive");
   const canEditActions = selectedAvatarDetail?.status === "approved" || selectedAvatarDetail?.status === "processing";
+  const canEditHomepageImage =
+    selectedAvatarDetail?.status === "approved" ||
+    selectedAvatarDetail?.status === "processing" ||
+    selectedAvatarDetail?.status === "done";
   const canReplaceCompletedActions = selectedAvatarDetail?.status === "done";
   const canSync =
     !!selectedAvatarDetail &&
@@ -655,8 +684,7 @@ export default function Customization() {
     selectedAvatarDetail.status !== "done";
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
-  const homepageAction = previewAction ?? selectedActions[0];
-  const homepageImageUrl = homepageAction?.imageUrl ?? "";
+  const homepageImageUrl = selectedAvatarDetail?.homepageImageUrl ?? selectedAvatarSummary?.homepageImageUrl ?? "";
   const selectedAvatarImage =
     selectedAvatarDetail?.sourceImageUrl ?? selectedAvatarSummary?.sourceImageUrl ?? "";
   const referenceImages = parseAdditionalImages(
@@ -687,9 +715,18 @@ export default function Customization() {
     }
   };
 
-  const handleOpenUploadModal = (actionType: ActionType) => {
+  const handleOpenActionUploadModal = (actionType: ActionType) => {
+    setUploadMode("action");
     setUploadActionType(actionType);
     setUploadImageUrl("");
+    setUploadFile(null);
+    setUploadModalOpen(true);
+  };
+
+  const handleOpenHomepageUploadModal = () => {
+    setUploadMode("homepage");
+    setUploadActionType(null);
+    setUploadImageUrl(homepageImageUrl);
     setUploadFile(null);
     setUploadModalOpen(true);
   };
@@ -697,9 +734,53 @@ export default function Customization() {
   const handleCloseUploadModal = () => {
     setUploadModalOpen(false);
     setUploadActionType(null);
+    setUploadMode("action");
     setUploadImageUrl("");
     setUploadFile(null);
     setUploadPreviewUrl("");
+  };
+
+  const handleSubmitHomepageImage = async () => {
+    if (!selectedAvatarDetail) {
+      return;
+    }
+
+    setSubmittingAction(true);
+
+    try {
+      let homepageImage = uploadImageUrl.trim();
+
+      if (uploadFile) {
+        if (!isHomepageImageFile(uploadFile)) {
+          messageApi.warning("仅支持 PNG 图片文件");
+          return;
+        }
+
+        const uploadResult = await api.uploadAdminMedia(uploadFile, "image/png");
+        homepageImage = uploadResult.url;
+      }
+
+      if (!homepageImage) {
+        messageApi.warning("请先选择 PNG 文件或输入主页图 URL");
+        return;
+      }
+
+      if (!isPngUrl(homepageImage)) {
+        messageApi.warning("主页图必须是 PNG 格式");
+        return;
+      }
+
+      await api.updateAvatarHomepageImage(selectedAvatarDetail.id, {
+        homepageImageUrl: homepageImage,
+      });
+      messageApi.success("主页图已保存");
+      handleCloseUploadModal();
+      await refreshCurrentAvatar(selectedAvatarDetail.id);
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : "主页图保存失败");
+    } finally {
+      setSubmittingAction(false);
+    }
   };
 
   const handleSubmitAction = async () => {
@@ -746,6 +827,15 @@ export default function Customization() {
     } finally {
       setSubmittingAction(false);
     }
+  };
+
+  const handleSubmitUploadModal = async () => {
+    if (uploadMode === "homepage") {
+      await handleSubmitHomepageImage();
+      return;
+    }
+
+    await handleSubmitAction();
   };
 
   const handleDeleteAction = async (action: CustomizationAction) => {
@@ -898,7 +988,7 @@ export default function Customization() {
                   disabled={!canUploadCurrentAction}
                   onClick={(event) => {
                     event.stopPropagation();
-                    handleOpenUploadModal(actionType);
+                    handleOpenActionUploadModal(actionType);
                   }}
                 >
                   {action && canReplaceCompletedActions ? "替换" : action ? "替换素材" : "上传素材"}
@@ -1127,10 +1217,10 @@ export default function Customization() {
                         </div>
                         <Button
                           icon={<UploadOutlined />}
-                          disabled={!canEditActions}
-                          onClick={() => handleOpenUploadModal((homepageAction?.actionType as ActionType | undefined) ?? BASIC_ACTIONS[0])}
+                          disabled={!canEditHomepageImage}
+                          onClick={handleOpenHomepageUploadModal}
                         >
-                          上传主页图
+                          {homepageImageUrl ? "修改主页图" : "上传主页图"}
                         </Button>
                       </div>
                     </div>
@@ -1256,9 +1346,15 @@ export default function Customization() {
       </Spin>
 
       <Modal
-        title={uploadActionType ? `上传${ACTION_LABELS[uploadActionType] ?? uploadActionType}` : "上传动作素材"}
+        title={
+          uploadMode === "homepage"
+            ? "上传主页图"
+            : uploadActionType
+              ? `上传${ACTION_LABELS[uploadActionType] ?? uploadActionType}`
+              : "上传动作素材"
+        }
         open={uploadModalOpen}
-        onOk={() => void handleSubmitAction()}
+        onOk={() => void handleSubmitUploadModal()}
         okText="确认"
         cancelText="取消"
         confirmLoading={submittingAction}
@@ -1267,10 +1363,12 @@ export default function Customization() {
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <Text type="secondary">上传 MJPEG 视频文件</Text>
+            <Text type="secondary">
+              {uploadMode === "homepage" ? "上传 PNG 图片文件" : "上传 MJPEG 视频文件"}
+            </Text>
             <input
               type="file"
-              accept={CUSTOMIZATION_VIDEO_ACCEPT}
+              accept={uploadMode === "homepage" ? HOMEPAGE_IMAGE_ACCEPT : CUSTOMIZATION_VIDEO_ACCEPT}
               onChange={(event) => {
                 const nextFile = event.target.files?.[0] ?? null;
                 setUploadFile(nextFile);
@@ -1282,7 +1380,7 @@ export default function Customization() {
           </div>
 
           <Input
-            placeholder="或输入 MJPEG 视频 URL"
+            placeholder={uploadMode === "homepage" ? "或输入主页图 URL（PNG）" : "或输入 MJPEG 视频 URL"}
             value={uploadImageUrl}
             onChange={(event) => {
               setUploadImageUrl(event.target.value);
@@ -1294,15 +1392,7 @@ export default function Customization() {
 
           {uploadPreviewUrl ? (
             <div style={{ display: "flex", justifyContent: "center" }}>
-              {uploadFile && isMjpegFile(uploadFile) ? (
-                <video
-                  src={uploadPreviewUrl}
-                  controls
-                  preload="metadata"
-                  playsInline
-                  style={{ width: 240, height: 240, objectFit: "cover", borderRadius: 12, background: "#0f172a" }}
-                />
-              ) : isMjpegUrl(uploadPreviewUrl) ? (
+              {shouldPreviewAsVideo(uploadMode, uploadFile, uploadPreviewUrl) ? (
                 <video
                   src={uploadPreviewUrl}
                   controls
@@ -1313,7 +1403,7 @@ export default function Customization() {
               ) : (
                 <Image
                   src={uploadPreviewUrl}
-                  alt={uploadActionType ? ACTION_LABELS[uploadActionType] ?? uploadActionType : "动作预览"}
+                  alt={uploadMode === "homepage" ? "主页图预览" : uploadActionType ? ACTION_LABELS[uploadActionType] ?? uploadActionType : "动作预览"}
                   width={240}
                   height={240}
                   style={{ objectFit: "cover", borderRadius: 12 }}
@@ -1321,7 +1411,10 @@ export default function Customization() {
               )}
             </div>
           ) : (
-            <Empty description="选择 MJPEG 视频文件或输入视频 URL 后可预览" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            <Empty
+              description={uploadMode === "homepage" ? "选择 PNG 文件或输入 URL 后可预览" : "选择 MJPEG 视频文件或输入视频 URL 后可预览"}
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
           )}
         </div>
       </Modal>

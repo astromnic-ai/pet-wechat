@@ -21,7 +21,7 @@ export type AvatarStatus =
 export type MessageType = "authorization" | "system";
 export type BindingType = "owner" | "authorized";
 export type AuthorizationStatus = "pending" | "accepted" | "rejected";
-export type ScheduleEffectiveType = "everyday" | "weekday" | "friday";
+export type ScheduleEffectiveType = "everyday" | "weekday" | "weekend";
 export type DeviceType = "collar" | "desktop";
 export type DeviceClaimStatus = "occupied" | "available" | "unclaimed" | "reset_required";
 export type DeviceUpgradeStatus = "idle" | "pending" | "success" | "failed";
@@ -265,6 +265,7 @@ export interface PetAvatar {
   id: string;
   petId: string;
   sourceImageUrl: string;
+  homepageImageUrl?: string | null;
   additionalImageUrls?: string | null;
   petDescription?: string | null;
   funFact?: string | null;

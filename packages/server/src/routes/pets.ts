@@ -19,6 +19,7 @@ import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
 import { dispatchPetAction } from "../pet-mode/scheduler";
 import { clearRetainedDesktopConfig } from "../ota/mqtt-client";
+import { normalizePetActionType } from "../utils/pet-actions";
 
 const petsRoute = new Hono();
 const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;
@@ -85,6 +86,7 @@ async function getLatestAvatarImageMap(petIds: string[]) {
     .select({
       id: petAvatars.id,
       petId: petAvatars.petId,
+      homepageImageUrl: petAvatars.homepageImageUrl,
     })
     .from(petAvatars)
     .where(
@@ -97,9 +99,13 @@ async function getLatestAvatarImageMap(petIds: string[]) {
     .limit(petIds.length); // 最多只取 petIds.length 条，每个宠物最多 1 条
 
   const latestAvatarByPetId = new Map<string, string>();
+  const homepageImageByPetId = new Map<string, string>();
   for (const avatar of doneAvatars) {
     if (latestAvatarByPetId.has(avatar.petId)) continue;
     latestAvatarByPetId.set(avatar.petId, avatar.id);
+    if (avatar.homepageImageUrl) {
+      homepageImageByPetId.set(avatar.petId, avatar.homepageImageUrl);
+    }
   }
 
   const latestAvatarIds = Array.from(latestAvatarByPetId.values());
@@ -124,9 +130,9 @@ async function getLatestAvatarImageMap(petIds: string[]) {
   }
 
   for (const [petId, avatarId] of latestAvatarByPetId) {
-    const imageUrl = primaryImageByAvatarId.get(avatarId);
+    const imageUrl = homepageImageByPetId.get(petId) ?? primaryImageByAvatarId.get(avatarId);
     if (!imageUrl) continue;
-    latestAvatarImageMap.set(petId, imageUrl);
+    latestAvatarImageMap.set(petId, normalizePublicFileUrl(imageUrl) ?? imageUrl);
   }
 
   return latestAvatarImageMap;
@@ -150,6 +156,14 @@ function toPetAvatarActionResponse(action: typeof petAvatarActions.$inferSelect)
     ...action,
     imageUrl: normalizePublicFileUrl(action.imageUrl) ?? action.imageUrl,
     videoUrl: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl,
+  };
+}
+
+function toPetAvatarResponse(avatar: typeof petAvatars.$inferSelect) {
+  return {
+    ...avatar,
+    sourceImageUrl: normalizePublicFileUrl(avatar.sourceImageUrl) ?? avatar.sourceImageUrl,
+    homepageImageUrl: normalizePublicFileUrl(avatar.homepageImageUrl) ?? avatar.homepageImageUrl,
   };
 }
 
@@ -277,7 +291,7 @@ function normalizePetModePlanInput(value: any, index: number): PetModePlanDTO {
           id: typeof slot?.id === "string" && slot.id ? slot.id : `slot-${Date.now()}-${index}-${slotIndex}`,
           start: typeof slot?.start === "string" ? slot.start : "00:00",
           end: typeof slot?.end === "string" ? slot.end : "00:00",
-          action: typeof slot?.action === "string" ? slot.action : "",
+          action: typeof slot?.action === "string" ? normalizePetActionType(slot.action) : "",
           sortOrder: Number.isFinite(Number(slot?.sortOrder)) ? Number(slot.sortOrder) : slotIndex,
         }))
       : [],
@@ -316,7 +330,7 @@ async function getPetModePlans(petId: string): Promise<PetModePlanDTO[]> {
       id: slot.id,
       start: slot.start,
       end: slot.end,
-      action: slot.action,
+      action: normalizePetActionType(slot.action),
       sortOrder: slot.sortOrder,
     })),
   }));
@@ -641,7 +655,7 @@ petsRoute.get("/:id", async (c) => {
       draftAvatarSourceImageUrl:
         normalizePublicFileUrl(pet.draftAvatarSourceImageUrl) ?? pet.draftAvatarSourceImageUrl,
     },
-    avatars,
+    avatars: avatars.map(toPetAvatarResponse),
     actions: actions.map(toPetAvatarActionResponse),
   });
 });
