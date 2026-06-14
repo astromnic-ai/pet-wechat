@@ -19,6 +19,7 @@ import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
 import { dispatchPetAction } from "../pet-mode/scheduler";
 import { clearRetainedDesktopConfig } from "../ota/mqtt-client";
+import { normalizePetActionType } from "../utils/pet-actions";
 
 const petsRoute = new Hono();
 const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;
@@ -290,7 +291,7 @@ function normalizePetModePlanInput(value: any, index: number): PetModePlanDTO {
           id: typeof slot?.id === "string" && slot.id ? slot.id : `slot-${Date.now()}-${index}-${slotIndex}`,
           start: typeof slot?.start === "string" ? slot.start : "00:00",
           end: typeof slot?.end === "string" ? slot.end : "00:00",
-          action: typeof slot?.action === "string" ? slot.action : "",
+          action: typeof slot?.action === "string" ? normalizePetActionType(slot.action) : "",
           sortOrder: Number.isFinite(Number(slot?.sortOrder)) ? Number(slot.sortOrder) : slotIndex,
         }))
       : [],
@@ -329,7 +330,7 @@ async function getPetModePlans(petId: string): Promise<PetModePlanDTO[]> {
       id: slot.id,
       start: slot.start,
       end: slot.end,
-      action: slot.action,
+      action: normalizePetActionType(slot.action),
       sortOrder: slot.sortOrder,
     })),
   }));

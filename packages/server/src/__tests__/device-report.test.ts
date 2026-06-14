@@ -129,8 +129,14 @@ describe("Device Report Routes", () => {
           },
         ],
         allActionTypes: [...ALL_ACTIONS],
+        scheduleTimeZone: "Asia/Shanghai",
         activityMode: "free",
         modePlans: [],
+        systemSchedule: {
+          timeZone: "Asia/Shanghai",
+          schedule: null,
+          blocks: [],
+        },
       });
     });
 
@@ -177,8 +183,14 @@ describe("Device Report Routes", () => {
         collarChipId: "collar-chip-1",
         files: [],
         allActionTypes: [...ALL_ACTIONS],
+        scheduleTimeZone: "Asia/Shanghai",
         activityMode: "free",
         modePlans: [],
+        systemSchedule: {
+          timeZone: "Asia/Shanghai",
+          schedule: null,
+          blocks: [],
+        },
       });
     });
 
