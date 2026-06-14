@@ -123,6 +123,7 @@ describe("Device Report Routes", () => {
         files: [
           {
             actionType: "lay",
+            path: "/lay/lay.mjpeg",
             hash: "sha256-lay",
             url: "https://pet-wechat.yangl.com.cn/storage/avatars/avatar-1/lay.mjpeg",
           },
