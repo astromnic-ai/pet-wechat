@@ -26,7 +26,7 @@ const lastDispatchedActions = new Map<string, string>();
 let schedulerTimer: ReturnType<typeof setInterval> | null = null;
 
 function getEffectiveTypePriority(type: string) {
-  if (type === "friday") return 0;
+  if (type === "weekend") return 0;
   if (type === "weekday") return 1;
   return 2;
 }

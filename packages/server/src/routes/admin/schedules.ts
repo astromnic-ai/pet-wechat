@@ -6,7 +6,7 @@ import { createId } from "../../utils/id";
 import { ALL_ACTIONS, SCHEDULE_SPECIES } from "shared";
 
 type ScheduleSpecies = (typeof SCHEDULE_SPECIES)[number];
-type ScheduleEffectiveType = "everyday" | "weekday" | "friday";
+type ScheduleEffectiveType = "everyday" | "weekday" | "weekend";
 type ScheduleBlockInput = {
   actionType: string;
   startMinutes: number;
@@ -22,7 +22,7 @@ type ScheduleInput = {
 
 const VALID_SPECIES = new Set<string>(SCHEDULE_SPECIES);
 const VALID_ACTIONS = new Set<string>(ALL_ACTIONS);
-const VALID_EFFECTIVE_TYPES = new Set<ScheduleEffectiveType>(["everyday", "weekday", "friday"]);
+const VALID_EFFECTIVE_TYPES = new Set<ScheduleEffectiveType>(["everyday", "weekday", "weekend"]);
 
 const schedulesRoute = new Hono();
 
@@ -48,7 +48,7 @@ function validateScheduleInput(body: ScheduleInput) {
     typeof body.effectiveType !== "string" ||
     !VALID_EFFECTIVE_TYPES.has(body.effectiveType as ScheduleEffectiveType)
   ) {
-    return "effectiveType 必须是 everyday、weekday 或 friday";
+    return "effectiveType 必须是 everyday、weekday 或 weekend";
   }
 
   if (!Array.isArray(body.blocks)) {

@@ -26,7 +26,7 @@ import {
 import { api } from "../api/client";
 
 type ScheduleSpecies = (typeof SCHEDULE_SPECIES)[number];
-type ScheduleEffectiveType = "everyday" | "weekday" | "friday";
+type ScheduleEffectiveType = "everyday" | "weekday" | "weekend";
 type BlockModalMode = "create" | "edit";
 type BlockFormState = {
   actionType: ActionType;
@@ -64,13 +64,13 @@ const speciesEnglishLabels: Record<ScheduleSpecies, string> = {
 const effectiveTypeLabels: Record<ScheduleEffectiveType, string> = {
   everyday: "每天",
   weekday: "仅工作日",
-  friday: "仅美好的周五",
+  weekend: "仅周末",
 };
 
 const effectiveTypeEnglishLabels: Record<ScheduleEffectiveType, string> = {
   everyday: "Daily",
   weekday: "Weekdays Only",
-  friday: "Beauty Friday Only",
+  weekend: "Weekends Only",
 };
 
 const actionEnglishLabels: Partial<Record<ActionType, string>> = {
@@ -493,6 +493,24 @@ function pickDefaultSchedule(
 ) {
   const speciesSchedules = getSchedulesForSpecies(schedules, draftSchedule, species);
   return speciesSchedules.find((schedule) => schedule.isActive) ?? speciesSchedules[0] ?? null;
+}
+
+function getScheduleTagColor(schedule: BehaviorSchedule) {
+  if (isDraftSchedule(schedule.id)) {
+    return "default";
+  }
+
+  if (schedule.isActive) {
+    return "green";
+  }
+
+  const colors: Record<ScheduleEffectiveType, string> = {
+    everyday: "blue",
+    weekday: "geekblue",
+    weekend: "purple",
+  };
+
+  return colors[schedule.effectiveType as ScheduleEffectiveType] ?? "blue";
 }
 
 export default function Schedules() {
@@ -928,15 +946,19 @@ export default function Schedules() {
   };
 
   const handleActivateSchedule = async () => {
-    if (!editorSchedule || isDraftSchedule(editorSchedule.id)) {
-      messageApi.error("请先保存日程后再激活");
+    if (!editorSchedule) {
       return;
     }
 
     setActivating(true);
     try {
-      const response = await api.activateSchedule(editorSchedule.id);
-      await refreshSchedules(response.schedule.id, draftSchedule, editorSchedule.species);
+      const scheduleId = await persistSchedule();
+      if (!scheduleId) {
+        return;
+      }
+
+      const response = await api.activateSchedule(scheduleId);
+      await refreshSchedules(response.schedule.id, null, editorSchedule.species);
       messageApi.success("当前日程已激活");
     } catch (error) {
       const text = error instanceof Error ? error.message : "激活失败";
@@ -956,6 +978,7 @@ export default function Schedules() {
             <div style={{ color: "#8c8c8c", fontSize: 13 }}>宠物类型</div>
             {SCHEDULE_SPECIES.map((species) => {
               const schedule = pickDefaultSchedule(schedules, draftSchedule, species);
+              const speciesSchedules = getSchedulesForSpecies(schedules, draftSchedule, species);
               const selected = species === activeSpecies;
 
               return (
@@ -974,12 +997,24 @@ export default function Schedules() {
                     {schedule ? schedule.name : loading ? "加载中..." : "暂无配置"}
                   </div>
                   <Space size={6} wrap>
-                    {schedule ? (
-                      <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-                        {effectiveTypeLabels[schedule.effectiveType as ScheduleEffectiveType] ?? schedule.effectiveType}
+                    {speciesSchedules.map((item) => (
+                      <Tag
+                        key={item.id}
+                        color={getScheduleTagColor(item)}
+                        style={{ marginInlineEnd: 0, cursor: "pointer" }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setActiveSpecies(species);
+                          setSelectedScheduleId(item.id);
+                          setSelectedBlockId(null);
+                        }}
+                      >
+                        {effectiveTypeLabels[item.effectiveType as ScheduleEffectiveType] ?? item.effectiveType}
+                        {item.isActive ? " · 已应用" : ""}
+                        {isDraftSchedule(item.id) ? " · 未保存" : ""}
                       </Tag>
-                    ) : null}
-                    {schedule?.isActive ? <Badge status="success" text="已应用" /> : null}
+                    ))}
+                    {speciesSchedules.length === 0 && !loading ? <Tag style={{ marginInlineEnd: 0 }}>暂无配置</Tag> : null}
                   </Space>
                 </div>
               );
@@ -1194,7 +1229,7 @@ export default function Schedules() {
           <div>
             <div style={{ marginBottom: 8, color: "#595959", fontSize: 13 }}>循环规则</div>
             <Space direction="vertical" size={10} style={{ width: "100%" }}>
-              {(["everyday", "weekday", "friday"] as ScheduleEffectiveType[]).map((rule) => {
+              {(["everyday", "weekday", "weekend"] as ScheduleEffectiveType[]).map((rule) => {
                 const selected = editorSchedule?.effectiveType === rule;
                 return (
                   <div
@@ -1277,7 +1312,7 @@ export default function Schedules() {
                 type="primary"
                 block
                 loading={activating}
-                disabled={!editorSchedule || isDraftSchedule(editorSchedule.id)}
+                disabled={!editorSchedule}
                 onClick={() => void handleActivateSchedule()}
               >
                 应用当前配置

@@ -196,7 +196,7 @@ async function uploadAdminFile(path: string, file: File): Promise<{ url: string;
 async function uploadAdminAsset(
   path: string,
   file: File,
-  contentType?: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+  contentType?: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/mjpeg" | "video/x-motion-jpeg",
 ): Promise<{ url: string; fileId: string }> {
   const formData = new FormData();
   formData.append("file", file);
@@ -301,6 +301,8 @@ export const api = {
   getAvatarActions: (id: string) => request<{ actions: any[] }>(`/avatars/${id}/actions`),
   createAvatarAction: (id: string, data: { actionType: string; imageUrl: string }) =>
     request<{ action: any }>(`/avatars/${id}/actions`, { method: "POST", body: JSON.stringify(data) }),
+  updateAvatarHomepageImage: (id: string, data: { homepageImageUrl: string | null }) =>
+    request<{ avatar: any }>(`/avatars/${id}/homepage-image`, { method: "PUT", body: JSON.stringify(data) }),
   saveAvatarActionCategory: (id: string, category: "basic" | "fun" | "interactive") =>
     request<{ category: string; saved: number; total: number; actions: any[]; avatarStatus: string }>(
       `/avatars/${id}/action-categories/${category}/save`,
@@ -368,7 +370,7 @@ export const api = {
     }),
   uploadAdminMedia: (
     file: File,
-    contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mjpeg" | "video/x-motion-jpeg",
+    contentType: "image/jpeg" | "image/png" | "image/webp" | "video/mp4" | "video/mjpeg" | "video/x-motion-jpeg",
   ) => uploadAdminAsset("/uploads", file, contentType),
 
   // OTA

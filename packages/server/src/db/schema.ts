@@ -38,7 +38,7 @@ export const avatarStatusEnum = pgEnum("avatar_status", [
 export const scheduleEffectiveTypeEnum = pgEnum("schedule_effective_type", [
   "everyday",
   "weekday",
-  "friday",
+  "weekend",
 ]);
 export const messageTypeEnum = pgEnum("message_type", [
   "authorization",
@@ -298,6 +298,7 @@ export const petAvatars = pgTable(
     id: text("id").primaryKey().$defaultFn(createId),
     petId: text("pet_id").notNull(),
     sourceImageUrl: text("source_image_url").notNull(),
+    homepageImageUrl: text("homepage_image_url"),
     additionalImageUrls: text("additional_image_urls"),
     petDescription: text("pet_description"),
     funFact: text("fun_fact"),

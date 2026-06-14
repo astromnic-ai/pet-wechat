@@ -43,15 +43,15 @@ export function getBeijingTimeValue(date: Date) {
   return `${String(parts.hour).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")}`;
 }
 
-export function getBeijingEffectiveTypes(date: Date): Array<"friday" | "weekday" | "everyday"> {
+export function getBeijingEffectiveTypes(date: Date): Array<"weekend" | "weekday" | "everyday"> {
   const { weekday } = getBeijingDateParts(date);
-  const types: Array<"friday" | "weekday" | "everyday"> = ["everyday"];
+  const types: Array<"weekend" | "weekday" | "everyday"> = ["everyday"];
 
   if (weekday >= 1 && weekday <= 5) {
     types.unshift("weekday");
   }
-  if (weekday === 5) {
-    types.unshift("friday");
+  if (weekday === 0 || weekday === 6) {
+    types.unshift("weekend");
   }
 
   return types;
