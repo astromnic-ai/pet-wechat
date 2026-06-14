@@ -200,31 +200,47 @@ async function getCollarChipId(petId: string) {
 }
 
 async function buildAvatarManifestFiles(petId: string) {
-  const [avatar] = await db
+  const avatars = await db
     .select()
     .from(petAvatars)
-    .where(and(eq(petAvatars.petId, petId), inArray(petAvatars.status, ["approved", "processing", "done"])))
+    .where(and(eq(petAvatars.petId, petId), eq(petAvatars.status, "done")))
     .orderBy(desc(petAvatars.createdAt))
-    .limit(1);
+    .limit(5);
 
-  if (!avatar) {
+  if (avatars.length === 0) {
     return [];
   }
 
   const actions = await db
     .select()
     .from(petAvatarActions)
-    .where(eq(petAvatarActions.petAvatarId, avatar.id))
+    .where(inArray(petAvatarActions.petAvatarId, avatars.map((avatar) => avatar.id)))
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
 
-  return actions
-    .filter((action) => action.videoUrl && action.videoHash)
-    .map((action) => ({
-      actionType: action.actionType,
-      path: `/${action.actionType}/${action.actionType}.mjpeg`,
-      hash: action.videoHash as string,
-      url: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl as string,
-    }));
+  const actionsByAvatarId = new Map<string, typeof actions>();
+  for (const action of actions) {
+    const current = actionsByAvatarId.get(action.petAvatarId) ?? [];
+    current.push(action);
+    actionsByAvatarId.set(action.petAvatarId, current);
+  }
+
+  for (const avatar of avatars) {
+    const files = (actionsByAvatarId.get(avatar.id) ?? [])
+      .filter((action) => ALL_ACTIONS.includes(action.actionType as typeof ALL_ACTIONS[number]))
+      .filter((action) => action.videoUrl && action.videoHash)
+      .map((action) => ({
+        actionType: action.actionType,
+        path: `${action.actionType}/${action.actionType}.mjpeg`,
+        hash: action.videoHash as string,
+        url: normalizePublicFileUrl(action.videoUrl) ?? action.videoUrl as string,
+      }));
+
+    if (new Set(files.map((file) => file.actionType)).size === ALL_ACTIONS.length) {
+      return files;
+    }
+  }
+
+  return [];
 }
 
 function normalizePetModeDays(value: unknown): PetModeWeekday[] {
