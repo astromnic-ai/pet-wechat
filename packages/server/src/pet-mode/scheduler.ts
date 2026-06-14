@@ -1,4 +1,4 @@
-import { actionToLabel } from "shared";
+import { actionToLabel, normalizePetActionType } from "shared";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "../db";
 import {
@@ -18,7 +18,6 @@ import {
   getBeijingMinutes,
   getBeijingTimeValue,
 } from "../utils/beijing-time";
-import { normalizePetActionType } from "../utils/pet-actions";
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const lastDispatchedActions = new Map<string, string>();

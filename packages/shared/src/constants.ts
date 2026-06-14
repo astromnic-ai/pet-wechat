@@ -101,6 +101,41 @@ export const ACTION_LABELS: Record<string, string> = {
   jumping: "跳跃",
 };
 
+const ACTION_ALIASES: Record<string, ActionType> = {
+  跑步: "base-run",
+  奔跑: "base-run",
+  走路: "base-walk",
+  散步: "base-walk",
+  睡眠: "base-sleep",
+  睡觉: "base-sleep",
+  进食: "base-eat",
+  吃东西: "base-eat",
+  休息: "base-lay",
+  趴下: "base-lay",
+  坐: "base-seat",
+  蹲坐: "base-seat",
+  站: "base-stand",
+  跳跃: "base-jump",
+};
+
+const validActionSet = new Set<string>(ALL_ACTIONS);
+const labelToAction = new Map<string, ActionType>();
+
+for (const action of ALL_ACTIONS) {
+  const label = ACTION_LABELS[action];
+  if (label && !labelToAction.has(label)) {
+    labelToAction.set(label, action);
+  }
+}
+
+export function normalizePetActionType(action: string) {
+  const value = String(action || "").trim();
+  if (!value) return "";
+  if (validActionSet.has(value)) return value;
+
+  return labelToAction.get(value) ?? ACTION_ALIASES[value] ?? value;
+}
+
 export const SCHEDULE_SPECIES = ["cat", "dog", "other"] as const;
 
 export const MEMBERSHIP_LEVEL_LABELS = {

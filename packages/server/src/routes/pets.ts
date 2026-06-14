@@ -14,12 +14,17 @@ import {
   deviceAuthorizations,
 } from "../db/schema";
 import { eq, and, isNull, inArray, gte, lte, desc, asc, sql } from "drizzle-orm";
-import type { PetActivityMode, PetLatestBehavior, PetModePlanDTO, PetModeWeekday } from "shared";
+import {
+  normalizePetActionType,
+  type PetActivityMode,
+  type PetLatestBehavior,
+  type PetModePlanDTO,
+  type PetModeWeekday,
+} from "shared";
 import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
 import { dispatchPetAction } from "../pet-mode/scheduler";
 import { clearRetainedDesktopConfig } from "../ota/mqtt-client";
-import { normalizePetActionType } from "../utils/pet-actions";
 
 const petsRoute = new Hono();
 const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;

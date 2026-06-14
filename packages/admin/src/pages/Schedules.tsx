@@ -73,34 +73,6 @@ const effectiveTypeEnglishLabels: Record<ScheduleEffectiveType, string> = {
   weekend: "Weekends Only",
 };
 
-const actionEnglishLabels: Partial<Record<ActionType, string>> = {
-  "base-seat": "base-seat",
-  "base-eat": "base-eat",
-  "base-sleep": "base-sleep",
-  "base-lay": "base-lay",
-  "base-run": "base-run",
-  "base-walk": "base-walk",
-  "base-stand": "base-stand",
-  "base-jump": "base-jump",
-  "funny-playball": "funny-playball",
-  "funny-toilet": "funny-toilet",
-  "funny-drinkwater": "funny-drinkwater",
-  "funny-chasing-the-tail": "funny-chasing-the-tail",
-  "funny-butterfly": "funny-butterfly",
-  "funny-dream": "funny-dream",
-  "funny-lick-paw": "funny-lick-paw",
-  "funny-spin-around": "funny-spin-around",
-  "touch-dizzy": "touch-dizzy",
-  "touch-get-closer": "touch-get-closer",
-  "touch-run-fast-6s": "touch-run-fast-6s",
-  "touch-woken-up-6s": "touch-woken-up-6s",
-  "touch-shrimp-6s": "touch-shrimp-6s",
-  "touch-well-behaved-miaomiao-6s": "touch-well-behaved-miaomiao-6s",
-  "touch-confused-6s": "touch-confused-6s",
-  "touch-walk-left-6s": "touch-walk-left-6s",
-  "touch-walk-right-6s": "touch-walk-right-6s",
-};
-
 const MINUTES_PER_DAY = 24 * 60;
 const TIMELINE_SEGMENT_MINUTES = 60;
 const TIMELINE_SEGMENT_HEIGHT = 72;
@@ -420,14 +392,16 @@ function getActionVisual(actionType: ActionType) {
     border: "#d7e0ef",
     background: "#f8fbff",
     text: "#2f3f57",
+    mutedText: "rgba(31, 41, 55, 0.68)",
   };
 
-  const map: Partial<Record<ActionType, typeof defaults>> = {
+  const map: Partial<Record<ActionType, Partial<typeof defaults>>> = {
     "base-sleep": {
-      dot: "#5b5ce9",
-      border: "#2f3952",
-      background: "#253247",
-      text: "#f4f6fb",
+      dot: "#64748b",
+      border: "#b8c4d8",
+      background: "#f1f5fb",
+      text: "#26364d",
+      mutedText: "rgba(38, 54, 77, 0.66)",
     },
     "base-lay": {
       dot: "#6f71f4",
@@ -461,7 +435,12 @@ function getActionVisual(actionType: ActionType) {
     },
   };
 
-  return map[actionType] ?? {
+  const visual = map[actionType];
+  if (visual) {
+    return { ...defaults, ...visual };
+  }
+
+  return {
     ...defaults,
     dot: actionColor(actionType),
     border: `${actionColor(actionType)}55`,
@@ -1142,7 +1121,7 @@ export default function Schedules() {
                                       textOverflow: "ellipsis",
                                     }}
                                   >
-                                    {ACTION_LABELS[block.actionType]} {actionEnglishLabels[block.actionType] ?? block.actionType}
+                                    {ACTION_LABELS[block.actionType] ?? block.actionType}
                                     {compact ? ` · ${formatTime(block.startMinutes)}-${formatTime(block.endMinutes)}` : ""}
                                   </div>
                                   {compact ? null : (
@@ -1150,7 +1129,7 @@ export default function Schedules() {
                                       style={{
                                         marginTop: 4,
                                         fontSize: 13,
-                                        color: "rgba(31, 41, 55, 0.68)",
+                                        color: visual.mutedText,
                                         lineHeight: 1.35,
                                       }}
                                     >

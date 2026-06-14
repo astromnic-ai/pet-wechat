@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { Hono } from "hono";
 import { z } from "zod";
-import { ALL_ACTIONS } from "shared";
+import { ALL_ACTIONS, normalizePetActionType } from "shared";
 import { db } from "../db";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { dispatchPetAction } from "../pet-mode/scheduler";
@@ -27,7 +27,6 @@ import {
 import { normalizePublicFileUrl } from "../utils/storage";
 import type { PetModePlanDTO, PetModeWeekday } from "shared";
 import { markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
-import { normalizePetActionType } from "../utils/pet-actions";
 
 const deviceReportRoute = new Hono();
 
