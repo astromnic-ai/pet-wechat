@@ -11,35 +11,19 @@ import {
   pets,
 } from "../db/schema";
 import { isConnected, publishPetAction } from "../ota/mqtt-client";
+import {
+  getBeijingDateKey,
+  getBeijingDateParts,
+  getBeijingEffectiveTypes,
+  getBeijingMinutes,
+  getBeijingTimeValue,
+} from "../utils/beijing-time";
+import { normalizePetActionType } from "../utils/pet-actions";
 
 const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 const lastDispatchedActions = new Map<string, string>();
 
 let schedulerTimer: ReturnType<typeof setInterval> | null = null;
-
-function getLocalDateKey(date: Date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
-
-function getLocalMinutes(date: Date) {
-  return date.getHours() * 60 + date.getMinutes();
-}
-
-function getEffectiveTypes(date: Date): Array<"friday" | "weekday" | "everyday"> {
-  const day = date.getDay();
-  const types: Array<"friday" | "weekday" | "everyday"> = ["everyday"];
-  if (day >= 1 && day <= 5) {
-    types.unshift("weekday");
-  }
-  if (day === 5) {
-    types.unshift("friday");
-  }
-  return types;
-}
 
 function getEffectiveTypePriority(type: string) {
   if (type === "friday") return 0;
@@ -55,7 +39,7 @@ async function resolveFreeAction(
   species: string,
   now: Date,
 ): Promise<string | null> {
-  const effectiveTypes = getEffectiveTypes(now);
+  const effectiveTypes = getBeijingEffectiveTypes(now);
   const schedules = await db
     .select()
     .from(behaviorSchedules)
@@ -76,17 +60,19 @@ async function resolveFreeAction(
 
   if (!schedule) return null;
 
-  const currentMinutes = getLocalMinutes(now);
+  const currentMinutes = getBeijingMinutes(now);
   const blocks = await db
     .select()
     .from(behaviorScheduleBlocks)
     .where(eq(behaviorScheduleBlocks.scheduleId, schedule.id))
     .orderBy(asc(behaviorScheduleBlocks.sortOrder), asc(behaviorScheduleBlocks.startMinutes));
 
-  return blocks.find(
+  const action = blocks.find(
     (item) =>
       item.startMinutes <= currentMinutes && currentMinutes < item.endMinutes,
   )?.actionType ?? null;
+
+  return action ? normalizePetActionType(action) : null;
 }
 
 async function resolveCustomAction(petId: string, now: Date): Promise<string | null> {
@@ -98,8 +84,8 @@ async function resolveCustomAction(petId: string, now: Date): Promise<string | n
 
   if (plans.length === 0) return null;
 
-  const today = getLocalDateKey(now);
-  const weekday = WEEKDAYS[now.getDay()];
+  const today = getBeijingDateKey(now);
+  const weekday = WEEKDAYS[getBeijingDateParts(now).weekday];
   const plan = plans.find((item) => {
     if (item.repeat === "weekly") {
       return Array.isArray(item.days) && item.days.includes(weekday);
@@ -109,17 +95,17 @@ async function resolveCustomAction(petId: string, now: Date): Promise<string | n
 
   if (!plan) return null;
 
-  const currentTime = `${String(now.getHours()).padStart(2, "0")}:${String(
-    now.getMinutes(),
-  ).padStart(2, "0")}`;
+  const currentTime = getBeijingTimeValue(now);
   const slots = await db
     .select()
     .from(petModeSlots)
     .where(eq(petModeSlots.planId, plan.id))
     .orderBy(asc(petModeSlots.sortOrder), asc(petModeSlots.id));
 
-  return slots.find((slot) => isCurrentSlot(slot.start, slot.end, currentTime))
+  const action = slots.find((slot) => isCurrentSlot(slot.start, slot.end, currentTime))
     ?.action ?? null;
+
+  return action ? normalizePetActionType(action) : null;
 }
 
 async function resolveRealAction(petId: string): Promise<string | null> {
@@ -133,7 +119,7 @@ async function resolveRealAction(petId: string): Promise<string | null> {
   return behavior?.actionType ?? null;
 }
 
-export async function resolveCurrentAction(petId: string): Promise<string | null> {
+export async function resolveCurrentAction(petId: string, now = new Date()): Promise<string | null> {
   const [pet] = await db
     .select({
       id: pets.id,
@@ -146,7 +132,6 @@ export async function resolveCurrentAction(petId: string): Promise<string | null
 
   if (!pet) return null;
 
-  const now = new Date();
   if (pet.activityMode === "free") {
     return resolveFreeAction(pet.species, now);
   }
