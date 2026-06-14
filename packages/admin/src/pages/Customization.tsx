@@ -42,7 +42,7 @@ import { api } from "../api/client";
 
 const { Text, Title } = Typography;
 const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg";
-const HOMEPAGE_MEDIA_ACCEPT = ".png,.mp4,image/png,video/mp4";
+const HOMEPAGE_IMAGE_ACCEPT = ".png,image/png";
 
 type CustomizationStatus = "approved" | "processing" | "done";
 type TaskTab = "pending" | "done";
@@ -207,19 +207,18 @@ function resolveMjpegContentType(file: File): UploadContentType {
   return "video/x-motion-jpeg";
 }
 
-function isHomepageMediaFile(file: File) {
+function isHomepageImageFile(file: File) {
   const ext = getFileExtension(file.name);
-  const allowedTypes = new Set(["image/png", "video/mp4", "application/octet-stream", ""]);
-  return (ext === "png" || ext === "mp4") && allowedTypes.has(file.type);
+  const allowedTypes = new Set(["image/png", "application/octet-stream", ""]);
+  return ext === "png" && allowedTypes.has(file.type);
 }
 
-function resolveHomepageMediaContentType(file: File): Extract<UploadContentType, "image/png" | "video/mp4"> {
-  const ext = getFileExtension(file.name);
-  if (file.type === "image/png" || ext === "png") {
-    return "image/png";
+function isPngUrl(url?: string | null) {
+  if (!url) {
+    return false;
   }
 
-  return "video/mp4";
+  return /\.png(?:$|[?#])/i.test(url);
 }
 
 function isVideoUrl(url?: string | null) {
@@ -235,7 +234,7 @@ function shouldPreviewAsVideo(mode: "action" | "homepage", file: File | null, pr
     return (file ? isMjpegFile(file) : false) || isVideoUrl(previewUrl);
   }
 
-  return (file ? resolveHomepageMediaContentType(file) === "video/mp4" : false) || isVideoUrl(previewUrl);
+  return false;
 }
 
 function parseAdditionalImages(rawValue?: string | null) {
@@ -752,17 +751,22 @@ export default function Customization() {
       let homepageImage = uploadImageUrl.trim();
 
       if (uploadFile) {
-        if (!isHomepageMediaFile(uploadFile)) {
-          messageApi.warning("仅支持 PNG 图片或 MP4 视频文件");
+        if (!isHomepageImageFile(uploadFile)) {
+          messageApi.warning("仅支持 PNG 图片文件");
           return;
         }
 
-        const uploadResult = await api.uploadAdminMedia(uploadFile, resolveHomepageMediaContentType(uploadFile));
+        const uploadResult = await api.uploadAdminMedia(uploadFile, "image/png");
         homepageImage = uploadResult.url;
       }
 
       if (!homepageImage) {
-        messageApi.warning("请先选择 PNG/MP4 文件或输入主页图 URL");
+        messageApi.warning("请先选择 PNG 文件或输入主页图 URL");
+        return;
+      }
+
+      if (!isPngUrl(homepageImage)) {
+        messageApi.warning("主页图必须是 PNG 格式");
         return;
       }
 
@@ -1360,11 +1364,11 @@ export default function Customization() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Text type="secondary">
-              {uploadMode === "homepage" ? "上传 PNG 图片或 MP4 视频文件" : "上传 MJPEG 视频文件"}
+              {uploadMode === "homepage" ? "上传 PNG 图片文件" : "上传 MJPEG 视频文件"}
             </Text>
             <input
               type="file"
-              accept={uploadMode === "homepage" ? HOMEPAGE_MEDIA_ACCEPT : CUSTOMIZATION_VIDEO_ACCEPT}
+              accept={uploadMode === "homepage" ? HOMEPAGE_IMAGE_ACCEPT : CUSTOMIZATION_VIDEO_ACCEPT}
               onChange={(event) => {
                 const nextFile = event.target.files?.[0] ?? null;
                 setUploadFile(nextFile);
@@ -1376,7 +1380,7 @@ export default function Customization() {
           </div>
 
           <Input
-            placeholder={uploadMode === "homepage" ? "或输入主页图 URL（PNG/MP4）" : "或输入 MJPEG 视频 URL"}
+            placeholder={uploadMode === "homepage" ? "或输入主页图 URL（PNG）" : "或输入 MJPEG 视频 URL"}
             value={uploadImageUrl}
             onChange={(event) => {
               setUploadImageUrl(event.target.value);
@@ -1408,7 +1412,7 @@ export default function Customization() {
             </div>
           ) : (
             <Empty
-              description={uploadMode === "homepage" ? "选择 PNG/MP4 文件或输入 URL 后可预览" : "选择 MJPEG 视频文件或输入视频 URL 后可预览"}
+              description={uploadMode === "homepage" ? "选择 PNG 文件或输入 URL 后可预览" : "选择 MJPEG 视频文件或输入视频 URL 后可预览"}
               image={Empty.PRESENTED_IMAGE_SIMPLE}
             />
           )}

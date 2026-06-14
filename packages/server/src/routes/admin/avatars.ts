@@ -106,6 +106,10 @@ function toActionResponse(action: AvatarAction) {
   };
 }
 
+function isPngUrl(url: string) {
+  return /\.png(?:$|[?#])/i.test(url);
+}
+
 async function getAvatarRow(avatarId: string) {
   const [row] = await db
     .select({
@@ -484,6 +488,10 @@ avatarsRoute.put("/avatars/:id/homepage-image", async (c) => {
 
   if (homepageImageUrl && !isManagedStorageUrl(homepageImageUrl)) {
     return c.json({ error: "Invalid homepageImageUrl" }, 400);
+  }
+
+  if (homepageImageUrl && !isPngUrl(homepageImageUrl)) {
+    return c.json({ error: "Homepage image must be PNG" }, 400);
   }
 
   const row = await getAvatarRow(avatarId);
