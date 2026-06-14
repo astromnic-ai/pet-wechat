@@ -1078,10 +1078,8 @@ export default function Schedules() {
                             const isSelected = selectedBlockId === block.id;
                             const visual = getActionVisual(block.actionType);
                             const top = minutesToTimelineOffset(block.startMinutes);
-                            const blockHeight = Math.max(
-                              28,
-                              minutesToTimelineOffset(block.endMinutes) - minutesToTimelineOffset(block.startMinutes),
-                            );
+                            const blockHeight =
+                              minutesToTimelineOffset(block.endMinutes) - minutesToTimelineOffset(block.startMinutes);
                             const compact = blockHeight < 52;
 
                             return (
@@ -1098,12 +1096,13 @@ export default function Schedules() {
                                   left: 12,
                                   right: 12,
                                   height: blockHeight,
+                                  boxSizing: "border-box",
                                   borderRadius: 6,
                                   border: `2px solid ${isSelected ? visual.dot : visual.border}`,
                                   background: visual.background,
-                                  padding: compact ? "5px 36px 5px 14px" : "14px 42px 14px 16px",
+                                  padding: compact ? "1px 36px 1px 14px" : "14px 42px 14px 16px",
                                   display: "flex",
-                                  alignItems: "flex-start",
+                                  alignItems: compact ? "center" : "flex-start",
                                   cursor: dragState?.blockId === block.id ? "grabbing" : "grab",
                                   boxShadow: isSelected ? `0 0 0 2px ${visual.border}` : "none",
                                   overflow: "hidden",
@@ -1112,10 +1111,10 @@ export default function Schedules() {
                                 <div style={{ minWidth: 0, width: "100%" }}>
                                   <div
                                     style={{
-                                      fontSize: compact ? 13 : 14,
+                                      fontSize: compact ? 12 : 14,
                                       fontWeight: 700,
                                       color: visual.text,
-                                      lineHeight: 1.3,
+                                      lineHeight: compact ? 1.1 : 1.3,
                                       whiteSpace: "nowrap",
                                       overflow: "hidden",
                                       textOverflow: "ellipsis",
