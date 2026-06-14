@@ -141,6 +141,7 @@ export interface DeviceSummary {
   firmwareVersion: string | null;
   claimStatus: DeviceClaimStatus;
   usageDurationMinutes: number;
+  interactionCount: number;
   upgradeStatus: DeviceUpgradeStatus;
   lastOnlineAt: string | null;
   inactiveDays: number | null;

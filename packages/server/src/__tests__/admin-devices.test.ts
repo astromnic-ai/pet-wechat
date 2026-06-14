@@ -143,6 +143,48 @@ describe("Admin Device Routes", () => {
     expect(json.items[0].chipId).toBe("desktop-chip-1");
   });
 
+  it("maps stale online desktops to offline on the unified devices list", async () => {
+    mockDb._results.execute = [
+      [
+        {
+          type: "desktop",
+          id: "desktop-1",
+          name: "Lobby Display",
+          chip_id: "desktop-chip-1",
+          mac_address: "11:22:33:44:55:66",
+          status: "online",
+          claim_status: "occupied",
+          upgrade_status: "idle",
+          firmware_version: "2.1.0",
+          user_id: "user-1",
+          user_nickname: "Alice",
+          pet_id: null,
+          pet_name: null,
+          pet_species: null,
+          pet_avatar_url: null,
+          battery: null,
+          signal: null,
+          last_online_at: new Date(Date.now() - 11 * 60 * 1000),
+          created_at: "2026-04-19T08:00:00.000Z",
+          has_uploaded_avatar: false,
+          avatar_uploaded: 0,
+          avatar_total: 10,
+          avatar_approved: 0,
+          avatar_pending: 0,
+          binding_count: 0,
+          binding_started_at: null,
+        },
+      ],
+      [{ total: 1 }],
+    ];
+
+    const res = await app.request(jsonReq("GET", "/api/admin/devices?status=offline"));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.items[0].status).toBe("offline");
+  });
+
   it("returns firmwareVersion in device detail", async () => {
     mockDb._results.execute = [
       [

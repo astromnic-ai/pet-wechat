@@ -14,7 +14,7 @@ import { ALL_ACTIONS } from "shared";
 import { db } from "../../db";
 import { users, pets, collarDevices, desktopDevices, desktopPetBindings, petAvatars, petBehaviors } from "../../db/schema";
 import { createId } from "../../utils/id";
-import { getEffectiveDeviceStatus } from "../../utils/device-status";
+import { DEVICE_ONLINE_TIMEOUT_MS, getEffectiveDeviceStatus } from "../../utils/device-status";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../../utils/mac";
 import { buildPageResponse, parsePagination } from "../../utils/pagination";
 import { normalizePublicFileUrl } from "../../utils/storage";
@@ -292,6 +292,44 @@ function toTextArraySql(values: readonly string[]) {
   return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
 }
 
+function buildEffectiveStatusCondition(status: DeviceStatus) {
+  const timeoutMs = DEVICE_ONLINE_TIMEOUT_MS;
+
+  if (status === "online") {
+    return sql`
+      (
+        (merged_devices.type <> 'desktop' AND merged_devices.status = 'online')
+        OR
+        (
+          merged_devices.type = 'desktop'
+          AND merged_devices.status = 'online'
+          AND merged_devices.last_online_at IS NOT NULL
+          AND EXTRACT(EPOCH FROM (NOW() - merged_devices.last_online_at)) * 1000 <= ${timeoutMs}
+        )
+      )
+    `;
+  }
+
+  if (status === "offline") {
+    return sql`
+      (
+        (merged_devices.type <> 'desktop' AND merged_devices.status = 'offline')
+        OR
+        (
+          merged_devices.type = 'desktop'
+          AND (
+            merged_devices.status <> 'online'
+            OR merged_devices.last_online_at IS NULL
+            OR EXTRACT(EPOCH FROM (NOW() - merged_devices.last_online_at)) * 1000 > ${timeoutMs}
+          )
+        )
+      )
+    `;
+  }
+
+  return sql`merged_devices.status = ${status}`;
+}
+
 function getDeviceAggregationCtes() {
   return sql`
     WITH avatar_counts_by_pet AS (
@@ -451,7 +489,7 @@ function buildDeviceListWhereClause(filters: DeviceListFilters) {
   }
 
   if (filters.status !== "all") {
-    conditions.push(sql`merged_devices.status = ${filters.status}`);
+    conditions.push(buildEffectiveStatusCondition(filters.status));
   }
 
   if (filters.bindingStatus === "bound") {

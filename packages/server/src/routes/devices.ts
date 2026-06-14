@@ -7,11 +7,13 @@ import {
   desktopPetBindings,
   deviceAuthorizations,
   firmwareReleases,
+  interactionEvents,
   inviteCodes,
+  petBehaviors,
   pets,
   users,
 } from "../db/schema";
-import { eq, and, isNull, desc } from "drizzle-orm";
+import { eq, and, isNull, desc, sql } from "drizzle-orm";
 import { generateInviteCode, verifyInviteCode } from "../utils/invite";
 import { normalizeMac, NORMALIZED_MAC_REGEX } from "../utils/mac";
 import { getEffectiveDeviceStatus } from "../utils/device-status";
@@ -214,6 +216,35 @@ async function getOwnedDesktops(userId: string) {
   }
 
   return Array.from(desktops.values());
+}
+
+type DeviceInteractionCountRow = {
+  device_key: string;
+  count: number | string;
+};
+
+async function getDeviceInteractionCounts(userId: string) {
+  const rows = await db.execute<DeviceInteractionCountRow>(sql`
+    SELECT device_key, SUM(count)::int AS count
+    FROM (
+      SELECT CONCAT('collar:', ${collarDevices.id}) AS device_key, COUNT(${petBehaviors.id})::int AS count
+      FROM ${collarDevices}
+      LEFT JOIN ${petBehaviors} ON ${petBehaviors.collarDeviceId} = ${collarDevices.id}
+      WHERE ${collarDevices.userId} = ${userId}
+      GROUP BY ${collarDevices.id}
+
+      UNION ALL
+
+      SELECT CONCAT('desktop:', ${desktopDevices.id}) AS device_key, COUNT(${interactionEvents.id})::int AS count
+      FROM ${desktopDevices}
+      LEFT JOIN ${interactionEvents} ON ${interactionEvents.deviceId} = ${desktopDevices.id}
+      WHERE ${desktopDevices.userId} = ${userId}
+      GROUP BY ${desktopDevices.id}
+    ) device_counts
+    GROUP BY device_key
+  `);
+
+  return new Map(rows.map((row) => [row.device_key, Number(row.count) || 0]));
 }
 
 async function releaseCollarOwnership(userId: string, id: string) {
@@ -644,9 +675,10 @@ devicesRoute.delete("/desktops/:id", async (c) => {
 
 devicesRoute.get("/", async (c) => {
   const userId = c.get("userId" as never) as string;
-  const [collars, desktops] = await Promise.all([
+  const [collars, desktops, interactionCounts] = await Promise.all([
     db.select().from(collarDevices).where(eq(collarDevices.userId, userId)),
     getOwnedDesktops(userId),
+    getDeviceInteractionCounts(userId),
   ]);
 
   const devices = [
@@ -662,6 +694,7 @@ devicesRoute.get("/", async (c) => {
       firmwareVersion: collar.firmwareVersion,
       claimStatus: collar.claimStatus,
       usageDurationMinutes: collar.usageDurationMinutes,
+      interactionCount: interactionCounts.get(`collar:${collar.id}`) ?? 0,
       upgradeStatus: collar.upgradeStatus,
       lastOnlineAt: collar.lastOnlineAt,
       ...getInactiveMeta(collar.lastOnlineAt),
@@ -680,6 +713,7 @@ devicesRoute.get("/", async (c) => {
       firmwareVersion: desktop.firmwareVersion,
       claimStatus: desktop.claimStatus,
       usageDurationMinutes: desktop.usageDurationMinutes,
+      interactionCount: interactionCounts.get(`desktop:${desktop.id}`) ?? 0,
       upgradeStatus: desktop.upgradeStatus,
       lastOnlineAt: desktop.lastOnlineAt,
       ...getInactiveMeta(desktop.lastOnlineAt),
