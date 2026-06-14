@@ -38,7 +38,7 @@ export default function Splash() {
       <View className="splash-content">
         <View className="hero-area">
           <View className="hero-badge">
-            <Image className="hero-image" src={require("@/assets/images/splash-logo.png")} mode="aspectFit" />
+            <Image className="hero-image" src={require("@/assets/images/logo.png")} mode="aspectFit" />
           </View>
           <View className="progress-bar">
             <View className="progress-fill" style={{ width: `${Math.min(progress, 100)}%` }} />
