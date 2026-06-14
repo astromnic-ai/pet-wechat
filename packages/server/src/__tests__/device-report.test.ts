@@ -269,6 +269,56 @@ describe("Device Report Routes", () => {
       expect((mockDb._calls.update[0] as any).set.updatedAt).toBeInstanceOf(Date);
     });
 
+    it("increments collar usage duration for continuous online heartbeats", async () => {
+      mockDb._results.select = [[
+        fakeCollar({
+          macAddress: "AABBCCDDEEFF",
+          status: "online",
+          lastOnlineAt: new Date(Date.now() - 3 * 60 * 1000),
+        }),
+      ]];
+      mockDb._results.update = [[fakeCollar({ macAddress: "AABBCCDDEEFF", status: "online", lastOnlineAt: new Date() })]];
+
+      const res = await app.request(
+        jsonReq("POST", "/api/device-report/heartbeat", {
+          headers: deviceSecretHeaders(),
+          body: {
+            macAddress: "AA:BB:CC:DD:EE:FF",
+            type: "collar",
+            status: "online",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect((mockDb._calls.update[0] as any).set.usageDurationMinutes).toBeDefined();
+    });
+
+    it("does not backfill usage duration after the heartbeat timeout", async () => {
+      mockDb._results.select = [[
+        fakeDesktop({
+          macAddress: "112233445566",
+          status: "online",
+          lastOnlineAt: new Date(Date.now() - 11 * 60 * 1000),
+        }),
+      ]];
+      mockDb._results.update = [[fakeDesktop({ macAddress: "112233445566", status: "online", lastOnlineAt: new Date() })]];
+
+      const res = await app.request(
+        jsonReq("POST", "/api/device-report/heartbeat", {
+          headers: deviceSecretHeaders(),
+          body: {
+            macAddress: "11:22:33:44:55:66",
+            type: "desktop",
+            status: "online",
+          },
+        }),
+      );
+
+      expect(res.status).toBe(200);
+      expect((mockDb._calls.update[0] as any).set.usageDurationMinutes).toBeUndefined();
+    });
+
     it("updates desktop status and ignores battery/signal", async () => {
       const updatedDesktop = fakeDesktop({
         macAddress: "112233445566",

@@ -28,6 +28,7 @@ type DeviceCard = {
   inactiveDays: number | null;
   isInactive: boolean;
   usageDurationMinutes: number;
+  interactionCount: number;
   claimStatus: DeviceSummary["claimStatus"];
   upgradeStatus: DeviceSummary["upgradeStatus"];
   firmwareStatus: DeviceFirmwareStatus | null;
@@ -48,16 +49,17 @@ function getSignalText(type: "collar" | "desktop", status?: DeviceStatus) {
 
 function getDeviceNote(item: DeviceCard) {
   const usage = getUsageLabel(item.usageDurationMinutes);
+  const interactions = `互动${item.interactionCount}次`;
 
   if (item.petName) {
-    return `${usage} · 已关联${item.petName}`;
+    return `${usage} · ${interactions} · 已关联${item.petName}`;
   }
 
   if (item.claimStatus === "reset_required") {
-    return `${usage} · 设备等待恢复出厂设置`;
+    return `${usage} · ${interactions} · 设备等待恢复出厂设置`;
   }
 
-  return `${usage} · 暂未绑定宠物`;
+  return `${usage} · ${interactions} · 暂未绑定宠物`;
 }
 
 function getFirmwareText(item: DeviceCard) {
@@ -153,6 +155,7 @@ export default function Devices() {
           inactiveDays: item.inactiveDays,
           isInactive: item.isInactive,
           usageDurationMinutes: item.usageDurationMinutes,
+          interactionCount: item.interactionCount,
           claimStatus: item.claimStatus,
           upgradeStatus: item.upgradeStatus,
           firmwareStatus,
@@ -172,6 +175,7 @@ export default function Devices() {
           inactiveDays: item.inactiveDays,
           isInactive: item.isInactive,
           usageDurationMinutes: item.usageDurationMinutes,
+          interactionCount: item.interactionCount,
           claimStatus: item.claimStatus,
           upgradeStatus: item.upgradeStatus,
           firmwareStatus,
@@ -196,6 +200,7 @@ export default function Devices() {
           inactiveDays: item.inactiveDays,
           isInactive: item.isInactive,
           usageDurationMinutes: item.usageDurationMinutes,
+          interactionCount: item.interactionCount,
           claimStatus: item.claimStatus,
           upgradeStatus: item.upgradeStatus,
           firmwareStatus,

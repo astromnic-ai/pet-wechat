@@ -357,8 +357,38 @@ describe("Device Routes", () => {
       const json = await res.json();
       expect(json.devices).toHaveLength(1);
       expect(json.devices[0].usageDurationMinutes).toBe(180);
+      expect(json.devices[0].interactionCount).toBe(0);
       expect(json.devices[0].isInactive).toBe(true);
       expect(json.devices[0].claimStatus).toBe("occupied");
+    });
+
+    it("returns device interaction counts", async () => {
+      mockDb._results.select = [
+        [fakeCollar({ id: "collar-1" })],
+        [
+          {
+            desktop: fakeDesktop({ id: "desktop-1" }),
+            bindingId: null,
+            bindingPetId: null,
+            bindingType: null,
+          },
+        ],
+      ];
+      mockDb._results.execute = [
+        [
+          { device_key: "collar:collar-1", count: 3 },
+          { device_key: "desktop:desktop-1", count: 5 },
+        ],
+      ];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(jsonReq("GET", "/api/devices", { headers }));
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.devices).toHaveLength(2);
+      expect(json.devices.find((device: any) => device.deviceType === "collar").interactionCount).toBe(3);
+      expect(json.devices.find((device: any) => device.deviceType === "desktop").interactionCount).toBe(5);
     });
 
     it("derives desktop offline state from a 10 minute heartbeat timeout", async () => {
