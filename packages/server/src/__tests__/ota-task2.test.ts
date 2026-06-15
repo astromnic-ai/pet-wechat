@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { handleOtaMqttMessage } from "../ota/mqtt-handlers";
 import { handleRollback } from "../ota/rollback-handler";
 import { compare, isValid } from "../ota/version-cmp";
+import { fakeBinding, fakeDesktop } from "./helpers";
 import { mockDb } from "./setup";
 
 describe("OTA version compare", () => {
@@ -87,5 +88,43 @@ describe("OTA MQTT status handler", () => {
       firmwareVersion: "v0.8.87",
     });
     expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("OTA MQTT event handler", () => {
+  beforeEach(() => {
+    mockDb._reset();
+  });
+
+  it("writes a desktop interaction event when a touch event arrives", async () => {
+    mockDb._results.select = [
+      [fakeDesktop({ id: "desktop-1", chipId: "30f45ac5e658", userId: "user-1" })],
+      [fakeBinding({ desktopDeviceId: "desktop-1", petId: "pet-1" })],
+    ];
+    mockDb._results.insert = [[]];
+
+    await handleOtaMqttMessage(
+      "pet/30f45ac5e658/event",
+      Buffer.from(JSON.stringify({ v: 1, type: "touch", sub: "light", ts: 12345 })),
+    );
+
+    expect(mockDb._calls.insert).toHaveLength(1);
+    expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+      userId: "user-1",
+      petId: "pet-1",
+      deviceId: "desktop-1",
+      actionType: "touch_light",
+    });
+    expect((mockDb._calls.insert[0] as any).values.occurredAt).toBeInstanceOf(Date);
+  });
+
+  it("ignores device diagnostic events for interaction stats", async () => {
+    await handleOtaMqttMessage(
+      "pet/30f45ac5e658/event",
+      Buffer.from(JSON.stringify({ v: 1, type: "action_missing", sub: "base-jump", ts: 12345 })),
+    );
+
+    expect(mockDb._calls.select).toHaveLength(0);
+    expect(mockDb._calls.insert).toHaveLength(0);
   });
 });

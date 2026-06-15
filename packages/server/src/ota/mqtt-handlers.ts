@@ -1,22 +1,25 @@
 import type { OtaProgressPayload, OtaStage, StatusPayload } from "shared";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "../db";
 import {
   desktopPetBindings,
+  desktopDevices,
   deviceRegistry,
+  interactionEvents,
   otaProgress,
 } from "../db/schema";
 import { dispatchPetAction } from "../pet-mode/scheduler";
-import { markDesktopOnlineByChipId } from "../utils/device-status";
+import { markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
 import { clearRetainedOtaCommand } from "./mqtt-client";
 import { handleRollback } from "./rollback-handler";
 
 const TERMINAL_STAGES = new Set<OtaStage>(["verified", "failed", "rolled_back"]);
+const INTERACTION_EVENT_TYPES = new Set(["touch", "button", "imu"]);
 
 function parseTopic(topic: string) {
-  const match = /^pet\/([^/]+)\/(status|ota)$/.exec(topic);
+  const match = /^pet\/([^/]+)\/(status|ota|event)$/.exec(topic);
   if (!match) return null;
-  return { chipId: match[1], kind: match[2] as "status" | "ota" };
+  return { chipId: match[1], kind: match[2] as "status" | "ota" | "event" };
 }
 
 function parseJsonPayload(payload: Buffer) {
@@ -61,6 +64,26 @@ function normalizeProgress(value: unknown): OtaProgressPayload | null {
     reason: typeof payload.reason === "string" ? payload.reason : undefined,
     ts: asNumber(payload.ts) ?? Date.now(),
   };
+}
+
+function normalizeEvent(value: unknown) {
+  if (!value || typeof value !== "object") {
+    throw new Error("event payload must be an object");
+  }
+
+  const payload = value as Record<string, unknown>;
+  if (typeof payload.type !== "string" || payload.type.trim().length === 0) {
+    throw new Error("event payload missing type");
+  }
+
+  const type = payload.type.trim();
+  const sub = typeof payload.sub === "string" ? payload.sub.trim() : "";
+  const actionType = sub ? `${type}_${sub}` : type;
+  if (actionType.length > 64) {
+    throw new Error("event actionType is too long");
+  }
+
+  return { type, actionType };
 }
 
 async function handleStatus(chipId: string, payload: Buffer) {
@@ -156,6 +179,54 @@ async function handleOta(chipId: string, payload: Buffer) {
   }
 }
 
+async function handleEvent(chipId: string, payload: Buffer) {
+  if (payload.length === 0) return;
+
+  const event = normalizeEvent(parseJsonPayload(payload));
+  if (!INTERACTION_EVENT_TYPES.has(event.type)) return;
+
+  const normalizedChipId = normalizeDeviceChipId(chipId);
+  if (!normalizedChipId) return;
+
+  const [desktop] = await db
+    .select()
+    .from(desktopDevices)
+    .where(
+      eq(
+        sql<string>`LOWER(REPLACE(${desktopDevices.chipId}, ':', ''))`,
+        normalizedChipId,
+      ),
+    )
+    .limit(1);
+
+  if (!desktop?.userId) return;
+
+  const [binding] = await db
+    .select()
+    .from(desktopPetBindings)
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktop.id),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
+    .orderBy(desc(desktopPetBindings.createdAt))
+    .limit(1);
+
+  if (!binding) return;
+
+  await db
+    .insert(interactionEvents)
+    .values({
+      userId: desktop.userId,
+      petId: binding.petId,
+      deviceId: desktop.id,
+      actionType: event.actionType,
+      occurredAt: new Date(),
+    })
+    .returning();
+}
+
 export async function handleOtaMqttMessage(
   topic: string,
   payload: Buffer,
@@ -170,7 +241,12 @@ export async function handleOtaMqttMessage(
       return;
     }
 
-    await handleOta(parsed.chipId, payload);
+    if (parsed.kind === "ota") {
+      await handleOta(parsed.chipId, payload);
+      return;
+    }
+
+    await handleEvent(parsed.chipId, payload);
   } catch (error) {
     console.error("[ota:mqtt] bad message ignored:", {
       topic,
