@@ -4,6 +4,7 @@ import { handleOtaMqttMessage } from "./mqtt-handlers";
 
 const STATUS_TOPIC = "pet/+/status";
 const OTA_TOPIC = "pet/+/ota";
+const EVENT_TOPIC = "pet/+/event";
 
 let client: MqttClient | null = null;
 
@@ -31,13 +32,14 @@ export async function initOtaMqtt() {
       {
         [STATUS_TOPIC]: { qos: 1 },
         [OTA_TOPIC]: { qos: 1 },
+        [EVENT_TOPIC]: { qos: 1 },
       },
       (error) => {
         if (error) {
           console.error("[ota:mqtt] subscribe failed:", error);
           return;
         }
-        console.log("[ota:mqtt] subscribed pet/+/status pet/+/ota");
+        console.log("[ota:mqtt] subscribed pet/+/status pet/+/ota pet/+/event");
       },
     );
   });
