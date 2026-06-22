@@ -73,6 +73,11 @@ async function findDesktopByChipId(chipId: string) {
 
 type DesktopBindingRow = typeof desktopPetBindings.$inferSelect;
 type DesktopDeviceRow = typeof desktopDevices.$inferSelect;
+type DeviceOwnershipProbe = {
+  deviceType?: "collar" | "desktop";
+  macAddress?: string;
+  chipId?: string;
+};
 
 function normalizeDeviceRegisterBody(body: { macAddress?: string; chipId?: string }) {
   const chipId = body.chipId?.trim() || "";
@@ -114,7 +119,7 @@ async function publishDesktopBindingConfig(
         bindingType: binding.bindingType,
       });
     } else {
-      await clearRetainedDesktopConfig(desktop.chipId);
+      await clearRetainedDesktopConfig(desktop.chipId, "unbind");
     }
   } catch (error) {
     console.error("[devices] failed to publish desktop config", {
@@ -247,6 +252,29 @@ async function getDeviceInteractionCounts(userId: string) {
   return new Map(rows.map((row) => [row.device_key, Number(row.count) || 0]));
 }
 
+async function findDeviceOwnershipProbe(body: DeviceOwnershipProbe) {
+  const chipId = body.chipId?.trim() || "";
+  const normalizedMac = normalizeMac(body.macAddress ?? "");
+  const canCheckCollar = !body.deviceType || body.deviceType === "collar";
+  const canCheckDesktop = !body.deviceType || body.deviceType === "desktop";
+
+  if (canCheckCollar) {
+    const collar =
+      (chipId ? await findCollarByChipId(chipId) : null) ??
+      (normalizedMac ? await findCollarByMac(normalizedMac) : null);
+    if (collar) return { deviceType: "collar" as const, device: collar };
+  }
+
+  if (canCheckDesktop) {
+    const desktop =
+      (chipId ? await findDesktopByChipId(chipId) : null) ??
+      (normalizedMac ? await findDesktopByMac(normalizedMac) : null);
+    if (desktop) return { deviceType: "desktop" as const, device: desktop };
+  }
+
+  return null;
+}
+
 async function releaseCollarOwnership(userId: string, id: string) {
   const [existing] = await db
     .select()
@@ -324,6 +352,37 @@ devicesRoute.get("/desktops/unowned", async (c) => {
   return c.json({ desktops: result });
 });
 
+devicesRoute.post("/ownership/check", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const body = ((await c.req.json<DeviceOwnershipProbe>().catch(() => null)) ?? {}) as DeviceOwnershipProbe;
+  const matched = await findDeviceOwnershipProbe(body);
+
+  if (!matched) {
+    return c.json({
+      canBind: true,
+      claimStatus: "unknown",
+      message: null,
+    });
+  }
+
+  const deviceUserId = matched.device.userId;
+  if (deviceUserId && deviceUserId !== userId) {
+    return c.json({
+      canBind: false,
+      claimStatus: "occupied",
+      deviceType: matched.deviceType,
+      message: "该设备已被其他账号绑定，无法再次绑定",
+    });
+  }
+
+  return c.json({
+    canBind: true,
+    claimStatus: deviceUserId === userId ? "owned" : "available",
+    deviceType: matched.deviceType,
+    message: null,
+  });
+});
+
 devicesRoute.post("/collars/register", async (c) => {
   const userId = c.get("userId" as never) as string;
   const body =
@@ -393,7 +452,7 @@ devicesRoute.post("/collars/register", async (c) => {
         return c.json({ collar: latest });
       }
 
-      return c.json({ error: "Collar is already registered to another user" }, 409);
+      return c.json({ error: "该项圈已被其他账号绑定，无法再次绑定" }, 409);
     }
 
     return c.json({ collar });
@@ -412,7 +471,7 @@ devicesRoute.post("/collars/register", async (c) => {
     return c.json({ collar: collar ?? existing });
   }
 
-  return c.json({ error: "Collar is already registered to another user" }, 409);
+  return c.json({ error: "该项圈已被其他账号绑定，无法再次绑定" }, 409);
 });
 
 devicesRoute.post("/desktops/register", async (c) => {
@@ -484,7 +543,7 @@ devicesRoute.post("/desktops/register", async (c) => {
         return c.json({ desktop: latest });
       }
 
-      return c.json({ error: "Desktop is already registered to another user" }, 409);
+      return c.json({ error: "该桌面摆台已被其他账号绑定，无法再次绑定" }, 409);
     }
 
     return c.json({ desktop });
@@ -503,7 +562,7 @@ devicesRoute.post("/desktops/register", async (c) => {
     return c.json({ desktop: desktop ?? existing });
   }
 
-  return c.json({ error: "Desktop is already registered to another user" }, 409);
+  return c.json({ error: "该桌面摆台已被其他账号绑定，无法再次绑定" }, 409);
 });
 
 // ===== 设备认领（蓝牙配对后的账号绑定） =====

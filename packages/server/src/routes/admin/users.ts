@@ -20,7 +20,7 @@ const usersRoute = new Hono();
 async function clearDesktopConfigsSafely(chipIds: string[]) {
   await Promise.all(
     Array.from(new Set(chipIds.filter(Boolean))).map((chipId) =>
-      clearRetainedDesktopConfig(chipId).catch((error) => {
+      clearRetainedDesktopConfig(chipId, "user-delete").catch((error) => {
         console.error("[admin/users] failed to clear desktop config after user delete", {
           chipId,
           error,

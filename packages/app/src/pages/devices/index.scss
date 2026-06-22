@@ -190,7 +190,7 @@
   margin-top: 18rpx;
   display: flex;
   align-items: center;
-  gap: 20rpx;
+  gap: 12rpx;
   flex-wrap: wrap;
 }
 
@@ -284,6 +284,17 @@
   background: rgba(255, 255, 255, 0.3);
 }
 
+.device-tag--identity,
+.device-tag--binding,
+.device-tag--unbound {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.device-tag--unbound {
+  border: 2rpx solid rgba(255, 255, 255, 0.54);
+  box-sizing: border-box;
+}
+
 .device-card--white .device-tag {
   background: #d9ecff;
 }
@@ -309,7 +320,7 @@
 .device-card-actions {
   margin-top: 30rpx;
   display: flex;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .device-action-btn {
@@ -318,7 +329,7 @@
   margin: 0;
   border: none;
   border-radius: 24rpx;
-  background: rgba(255, 255, 255, 0.22);
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -332,29 +343,35 @@
 }
 
 .device-card--white .device-action-btn {
-  background: #d9ecff;
+  background: #ffffff;
 }
 
 .device-card--offline .device-action-btn {
-  background: rgba(255, 255, 255, 0.58);
+  background: #ffffff;
 }
 
 .device-action-btn--disabled {
-  opacity: 0.55;
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .device-action-text {
   font-size: 24rpx;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.78);
+  color: #1888fc;
 }
 
 .device-card--white .device-action-text {
-  color: #9fc5ef;
+  color: #1888fc;
 }
 
 .device-card--offline .device-action-text {
-  color: #9b9b9b;
+  color: #1888fc;
+}
+
+.device-action-btn--disabled .device-action-text,
+.device-card--white .device-action-btn--disabled .device-action-text,
+.device-card--offline .device-action-btn--disabled .device-action-text {
+  color: rgba(255, 255, 255, 0.58);
 }
 
 .add-device-btn {

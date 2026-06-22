@@ -141,12 +141,25 @@ export async function publishDesktopConfig(
   });
 }
 
-export async function clearRetainedDesktopConfig(chipId: string) {
+export async function clearRetainedDesktopConfig(
+  chipId: string,
+  reason: NonNullable<Extract<DesktopConfigMqttPayload, { state: "unbound" }>["reason"]> = "unbind",
+) {
   const activeClient = requireClient();
+  const body = JSON.stringify({
+    v: 1,
+    state: "unbound",
+    petId: null,
+    bindingId: null,
+    bindingType: null,
+    clear: true,
+    reason,
+  } satisfies DesktopConfigMqttPayload);
+
   await new Promise<void>((resolve, reject) => {
     activeClient.publish(
       `pet/${chipId}/config`,
-      Buffer.alloc(0),
+      body,
       { qos: 1, retain: true },
       (error) => {
         if (error) reject(error);

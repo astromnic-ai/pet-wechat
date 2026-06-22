@@ -20,7 +20,7 @@ const petsRoute = new Hono();
 async function clearDesktopConfigsSafely(chipIds: string[]) {
   await Promise.all(
     Array.from(new Set(chipIds.filter(Boolean))).map((chipId) =>
-      clearRetainedDesktopConfig(chipId).catch((error) => {
+      clearRetainedDesktopConfig(chipId, "pet-delete").catch((error) => {
         console.error("[admin/pets] failed to clear desktop config after pet delete", {
           chipId,
           error,

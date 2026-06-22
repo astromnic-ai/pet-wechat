@@ -655,7 +655,15 @@ describe("Device Routes", () => {
       expect((globalThis as any).__mqttPublishes).toContainEqual({
         type: "clear-config",
         chipId: "desktop-chip-1",
-        payload: null,
+        payload: {
+          v: 1,
+          state: "unbound",
+          petId: null,
+          bindingId: null,
+          bindingType: null,
+          clear: true,
+          reason: "unbind",
+        },
       });
     });
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import avatarsRoute from "../routes/admin/avatars";
-import { fakeAvatar, fakeAvatarAction, jsonReq } from "./helpers";
+import { fakeAvatar, fakeAvatarAction, fakeBinding, fakeDesktop, jsonReq } from "./helpers";
 import { mockDb } from "./setup";
 
 const app = new Hono();
@@ -11,6 +11,7 @@ const TEST_MJPEG = new Uint8Array([0xff, 0xd8, 104, 101, 108, 108, 111, 0xff, 0x
 describe("Admin Avatar Review Routes", () => {
   beforeEach(() => {
     mockDb._reset();
+    ((globalThis as any).__mqttPublishes as unknown[]).length = 0;
   });
 
   it("returns todayCompleted in avatar review stats", async () => {
@@ -214,6 +215,66 @@ describe("Admin Avatar Review Routes", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({
       error: "Completed avatars can only replace existing actions",
+    });
+  });
+
+  it("republishes desktop config after deleting an avatar action", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "processing" });
+    const action = fakeAvatarAction({
+      id: "action-1",
+      petAvatarId: "avatar-1",
+      actionType: "base-lay",
+    });
+    const desktop = fakeDesktop({ id: "desktop-1", chipId: "chip-desktop-1" });
+    const binding = fakeBinding({
+      id: "binding-1",
+      desktopDeviceId: "desktop-1",
+      petId: "pet-1",
+      bindingType: "owner",
+    });
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      [action],
+      [{ id: "remaining-action" }],
+      [{
+        desktopId: desktop.id,
+        chipId: desktop.chipId,
+        bindingId: binding.id,
+        bindingType: binding.bindingType,
+        petId: binding.petId,
+      }],
+    ];
+
+    const res = await app.request(
+      jsonReq("DELETE", "/api/admin/avatars/avatar-1/actions/action-1"),
+    );
+
+    expect(res.status).toBe(200);
+    expect((globalThis as any).__mqttPublishes).toContainEqual({
+      type: "config",
+      chipId: "chip-desktop-1",
+      payload: {
+        v: 1,
+        state: "bound",
+        petId: "pet-1",
+        bindingId: "binding-1",
+        bindingType: "owner",
+      },
     });
   });
 

@@ -614,7 +614,7 @@ export default function Index() {
                         <Image
                           className={getSlideImageClassName(pet)}
                           src={getSlideImage(pet)}
-                          mode="widthFix"
+                          mode="aspectFit"
                         />
                         {pet?.id === currentPet?.id && heroOverlayText ? (
                           <View className={`pet-showcase-overlay pet-showcase-overlay--${homeHeroState} pet-showcase-overlay--pose-${customizingPose} ${getPetThemeClass(pet)}`}>

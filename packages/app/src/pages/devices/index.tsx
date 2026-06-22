@@ -76,6 +76,14 @@ function getFirmwareText(item: DeviceCard) {
   return "设备未上报固件版本";
 }
 
+function getDeviceTypeLabel(type: DeviceCard["deviceType"]) {
+  return type === "collar" ? "智能项圈" : "桌面摆台";
+}
+
+function getShortDeviceId(id: string) {
+  return id ? id.slice(-6).toUpperCase() : "------";
+}
+
 export default function Devices() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
@@ -384,6 +392,10 @@ export default function Devices() {
                 deviceName: item.name,
                 fallbackName: item.deviceType === "collar" ? "项圈" : "桌面端",
               });
+              const deviceIdentity = `${getDeviceTypeLabel(item.deviceType)} #${getShortDeviceId(item.deviceId)}`;
+              const bindingLabel = hasBinding
+                ? `已绑定 ${item.petName || "未命名宠物"}`
+                : "待绑定宠物";
 
               return (
                 <View
@@ -443,6 +455,12 @@ export default function Devices() {
                           <Text className="device-status-pill-text">{getDeviceStatusText(item.status)}</Text>
                         </View>
                         <Text className="device-signal">{getSignalText(item.deviceType, item.status)}</Text>
+                        <View className="device-tag device-tag--identity">
+                          <Text className="device-tag-text">{deviceIdentity}</Text>
+                        </View>
+                        <View className={`device-tag ${hasBinding ? "device-tag--binding" : "device-tag--unbound"}`}>
+                          <Text className="device-tag-text">{bindingLabel}</Text>
+                        </View>
                         {item.isInactive ? (
                           <View className="device-tag">
                             <Text className="device-tag-text">可删除</Text>
@@ -475,7 +493,7 @@ export default function Devices() {
                         });
                       }}
                     >
-                      <Text className="device-action-text">{hasBinding ? "更换绑定宠物" : "绑定宠物"}</Text>
+                      <Text className="device-action-text">{hasBinding ? "更换绑定宠物" : "选择绑定宠物"}</Text>
                     </View>
 
                     <View
@@ -488,7 +506,7 @@ export default function Devices() {
                         handleDelete(item);
                       }}
                     >
-                      <Text className="device-action-text">{hasBinding ? "解除当前绑定" : "删除当前设备"}</Text>
+                      <Text className="device-action-text">{hasBinding ? "解除当前绑定" : "删除未绑定设备"}</Text>
                     </View>
 
                     <View

@@ -1,6 +1,7 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidHide, useDidShow } from "@tarojs/taro";
 import { useRef, useState } from "react";
+import { request } from "../../utils/request";
 import "./index.scss";
 
 type DeviceType = "collar" | "desktop";
@@ -11,6 +12,12 @@ type BleDevice = {
   localName?: string;
   RSSI?: number;
   isTarget?: boolean;
+};
+
+type DeviceOwnershipCheck = {
+  canBind: boolean;
+  claimStatus: "unknown" | "owned" | "available" | "occupied";
+  message?: string | null;
 };
 
 function getRawDeviceName(device: any) {
@@ -106,6 +113,14 @@ async function closeBleConnectionQuietly(deviceId: string) {
   try {
     await (Taro as any).closeBLEConnection?.({ deviceId });
   } catch {}
+}
+
+function showDeviceOccupiedToast(message = "该设备已被其他账号绑定，无法再次绑定") {
+  Taro.showToast({
+    title: message,
+    icon: "none",
+    duration: 3000,
+  });
 }
 
 export default function CollarBind() {
@@ -227,6 +242,20 @@ export default function CollarBind() {
       const deviceType = inferDeviceType(device.name);
       setConnectingId(device.deviceId);
       try {
+        const ownership = await request<DeviceOwnershipCheck>({
+          url: "/api/devices/ownership/check",
+          method: "POST",
+          data: {
+            deviceType,
+            macAddress: device.deviceId,
+          },
+        }).catch(() => null);
+
+        if (ownership && !ownership.canBind) {
+          showDeviceOccupiedToast(ownership.message || undefined);
+          return;
+        }
+
         await closeBleConnectionQuietly(device.deviceId);
         await (Taro as any).createBLEConnection({ deviceId: device.deviceId, timeout: 12000 });
         await stopDiscovery();

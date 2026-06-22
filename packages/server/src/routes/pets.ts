@@ -359,7 +359,7 @@ async function dispatchPetActionSafely(petId: string) {
 async function clearDesktopConfigsSafely(chipIds: string[]) {
   await Promise.all(
     Array.from(new Set(chipIds.filter(Boolean))).map((chipId) =>
-      clearRetainedDesktopConfig(chipId).catch((error) => {
+      clearRetainedDesktopConfig(chipId, "pet-delete").catch((error) => {
         console.error("[pets] failed to clear desktop config after pet unbind", {
           chipId,
           error,

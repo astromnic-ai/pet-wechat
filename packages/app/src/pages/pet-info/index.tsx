@@ -97,6 +97,7 @@ export default function PetInfo() {
   const [avatarId, setAvatarId] = useState("");
   const [avatarStatus, setAvatarStatus] = useState<AvatarStatus | null>(null);
   const [avatarCreatedAt, setAvatarCreatedAt] = useState("");
+  const [petAvatarImageUrl, setPetAvatarImageUrl] = useState("");
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState("");
   const [avatarActions, setAvatarActions] = useState<PetAvatarAction[]>([]);
   const [selectedPreviewUrl, setSelectedPreviewUrl] = useState("");
@@ -123,6 +124,7 @@ export default function PetInfo() {
     setBirthday(pet.birthday || "");
     setWeight(pet.weight ? String(pet.weight) : "");
     setGender(pet.gender === "female" ? "female" : "male");
+    setPetAvatarImageUrl(pet.avatarImageUrl || "");
   };
 
   const applyCollarToForm = (collar?: CollarDevice | null) => {
@@ -156,7 +158,7 @@ export default function PetInfo() {
     setAvatarId(latestAvatar.id);
     setAvatarStatus(latestAvatar.status);
     setAvatarCreatedAt(latestAvatar.createdAt);
-    setAvatarPreviewUrl(latestActions[0]?.imageUrl || latestAvatar.sourceImageUrl || "");
+    setAvatarPreviewUrl(latestAvatar.homepageImageUrl || latestActions[0]?.imageUrl || latestAvatar.sourceImageUrl || "");
     setAvatarActions(latestActions);
   };
 
@@ -279,7 +281,7 @@ export default function PetInfo() {
   const isAvatarDone = avatarStatus === "done";
   const avatarProgressPercent = calculateAvatarProgressPercent(avatarStatus, avatarCreatedAt);
   const avatarProgressDegrees = `${Math.round((avatarProgressPercent / 100) * 360)}deg`;
-  const avatarCardImage = selectedPreviewUrl || avatarPreviewUrl || fallbackPetImage;
+  const avatarCardImage = selectedPreviewUrl || petAvatarImageUrl || avatarPreviewUrl || fallbackPetImage;
   const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
   const systemActionFallbacks = species === "dog" ? DOG_SYSTEM_ACTION_FALLBACKS : CAT_SYSTEM_ACTION_FALLBACKS;
@@ -552,16 +554,9 @@ export default function PetInfo() {
                   <Text className="detail-pill-text">{breed.trim() || "未设置品种"}</Text>
                 </View>
                 <View className="detail-pill">
-                  <View className="detail-pill-gender">
-                    <View className="detail-pill-gender-main">
-                      <View className="detail-pill-symbol-box">
-                        <Text className="detail-pill-symbol">{gender === "female" ? "♀" : "♂"}</Text>
-                      </View>
-                      <Text className="detail-pill-text detail-pill-text--gender">{gender === "female" ? "母" : "公"}</Text>
-                    </View>
-                    <Text className="detail-pill-separator">·</Text>
-                    <Text className="detail-pill-text detail-pill-text--age">{ageLabel}</Text>
-                  </View>
+                  <Text className="detail-pill-text detail-pill-text--gender">
+                    {`${gender === "female" ? "♀ 母" : "♂ 公"} · ${ageLabel}`}
+                  </Text>
                 </View>
               </View>
               <View className="detail-edit-btn" onClick={() => Taro.navigateTo({ url: `/pages/pet-info/index?petId=${petId}&edit=1` })}>

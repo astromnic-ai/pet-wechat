@@ -898,7 +898,7 @@ devicesRoute.delete("/desktops/:id", async (c) => {
   await db.delete(desktopDevices).where(eq(desktopDevices.id, id));
   if (desktop?.chipId) {
     try {
-      await clearRetainedDesktopConfig(desktop.chipId);
+      await clearRetainedDesktopConfig(desktop.chipId, "delete");
     } catch (error) {
       console.error("[admin/devices] failed to clear desktop config after delete", {
         desktopId: id,

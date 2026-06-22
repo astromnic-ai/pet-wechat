@@ -1,12 +1,13 @@
 import { createHash } from "node:crypto";
 import { Hono } from "hono";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { ALL_ACTIONS, BASIC_ACTIONS, FUN_ACTIONS, INTERACTIVE_ACTIONS } from "shared";
 import { db } from "../../db";
-import { messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
+import { desktopDevices, desktopPetBindings, messages, petAvatars, petAvatarActions, pets, users } from "../../db/schema";
 import { extractFirstJpegFrame } from "../../utils/mjpeg";
 import { isManagedStorageUrl, normalizePublicFileUrl, uploadFile } from "../../utils/storage";
 import { broadcast } from "../../ws";
+import { publishDesktopConfig } from "../../ota/mqtt-client";
 
 const avatarsRoute = new Hono();
 
@@ -143,6 +144,42 @@ async function getAvatarActions(avatarId: string) {
     .orderBy(asc(petAvatarActions.sortOrder), asc(petAvatarActions.actionType), asc(petAvatarActions.id));
 
   return actions.map(toActionResponse);
+}
+
+async function republishDesktopConfigsForPet(petId: string, reason: string) {
+  const bindings = await db
+    .select({
+      desktopId: desktopDevices.id,
+      chipId: desktopDevices.chipId,
+      bindingId: desktopPetBindings.id,
+      bindingType: desktopPetBindings.bindingType,
+      petId: desktopPetBindings.petId,
+    })
+    .from(desktopPetBindings)
+    .leftJoin(desktopDevices, eq(desktopDevices.id, desktopPetBindings.desktopDeviceId))
+    .where(and(eq(desktopPetBindings.petId, petId), isNull(desktopPetBindings.unboundAt)));
+
+  await Promise.all(
+    bindings
+      .filter((binding) => Boolean(binding.chipId))
+      .map((binding) =>
+        publishDesktopConfig(binding.chipId as string, {
+          v: 1,
+          state: "bound",
+          petId: binding.petId,
+          bindingId: binding.bindingId,
+          bindingType: binding.bindingType,
+        }).catch((error) => {
+          console.error("[admin/avatars] failed to republish desktop config", {
+            reason,
+            petId,
+            desktopId: binding.desktopId,
+            chipId: binding.chipId,
+            error,
+          });
+        }),
+      ),
+  );
 }
 
 function resolveActionVideoContentType(file: File) {
@@ -681,6 +718,8 @@ avatarsRoute.delete("/avatars/:id/actions/:actionId", async (c) => {
         .where(eq(petAvatars.id, avatarId));
     }
   });
+
+  await republishDesktopConfigsForPet(row.avatar.petId, "avatar-action-delete");
 
   return c.json({ success: true });
 });

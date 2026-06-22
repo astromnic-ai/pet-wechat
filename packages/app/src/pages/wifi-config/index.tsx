@@ -60,6 +60,27 @@ function getBleErrorText(error?: unknown) {
   return message || "蓝牙配网失败，请重试";
 }
 
+function normalizeDeviceClaimErrorMessage(message?: string) {
+  const text = message || "";
+  if (
+    text.includes("already registered to another user") ||
+    text.includes("已被其他账号绑定")
+  ) {
+    return deviceTypeNameFromText(text);
+  }
+  return text || "连接网络失败";
+}
+
+function deviceTypeNameFromText(message: string) {
+  if (message.toLowerCase().includes("collar") || message.includes("项圈")) {
+    return "该项圈已被其他账号绑定，无法再次绑定";
+  }
+  if (message.toLowerCase().includes("desktop") || message.includes("桌面")) {
+    return "该桌面摆台已被其他账号绑定，无法再次绑定";
+  }
+  return "该设备已被其他账号绑定，无法再次绑定";
+}
+
 function isBleDisconnectedError(error?: unknown) {
   const message =
     typeof error === "object" && error && "errMsg" in error
@@ -533,8 +554,9 @@ export default function WifiConfig() {
         )}`,
       });
     } catch (e: any) {
-      Taro.showToast({ title: e.message || "连接网络失败", icon: "none" });
-      setBleHint(e.message || "连接网络失败");
+      const message = normalizeDeviceClaimErrorMessage(e.message);
+      Taro.showToast({ title: message, icon: "none", duration: 3000 });
+      setBleHint(message);
     } finally {
       setLoading(false);
     }

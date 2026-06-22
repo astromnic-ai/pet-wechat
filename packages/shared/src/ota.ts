@@ -49,12 +49,23 @@ export type PetActionMqttPayload = {
   label?: number;
 };
 
-export type DesktopConfigMqttPayload = {
-  v: 1;
-  petId: string;
-  bindingId: string;
-  bindingType: "owner" | "authorized";
-};
+export type DesktopConfigMqttPayload =
+  | {
+      v: 1;
+      state?: "bound";
+      petId: string;
+      bindingId: string;
+      bindingType: "owner" | "authorized";
+    }
+  | {
+      v: 1;
+      state: "unbound";
+      petId: null;
+      bindingId: null;
+      bindingType: null;
+      clear: true;
+      reason?: "unbind" | "delete" | "pet-delete" | "user-delete";
+    };
 
 export const ACTION_LABEL_MAP: Record<string, number> = {
   "base-lay": 0,

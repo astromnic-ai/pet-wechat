@@ -225,59 +225,11 @@
   white-space: nowrap;
 }
 
-.detail-pill-gender {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8rpx;
-  flex-wrap: nowrap;
-  height: 60rpx;
-}
-
-.detail-pill-gender-main {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6rpx;
-  flex-wrap: nowrap;
-  height: 60rpx;
-}
-
-.detail-pill-symbol-box {
-  width: 26rpx;
-  height: 60rpx;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: visible;
-}
-
-.detail-pill-symbol {
+.detail-pill-text--gender {
   display: block;
-  width: 26rpx;
   height: 60rpx;
-  font-size: 24rpx;
-  font-weight: 700;
-  color: #1d1d1d;
   line-height: 60rpx;
   text-align: center;
-  white-space: nowrap;
-}
-
-.detail-pill-text--gender,
-.detail-pill-text--age {
-  display: block;
-  height: 60rpx;
-}
-
-.detail-pill-separator {
-  display: block;
-  height: 60rpx;
-  font-size: 22rpx;
-  font-weight: 600;
-  color: #1d1d1d;
-  line-height: 60rpx;
-  margin: 0 2rpx;
 }
 
 .detail-edit-btn {
