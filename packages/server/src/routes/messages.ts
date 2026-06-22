@@ -33,6 +33,22 @@ messagesRoute.get("/unread-count", async (c) => {
   return c.json({ count: result.length });
 });
 
+// 获取单条消息
+messagesRoute.get("/:id", async (c) => {
+  const userId = c.get("userId" as never) as string;
+  const id = c.req.param("id");
+  const [message] = await db
+    .select()
+    .from(messages)
+    .where(and(eq(messages.id, id), eq(messages.userId, userId)));
+
+  if (!message) {
+    return c.json({ error: "Message not found" }, 404);
+  }
+
+  return c.json(message);
+});
+
 // 标记单条已读
 messagesRoute.put("/:id/read", async (c) => {
   const userId = c.get("userId" as never) as string;

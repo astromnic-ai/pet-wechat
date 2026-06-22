@@ -224,6 +224,15 @@ function buildRejectMessage(reason: string, titleOverride?: string) {
   }
 }
 
+function appendAvatarRetryAction(content: string, params: { petId: string; avatarId: string }) {
+  const action = new URLSearchParams({
+    type: "avatar-retry",
+    petId: params.petId,
+    avatarId: params.avatarId,
+  });
+  return `${content}\n\n#action:${action.toString()}`;
+}
+
 function broadcastSystemMessage(userId: string, payload: { title: string; content: string }) {
   broadcast(userId, {
     type: "message:new",
@@ -379,7 +388,14 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
   }
 
   const nextReviewedAt = row.avatar.status === "pending" ? new Date() : row.avatar.reviewedAt;
-  const rejectMessage = buildRejectMessage(reason, title);
+  const rejectMessageBase = buildRejectMessage(reason, title);
+  const rejectMessage = {
+    ...rejectMessageBase,
+    content: appendAvatarRetryAction(rejectMessageBase.content, {
+      petId: ownerContext.petId,
+      avatarId,
+    }),
+  };
 
   const [avatar] = await db.transaction(async (tx) => {
     const [updatedAvatar] = await tx
@@ -408,7 +424,7 @@ avatarsRoute.put("/avatars/:id/reject", async (c) => {
     return [updatedAvatar];
   });
 
-  broadcastSystemMessage(ownerContext.userId, rejectMessage);
+  broadcastSystemMessage(ownerContext.userId, rejectMessageBase);
 
   return c.json({
     avatar: toAvatarResponse({

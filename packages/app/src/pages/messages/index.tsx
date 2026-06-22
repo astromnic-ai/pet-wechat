@@ -5,6 +5,7 @@ import { request } from "../../utils/request";
 import PageBack from "../../components/PageBack";
 import type { Message } from "@pet-wechat/shared";
 import { subscribe } from "../../utils/ws";
+import { parseMessageContent } from "../../utils/messageAction";
 import "./index.scss";
 
 const ICON_MAP = {
@@ -85,7 +86,11 @@ export default function MessagesPage() {
     });
   }, []);
 
-  const displayMessages = messages.slice(0, 5);
+  const displayMessages = messages;
+
+  const openMessageDetail = (message: Message) => {
+    Taro.navigateTo({ url: `/pages/messages/detail?id=${encodeURIComponent(message.id)}` });
+  };
 
   return (
     <View className="messages-page">
@@ -101,14 +106,14 @@ export default function MessagesPage() {
             displayMessages.map((message) => {
               const type = normalizeType(message as Message);
               return (
-                <View key={message.id} className="message-card">
+                <View key={message.id} className="message-card" onClick={() => openMessageDetail(message as Message)}>
                   <View
                     className="message-icon-wrap"
                     style={{ background: ICON_MAP[type as keyof typeof ICON_MAP] }}
                   />
                   <View className="message-main">
                     <Text className="message-title-text">{message.title}</Text>
-                    <Text className="message-content">{message.content}</Text>
+                    <Text className="message-content">{parseMessageContent(message.content).displayContent}</Text>
                   </View>
                   <Text className="message-time">{getTimeText(message as Message)}</Text>
                 </View>

@@ -138,15 +138,27 @@
   height: 54rpx;
 }
 
-.message-dot {
+.message-badge {
   position: absolute;
-  top: -2rpx;
-  right: -4rpx;
-  width: 14rpx;
-  height: 14rpx;
-  border-radius: 50%;
-  background: #ff6b6b;
-  border: 2rpx solid #fff8f0;
+  top: -12rpx;
+  right: -16rpx;
+  min-width: 42rpx;
+  height: 42rpx;
+  padding: 0 10rpx;
+  border-radius: 999rpx;
+  background: #f24b3f;
+  border: 4rpx solid #fff8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.message-badge-text {
+  font-size: 24rpx;
+  line-height: 1;
+  font-weight: 700;
+  color: #ffffff;
 }
 
 .hero-section {

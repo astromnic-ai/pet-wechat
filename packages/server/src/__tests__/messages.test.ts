@@ -44,6 +44,33 @@ describe("Message Routes", () => {
     });
   });
 
+  // ===== GET /api/messages/:id =====
+
+  describe("GET /api/messages/:id", () => {
+    it("returns one message for user", async () => {
+      const msg = fakeMessage({ id: "msg-1" });
+      mockDb._results.select = [[msg]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/messages/msg-1", { headers })
+      );
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.id).toBe("msg-1");
+    });
+
+    it("returns 404 when message is missing", async () => {
+      mockDb._results.select = [[]];
+
+      const headers = await authHeader("user-1");
+      const res = await app.request(
+        jsonReq("GET", "/api/messages/missing", { headers })
+      );
+      expect(res.status).toBe(404);
+    });
+  });
+
   // ===== GET /api/messages/unread-count =====
 
   describe("GET /api/messages/unread-count", () => {

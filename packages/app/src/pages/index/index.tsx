@@ -581,7 +581,11 @@ export default function Index() {
               src={require("@/assets/images/bell-icon.png")}
               mode="aspectFit"
             />
-            {unreadCount > 0 ? <View className="message-dot" /> : null}
+            {unreadCount > 0 ? (
+              <View className="message-badge">
+                <Text className="message-badge-text">{unreadCount > 99 ? "99+" : unreadCount}</Text>
+              </View>
+            ) : null}
           </View>
         </View>
 
