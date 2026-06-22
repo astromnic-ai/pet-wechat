@@ -555,7 +555,7 @@ export default function PetInfo() {
                 </View>
                 <View className="detail-pill">
                   <Text className="detail-pill-text detail-pill-text--gender">
-                    {`${gender === "female" ? "♀ 母" : "♂ 公"} · ${ageLabel}`}
+                    {`${gender === "female" ? "母" : "公"} · ${ageLabel}`}
                   </Text>
                 </View>
               </View>
