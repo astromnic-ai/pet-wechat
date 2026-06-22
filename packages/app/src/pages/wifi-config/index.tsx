@@ -60,6 +60,16 @@ function getBleErrorText(error?: unknown) {
   return message || "蓝牙配网失败，请重试";
 }
 
+function isBleDisconnectedError(error?: unknown) {
+  const message =
+    typeof error === "object" && error && "errMsg" in error
+      ? String((error as any).errMsg).toLowerCase()
+      : error instanceof Error
+        ? error.message.toLowerCase()
+        : "";
+  return message.includes("10006") || message.includes("no connection") || message.includes("not connected");
+}
+
 function encodeUtf8(text: string) {
   const encoded = encodeURIComponent(text);
   const bytes: number[] = [];
@@ -248,16 +258,50 @@ export default function WifiConfig() {
     return registered.collar;
   };
 
+  const ensureBleConnection = async () => {
+    if (!bleDeviceId) throw new Error("缺少蓝牙设备 ID，请返回重新搜索设备");
+
+    setBleHint("正在确认蓝牙连接…");
+    try {
+      await (Taro as any).createBLEConnection({ deviceId: bleDeviceId, timeout: 12000 });
+    } catch (error) {
+      const message =
+        typeof error === "object" && error && "errMsg" in error ? String((error as any).errMsg).toLowerCase() : "";
+      if (!message.includes("already connect")) {
+        throw new Error(getBleErrorText(error));
+      }
+    }
+  };
+
   const findBleCharacteristics = async () => {
-    const servicesRes = await (Taro as any).getBLEDeviceServices({ deviceId: bleDeviceId });
+    let servicesRes: any;
+    try {
+      servicesRes = await (Taro as any).getBLEDeviceServices({ deviceId: bleDeviceId });
+    } catch (error) {
+      if (!isBleDisconnectedError(error)) throw error;
+      await ensureBleConnection();
+      servicesRes = await (Taro as any).getBLEDeviceServices({ deviceId: bleDeviceId });
+    }
+
     const services = Array.isArray(servicesRes?.services) ? servicesRes.services : [];
     const service = services.find((item: any) => String(item.uuid || "").toLowerCase() === BLE_SERVICE_UUID);
     if (!service?.uuid) throw new Error("未找到设备配网服务，请确认设备处于配网模式");
 
-    const characteristicsRes = await (Taro as any).getBLEDeviceCharacteristics({
-      deviceId: bleDeviceId,
-      serviceId: service.uuid,
-    });
+    let characteristicsRes: any;
+    try {
+      characteristicsRes = await (Taro as any).getBLEDeviceCharacteristics({
+        deviceId: bleDeviceId,
+        serviceId: service.uuid,
+      });
+    } catch (error) {
+      if (!isBleDisconnectedError(error)) throw error;
+      await ensureBleConnection();
+      characteristicsRes = await (Taro as any).getBLEDeviceCharacteristics({
+        deviceId: bleDeviceId,
+        serviceId: service.uuid,
+      });
+    }
+
     const characteristics = Array.isArray(characteristicsRes?.characteristics) ? characteristicsRes.characteristics : [];
     const control = characteristics.find((item: any) => String(item.uuid || "").toLowerCase() === BLE_CONTROL_UUID);
     const notify = characteristics.find((item: any) => String(item.uuid || "").toLowerCase() === BLE_NOTIFY_UUID);
@@ -457,6 +501,7 @@ export default function WifiConfig() {
   const sendWifiConfigByBle = async () => {
     if (!bleDeviceId) throw new Error("缺少蓝牙设备 ID，请返回重新搜索设备");
 
+    await ensureBleConnection();
     const ids = await findBleCharacteristics();
     const chipId = await readChipIdByBle(ids);
     await writeWifiConfigByBle(ids);
