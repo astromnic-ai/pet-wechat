@@ -26,7 +26,7 @@ import {
 } from "../db/schema";
 import { normalizePublicFileUrl } from "../utils/storage";
 import type { PetModePlanDTO, PetModeWeekday } from "shared";
-import { DEVICE_ONLINE_TIMEOUT_MS, markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
+import { DEVICE_ONLINE_TIMEOUT_MS, getUsageDurationIncrementMinutes, markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
 
 const deviceReportRoute = new Hono();
 type DeviceHeartbeatUpdate<T> = Omit<Partial<T>, "usageDurationMinutes"> & {
@@ -81,21 +81,6 @@ function toIsoString(value: Date | string | null | undefined): string | null {
   }
 
   return value instanceof Date ? value.toISOString() : value;
-}
-
-function getUsageDurationIncrementMinutes(
-  previousLastOnlineAt: Date | string | null | undefined,
-  now: Date,
-) {
-  if (!previousLastOnlineAt) return 0;
-
-  const previousTime = new Date(previousLastOnlineAt).getTime();
-  if (Number.isNaN(previousTime)) return 0;
-
-  const diffMs = now.getTime() - previousTime;
-  if (diffMs <= 0 || diffMs > DEVICE_ONLINE_TIMEOUT_MS) return 0;
-
-  return Math.max(1, Math.floor(diffMs / (60 * 1000)));
 }
 
 function buildValidationError(error: z.ZodError) {
