@@ -21,6 +21,15 @@ function deviceSecretHeaders(secret = "device-secret") {
   return { "X-Device-Secret": secret };
 }
 
+function containsDateValue(value: unknown, seen = new Set<object>()): boolean {
+  if (value instanceof Date) return true;
+  if (!value || typeof value !== "object") return false;
+  if (seen.has(value)) return false;
+
+  seen.add(value);
+  return Object.values(value).some((item) => containsDateValue(item, seen));
+}
+
 describe("Device Report Routes", () => {
   beforeEach(() => {
     mockDb._reset();
@@ -93,6 +102,7 @@ describe("Device Report Routes", () => {
         status: "online",
       });
       expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeInstanceOf(Date);
+      expect(containsDateValue((mockDb._calls.update[0] as any).set.usageDurationMinutes)).toBe(false);
     });
 
     it("returns collar chipId and complete done avatar video files for bound pet", async () => {

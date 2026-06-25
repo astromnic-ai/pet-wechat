@@ -56,6 +56,7 @@ export async function markDesktopOnlineByChipId(
   if (!normalizedChipId) return null;
 
   const now = options.now ?? new Date();
+  const nowSql = now.toISOString();
   const timeoutMs = DEVICE_ONLINE_TIMEOUT_MS;
 
   const updatePayload: Record<string, unknown> = {
@@ -64,9 +65,9 @@ export async function markDesktopOnlineByChipId(
     updatedAt: now,
     usageDurationMinutes: sql`${desktopDevices.usageDurationMinutes} + CASE
       WHEN ${desktopDevices.lastOnlineAt} IS NOT NULL
-        AND EXTRACT(EPOCH FROM (${now}::timestamptz - ${desktopDevices.lastOnlineAt})) * 1000 > 0
-        AND EXTRACT(EPOCH FROM (${now}::timestamptz - ${desktopDevices.lastOnlineAt})) * 1000 <= ${timeoutMs}
-      THEN GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (${now}::timestamptz - ${desktopDevices.lastOnlineAt})) / 60))
+        AND EXTRACT(EPOCH FROM (${nowSql}::timestamptz - ${desktopDevices.lastOnlineAt})) * 1000 > 0
+        AND EXTRACT(EPOCH FROM (${nowSql}::timestamptz - ${desktopDevices.lastOnlineAt})) * 1000 <= ${timeoutMs}
+      THEN GREATEST(1, FLOOR(EXTRACT(EPOCH FROM (${nowSql}::timestamptz - ${desktopDevices.lastOnlineAt})) / 60))
       ELSE 0
     END`,
   };
