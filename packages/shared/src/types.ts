@@ -135,6 +135,7 @@ export interface DeviceSummaryBinding {
 
 export interface DeviceSummary {
   deviceId: string;
+  chipId: string | null;
   deviceType: DeviceType;
   name: string;
   status: DeviceStatus;

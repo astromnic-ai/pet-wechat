@@ -354,6 +354,11 @@
   background: rgba(255, 255, 255, 0.28);
 }
 
+.device-card--white .device-action-btn--disabled,
+.device-card--offline .device-action-btn--disabled {
+  background: #eef5fb;
+}
+
 .device-action-text {
   font-size: 24rpx;
   font-weight: 700;
@@ -371,7 +376,7 @@
 .device-action-btn--disabled .device-action-text,
 .device-card--white .device-action-btn--disabled .device-action-text,
 .device-card--offline .device-action-btn--disabled .device-action-text {
-  color: rgba(255, 255, 255, 0.58);
+  color: #9bb5cc;
 }
 
 .add-device-btn {

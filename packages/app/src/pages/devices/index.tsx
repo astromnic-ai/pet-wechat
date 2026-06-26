@@ -16,6 +16,7 @@ import "./index.scss";
 type DeviceCard = {
   id: string;
   deviceId: string;
+  chipId: string | null;
   deviceType: "collar" | "desktop";
   name: string;
   status: DeviceStatus;
@@ -76,12 +77,9 @@ function getFirmwareText(item: DeviceCard) {
   return "设备未上报固件版本";
 }
 
-function getDeviceTypeLabel(type: DeviceCard["deviceType"]) {
-  return type === "collar" ? "智能项圈" : "桌面摆台";
-}
-
-function getShortDeviceId(id: string) {
-  return id ? id.slice(-6).toUpperCase() : "------";
+function getShortDeviceIdentity(item: Pick<DeviceCard, "chipId" | "deviceId">) {
+  const identity = item.chipId?.trim() || item.deviceId;
+  return identity ? identity.slice(-6).toUpperCase() : "------";
 }
 
 export default function Devices() {
@@ -153,6 +151,7 @@ export default function Devices() {
         cards.push({
           id: item.deviceId,
           deviceId: item.deviceId,
+          chipId: item.chipId,
           deviceType: "collar",
           name: item.name,
           status: item.status,
@@ -175,6 +174,7 @@ export default function Devices() {
         cards.push({
           id: item.deviceId,
           deviceId: item.deviceId,
+          chipId: item.chipId,
           deviceType: "desktop",
           name: item.name,
           status: item.status,
@@ -196,6 +196,7 @@ export default function Devices() {
         cards.push({
           id: `${item.deviceId}-${binding.id}`,
           deviceId: item.deviceId,
+          chipId: item.chipId,
           deviceType: "desktop",
           name: item.name,
           status: item.status,
@@ -392,7 +393,7 @@ export default function Devices() {
                 deviceName: item.name,
                 fallbackName: item.deviceType === "collar" ? "项圈" : "桌面端",
               });
-              const deviceIdentity = `${getDeviceTypeLabel(item.deviceType)} #${getShortDeviceId(item.deviceId)}`;
+              const deviceIdentity = `设备号 ${getShortDeviceIdentity(item)}`;
               const bindingLabel = hasBinding
                 ? `已绑定 ${item.petName || "未命名宠物"}`
                 : "待绑定宠物";
