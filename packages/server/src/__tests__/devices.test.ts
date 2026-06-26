@@ -356,6 +356,7 @@ describe("Device Routes", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.devices).toHaveLength(1);
+      expect(json.devices[0].chipId).toBe("collar-chip-1");
       expect(json.devices[0].usageDurationMinutes).toBe(180);
       expect(json.devices[0].interactionCount).toBe(0);
       expect(json.devices[0].isInactive).toBe(true);

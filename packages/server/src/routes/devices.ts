@@ -743,6 +743,7 @@ devicesRoute.get("/", async (c) => {
   const devices = [
     ...collars.map((collar) => ({
       deviceId: collar.id,
+      chipId: collar.chipId,
       deviceType: "collar" as const,
       name: collar.name,
       status: getEffectiveDeviceStatus({
@@ -762,6 +763,7 @@ devicesRoute.get("/", async (c) => {
     })),
     ...desktops.map((desktop) => ({
       deviceId: desktop.id,
+      chipId: desktop.chipId,
       deviceType: "desktop" as const,
       name: desktop.name,
       status: getEffectiveDeviceStatus({
