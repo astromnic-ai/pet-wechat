@@ -1,5 +1,5 @@
 import { View, Text, Image, ScrollView } from "@tarojs/components";
-import Taro, { useDidHide, useDidShow } from "@tarojs/taro";
+import Taro, { useDidHide, useDidShow, useRouter } from "@tarojs/taro";
 import { useRef, useState } from "react";
 import { request } from "../../utils/request";
 import "./index.scss";
@@ -124,6 +124,11 @@ function showDeviceOccupiedToast(message = "该设备已被其他账号绑定，
 }
 
 export default function CollarBind() {
+  const router = useRouter();
+  const mode = router.params.mode === "reconfigure" ? "reconfigure" : "bind";
+  const preferredDeviceType = router.params.deviceType === "desktop" || router.params.deviceType === "collar"
+    ? router.params.deviceType
+    : "";
   const [devices, setDevices] = useState<BleDevice[]>([]);
   const [searching, setSearching] = useState(false);
   const [connectingId, setConnectingId] = useState("");
@@ -239,7 +244,7 @@ export default function CollarBind() {
     if (connectingId) return;
 
     const proceedConnect = async () => {
-      const deviceType = inferDeviceType(device.name);
+      const deviceType = (preferredDeviceType || inferDeviceType(device.name)) as DeviceType;
       setConnectingId(device.deviceId);
       try {
         const ownership = await request<DeviceOwnershipCheck>({
@@ -261,7 +266,7 @@ export default function CollarBind() {
         await stopDiscovery();
 
         Taro.navigateTo({
-          url: `/pages/wifi-config/index?deviceType=${deviceType}&bleDeviceId=${encodeURIComponent(
+          url: `/pages/wifi-config/index?mode=${mode}&deviceType=${deviceType}&bleDeviceId=${encodeURIComponent(
             device.deviceId
           )}&deviceName=${encodeURIComponent(device.name)}`,
         });
@@ -335,7 +340,7 @@ export default function CollarBind() {
         >
           <Text className="device-search-back-text">‹</Text>
         </View>
-        <Text className="device-search-title">搜索设备</Text>
+        <Text className="device-search-title">{mode === "reconfigure" ? "重新配网" : "搜索设备"}</Text>
       </View>
 
       <ScrollView className="device-search-content" scrollY>
@@ -344,8 +349,12 @@ export default function CollarBind() {
           <View className="step-circle">
             <Image className="step-circle-image" src={require("@/assets/images/cat-dog-banner.png")} mode="aspectFit" />
           </View>
-          <Text className="step-main-copy">确保桌面端/项圈插电</Text>
-          <Text className="step-sub-copy">插电即可开启蓝牙广播</Text>
+          <Text className="step-main-copy">
+            {mode === "reconfigure" ? "确保要配网的设备已插电" : "确保桌面端/项圈插电"}
+          </Text>
+          <Text className="step-sub-copy">
+            {mode === "reconfigure" ? "设备进入无网络提示后，可在这里重新连接 WiFi" : "插电即可开启蓝牙广播"}
+          </Text>
         </View>
 
         <View className="step-outline-card">

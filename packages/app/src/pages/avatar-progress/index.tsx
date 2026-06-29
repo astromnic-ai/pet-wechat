@@ -28,8 +28,8 @@ function getProgress(status: AvatarStatus) {
 function getStatusText(status: AvatarStatus) {
   if (status === "done") return "新形象已生成";
   if (status === "failed") return "定制失败请重新上传图像";
-  if (status === "processing") return "预计需要 2-3 分钟";
-  return "预计需要 2-3 分钟";
+  if (status === "processing") return "正在生成宠物形象";
+  return "正在排队处理";
 }
 
 export default function AvatarProgress() {
@@ -166,6 +166,9 @@ export default function AvatarProgress() {
   const isCustomActionFlow = source === "custom-action";
   const previewAction = actions[0] ?? null;
   const progress = getProgress(status);
+  const ringStyle = {
+    background: `conic-gradient(${isFailed ? "#ff7a7a" : "#58a9ff"} ${progress * 3.6}deg, #e5eef8 0deg)`,
+  };
   const statusIcon = isFailed
     ? require("@/assets/images/fail-icon.png")
     : require("@/assets/images/success-icon.png");
@@ -275,6 +278,11 @@ export default function AvatarProgress() {
           <Text className="progress-subtitle">{hasLoadError ? loadError : getStatusText(status)}</Text>
 
           <View className="progress-panel">
+            <View className="progress-ring" style={ringStyle}>
+              <View className="progress-ring-inner">
+                <Text className="progress-ring-value">{progress}%</Text>
+              </View>
+            </View>
             <View className="progress-meta">
               <Text className="progress-meta-label">处理进度</Text>
               <Text className="progress-meta-value">{progress}%</Text>
@@ -313,9 +321,14 @@ export default function AvatarProgress() {
           </View>
 
           <Text className="progress-title">正在生成您的宠物定制形象</Text>
-          <Text className="progress-subtitle">预计需要 2-3 分钟</Text>
+          <Text className="progress-subtitle">{getStatusText(status)}</Text>
 
           <View className="progress-panel">
+            <View className="progress-ring" style={ringStyle}>
+              <View className="progress-ring-inner">
+                <Text className="progress-ring-value">{progress}%</Text>
+              </View>
+            </View>
             <View className="progress-meta">
               <Text className="progress-meta-label">处理进度</Text>
               <Text className="progress-meta-value">{progress}%</Text>

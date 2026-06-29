@@ -1,9 +1,8 @@
 import { View, Text, Switch } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
-import type { DeviceFirmwareStatus, UserSettings } from "@pet-wechat/shared";
+import type { UserSettings } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
-import { request } from "../../utils/request";
 import {
   fetchUserSettings,
   getThemeLabel,
@@ -16,7 +15,6 @@ const APP_VERSION = "1.0.0";
 
 export default function Settings() {
   const [settings, setSettings] = useState<UserSettings>(() => readCachedUserSettings());
-  const [firmwareDevices, setFirmwareDevices] = useState<DeviceFirmwareStatus[]>([]);
 
   const applySettings = async (patch: Partial<UserSettings>) => {
     const result = await saveUserSettings(patch);
@@ -28,52 +26,12 @@ export default function Settings() {
 
   useDidShow(() => {
     Taro.hideTabBar();
-    void Promise.all([
-      fetchUserSettings(),
-      request<{ devices: DeviceFirmwareStatus[] }>({ url: "/api/devices/firmware/status" }).catch(
-        () => ({ devices: [] as DeviceFirmwareStatus[] })
-      ),
-    ]).then(([settingsResult, firmwareResult]) => {
+    void fetchUserSettings().then((settingsResult) => {
       setSettings(settingsResult.settings);
-      setFirmwareDevices(firmwareResult.devices);
     });
   });
 
   const openPage = (url: string) => Taro.navigateTo({ url });
-  const pendingFirmwareDevice = firmwareDevices.find((item) => item.upgradeStatus === "pending");
-  const updatableFirmwareDevice = firmwareDevices.find((item) => item.hasUpdate);
-  const firmwareText = pendingFirmwareDevice
-    ? `${pendingFirmwareDevice.currentVersion || "--"} → ${pendingFirmwareDevice.latestVersion || "--"}`
-    : updatableFirmwareDevice
-    ? `${updatableFirmwareDevice.currentVersion || "--"} → ${updatableFirmwareDevice.latestVersion || "--"}`
-    : firmwareDevices[0]?.currentVersion
-    ? `当前固件 ${firmwareDevices[0].currentVersion}`
-    : "连接设备后查看";
-
-  const handleFirmwareAction = async () => {
-    if (pendingFirmwareDevice) {
-      Taro.showToast({ title: "升级请求已提交", icon: "none" });
-      return;
-    }
-    if (!updatableFirmwareDevice) {
-      Taro.showToast({ title: "当前已是最新版本", icon: "none" });
-      return;
-    }
-
-    try {
-      await request({
-        url: `/api/devices/${updatableFirmwareDevice.deviceType}/${updatableFirmwareDevice.deviceId}/firmware/upgrade`,
-        method: "POST",
-      });
-      Taro.showToast({ title: "升级请求已提交", icon: "success" });
-      const firmwareResult = await request<{ devices: DeviceFirmwareStatus[] }>({
-        url: "/api/devices/firmware/status",
-      }).catch(() => ({ devices: [] as DeviceFirmwareStatus[] }));
-      setFirmwareDevices(firmwareResult.devices);
-    } catch (error: any) {
-      Taro.showToast({ title: error.message || "升级失败", icon: "none" });
-    }
-  };
 
   return (
     <View className="settings-page">
@@ -150,16 +108,6 @@ export default function Settings() {
           </View>
         </View>
 
-        <View className="firmware-card" onClick={() => void handleFirmwareAction()}>
-          <View className="firmware-icon" />
-          <View className="firmware-main">
-            <Text className="firmware-title">固件更新</Text>
-            <Text className="firmware-desc">{firmwareText}</Text>
-          </View>
-          <View className="firmware-arrow-wrap">
-            <Text className="firmware-arrow">→</Text>
-          </View>
-        </View>
       </View>
     </View>
   );

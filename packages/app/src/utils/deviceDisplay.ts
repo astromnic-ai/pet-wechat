@@ -56,3 +56,25 @@ export function formatUsageDuration(value?: number | string | null) {
 export function getUsageLabel(value?: number | string | null) {
   return `累计使用${formatUsageDuration(value)}`;
 }
+
+export function getLastOnlineLabel(value?: string | null) {
+  if (!value) return "暂无在线记录";
+
+  const lastOnline = new Date(value);
+  if (Number.isNaN(lastOnline.getTime())) return "暂无在线记录";
+
+  const diffMinutes = Math.max(Math.floor((Date.now() - lastOnline.getTime()) / (1000 * 60)), 0);
+  if (diffMinutes < 1) return "上次在线刚刚";
+  if (diffMinutes < 60) return `上次在线${diffMinutes}分钟前`;
+
+  const diffHours = Math.floor(diffMinutes / 60);
+  if (diffHours < 24) return `上次在线${diffHours}小时前`;
+
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 30) return `上次在线${diffDays}天前`;
+
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `上次在线${diffMonths}个月前`;
+
+  return `上次在线${Math.floor(diffMonths / 12)}年前`;
+}
