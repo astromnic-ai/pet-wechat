@@ -3,14 +3,13 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import type {
   BindingType,
-  DeviceFirmwareStatus,
   DeviceStatus,
   DeviceSummary,
   Pet,
 } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
 import { request } from "../../utils/request";
-import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
+import { getDeviceDisplayName, getDeviceStatusText, getLastOnlineLabel, getUsageLabel } from "../../utils/deviceDisplay";
 import "./index.scss";
 
 type DeviceCard = {
@@ -32,7 +31,6 @@ type DeviceCard = {
   interactionCount: number;
   claimStatus: DeviceSummary["claimStatus"];
   upgradeStatus: DeviceSummary["upgradeStatus"];
-  firmwareStatus: DeviceFirmwareStatus | null;
 };
 
 const COLLAR_ICON = require("@/assets/images/collar-icon.png");
@@ -49,6 +47,10 @@ function getSignalText(type: "collar" | "desktop", status?: DeviceStatus) {
 }
 
 function getDeviceNote(item: DeviceCard) {
+  if (item.status !== "online") {
+    return `${getLastOnlineLabel(item.lastOnlineAt)} · ${item.petName ? `已关联${item.petName}` : "暂未绑定宠物"}`;
+  }
+
   const usage = getUsageLabel(item.usageDurationMinutes);
   const interactions = `互动${item.interactionCount}次`;
 
@@ -63,30 +65,25 @@ function getDeviceNote(item: DeviceCard) {
   return `${usage} · ${interactions} · 暂未绑定宠物`;
 }
 
-function getFirmwareText(item: DeviceCard) {
-  if (!item.firmwareStatus) return "固件信息暂不可用";
-  if (item.firmwareStatus.upgradeStatus === "pending") {
-    return `升级中 ${item.firmwareStatus.currentVersion || "--"} → ${item.firmwareStatus.latestVersion || "--"}`;
-  }
-  if (item.firmwareStatus.hasUpdate) {
-    return `待升级 ${item.firmwareStatus.currentVersion || "--"} → ${item.firmwareStatus.latestVersion || "--"}`;
-  }
-  if (item.firmwareStatus.currentVersion) {
-    return `当前固件 ${item.firmwareStatus.currentVersion}`;
-  }
-  return "设备未上报固件版本";
-}
-
 function getShortDeviceIdentity(item: Pick<DeviceCard, "chipId" | "deviceId">) {
   const identity = item.chipId?.trim() || item.deviceId;
   return identity ? identity.slice(-6).toUpperCase() : "------";
+}
+
+function getCardDisplayName(item: DeviceCard) {
+  if (item.deviceType === "desktop") return "桌面摆台";
+
+  return getDeviceDisplayName({
+    petName: item.petName,
+    deviceName: item.name,
+    fallbackName: "项圈",
+  });
 }
 
 export default function Devices() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [authorizedPets, setAuthorizedPets] = useState<Pet[]>([]);
   const [devices, setDevices] = useState<DeviceSummary[]>([]);
-  const [firmwareDevices, setFirmwareDevices] = useState<DeviceFirmwareStatus[]>([]);
   const [editingCollarId, setEditingCollarId] = useState("");
   const [collarNameDraft, setCollarNameDraft] = useState("");
 
@@ -103,15 +100,10 @@ export default function Devices() {
 
   const loadDevices = async () => {
     try {
-      const [deviceRes, firmwareRes] = await Promise.all([
-        request<{ devices: DeviceSummary[] }>({ url: "/api/devices" }),
-        request<{ devices: DeviceFirmwareStatus[] }>({ url: "/api/devices/firmware/status" }),
-      ]);
+      const deviceRes = await request<{ devices: DeviceSummary[] }>({ url: "/api/devices" });
       setDevices(deviceRes.devices);
-      setFirmwareDevices(firmwareRes.devices);
     } catch {
       setDevices([]);
-      setFirmwareDevices([]);
     }
   };
 
@@ -131,21 +123,10 @@ export default function Devices() {
     return map;
   }, [authorizedPets, pets]);
 
-  const firmwareMap = useMemo(() => {
-    const map = new Map<string, DeviceFirmwareStatus>();
-    firmwareDevices.forEach((item) => {
-      map.set(`${item.deviceType}:${item.deviceId}`, item);
-    });
-    return map;
-  }, [firmwareDevices]);
-
   const deviceCards = useMemo<DeviceCard[]>(() => {
     const cards: DeviceCard[] = [];
 
     devices.forEach((item) => {
-      const firmwareStatus =
-        firmwareMap.get(`${item.deviceType}:${item.deviceId}`) ?? null;
-
       if (item.deviceType === "collar") {
         const petMeta = item.petId ? petMetaMap.get(item.petId) : undefined;
         cards.push({
@@ -165,7 +146,6 @@ export default function Devices() {
           interactionCount: item.interactionCount,
           claimStatus: item.claimStatus,
           upgradeStatus: item.upgradeStatus,
-          firmwareStatus,
         });
         return;
       }
@@ -186,7 +166,6 @@ export default function Devices() {
           interactionCount: item.interactionCount,
           claimStatus: item.claimStatus,
           upgradeStatus: item.upgradeStatus,
-          firmwareStatus,
         });
         return;
       }
@@ -212,7 +191,6 @@ export default function Devices() {
           interactionCount: item.interactionCount,
           claimStatus: item.claimStatus,
           upgradeStatus: item.upgradeStatus,
-          firmwareStatus,
         });
       });
     });
@@ -223,7 +201,7 @@ export default function Devices() {
       if (a.status === b.status) return 0;
       return a.status === "online" ? -1 : 1;
     });
-  }, [devices, firmwareMap, petMetaMap]);
+  }, [devices, petMetaMap]);
 
   const handleRenameCollar = async (deviceId: string) => {
     const nextName = collarNameDraft.trim();
@@ -295,32 +273,6 @@ export default function Devices() {
     }
   };
 
-  const handleUpgradeDevice = async (item: DeviceCard) => {
-    if (!item.firmwareStatus) {
-      Taro.showToast({ title: "固件信息暂不可用", icon: "none" });
-      return;
-    }
-    if (item.firmwareStatus.upgradeStatus === "pending") {
-      Taro.showToast({ title: "升级请求已提交", icon: "none" });
-      return;
-    }
-    if (!item.firmwareStatus.hasUpdate) {
-      Taro.showToast({ title: "当前已是最新版本", icon: "none" });
-      return;
-    }
-
-    try {
-      await request({
-        url: `/api/devices/${item.deviceType}/${item.deviceId}/firmware/upgrade`,
-        method: "POST",
-      });
-      Taro.showToast({ title: "升级请求已提交", icon: "success" });
-      await loadDevices();
-    } catch (e: any) {
-      Taro.showToast({ title: e.message || "升级失败", icon: "none" });
-    }
-  };
-
   const handleChangePet = (item: DeviceCard) => {
     Taro.showModal({
       title: "更换绑定宠物",
@@ -366,6 +318,12 @@ export default function Devices() {
     });
   };
 
+  const handleReconfigureWifi = (item: DeviceCard) => {
+    Taro.navigateTo({
+      url: `/pages/collar-bind/index?mode=reconfigure&deviceType=${item.deviceType}`,
+    });
+  };
+
   return (
     <View className="devices-page">
       <View className="devices-top-strip" />
@@ -388,11 +346,7 @@ export default function Devices() {
               const isPrimaryBlue = isOnline && item.deviceType === "desktop";
               const isOffline = !isOnline;
               const hasBinding = Boolean(item.petId);
-              const displayName = getDeviceDisplayName({
-                petName: item.petName,
-                deviceName: item.name,
-                fallbackName: item.deviceType === "collar" ? "项圈" : "桌面端",
-              });
+              const displayName = getCardDisplayName(item);
               const deviceIdentity = `设备号 ${getShortDeviceIdentity(item)}`;
               const bindingLabel = hasBinding
                 ? `已绑定 ${item.petName || "未命名宠物"}`
@@ -467,15 +421,9 @@ export default function Devices() {
                             <Text className="device-tag-text">可删除</Text>
                           </View>
                         ) : null}
-                        {item.firmwareStatus?.hasUpdate ? (
-                          <View className="device-tag device-tag--accent">
-                            <Text className="device-tag-text">待升级</Text>
-                          </View>
-                        ) : null}
                       </View>
 
                       <Text className="device-note">{getDeviceNote(item)}</Text>
-                      <Text className="device-firmware-note">{getFirmwareText(item)}</Text>
                     </View>
                   </View>
 
@@ -483,18 +431,10 @@ export default function Devices() {
                     <View
                       className="device-action-btn"
                       onClick={() => {
-                        if (hasBinding) {
-                          handleChangePet(item);
-                          return;
-                        }
-                        Taro.navigateTo({
-                          url: `/pages/bind-pet/index?deviceType=${item.deviceType}&deviceId=${encodeURIComponent(
-                            item.deviceId
-                          )}&deviceName=${encodeURIComponent(item.name)}`,
-                        });
+                        handleReconfigureWifi(item);
                       }}
                     >
-                      <Text className="device-action-text">{hasBinding ? "更换绑定宠物" : "选择绑定宠物"}</Text>
+                      <Text className="device-action-text">重新配网</Text>
                     </View>
 
                     <View
@@ -511,22 +451,20 @@ export default function Devices() {
                     </View>
 
                     <View
-                      className={`device-action-btn ${
-                        !item.firmwareStatus?.hasUpdate || item.firmwareStatus.upgradeStatus === "pending"
-                          ? "device-action-btn--disabled"
-                          : ""
-                      }`}
+                      className="device-action-btn"
                       onClick={() => {
-                        void handleUpgradeDevice(item);
+                        if (hasBinding) {
+                          handleChangePet(item);
+                          return;
+                        }
+                        Taro.navigateTo({
+                          url: `/pages/bind-pet/index?deviceType=${item.deviceType}&deviceId=${encodeURIComponent(
+                            item.deviceId
+                          )}&deviceName=${encodeURIComponent(item.name)}`,
+                        });
                       }}
                     >
-                      <Text className="device-action-text">
-                        {item.firmwareStatus?.upgradeStatus === "pending"
-                          ? "升级中"
-                          : item.firmwareStatus?.hasUpdate
-                          ? "升级固件"
-                          : "固件已最新"}
-                      </Text>
+                      <Text className="device-action-text">{hasBinding ? "更换绑定宠物" : "选择绑定宠物"}</Text>
                     </View>
                   </View>
                 </View>

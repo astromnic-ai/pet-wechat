@@ -7,6 +7,12 @@ import "./index.scss";
 
 type WifiState = "loading" | "ready" | "manual";
 type DeviceType = "collar" | "desktop";
+type ReconfigureSuccess = {
+  deviceName: string;
+  deviceIdentity: string;
+  ssid: string;
+  signalText: string;
+};
 
 const BLE_SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const BLE_CONTROL_UUID = "1b9a473a-4493-4536-8b2b-9d4133488256";
@@ -153,6 +159,11 @@ function bytesToHex(bytes: number[]) {
   return bytes.map((item) => item.toString(16).padStart(2, "0")).join("");
 }
 
+function getShortDeviceIdentity(value?: string | null) {
+  const compact = (value || "").trim();
+  return compact ? compact.slice(-6).toUpperCase() : "------";
+}
+
 function extractChipIdFromDeviceInfo(buffer: ArrayBuffer) {
   const bytes = Array.from(new Uint8Array(buffer));
   if (bytes.length < 5 || bytes[0] !== BLE_FRAME_HEAD) return "";
@@ -191,6 +202,7 @@ export default function WifiConfig() {
   const bleDeviceId = decodeURIComponent(router.params.bleDeviceId || "");
   const deviceName = decodeURIComponent(router.params.deviceName || "");
   const deviceType = ((router.params.deviceType as DeviceType | undefined) || inferDeviceType(deviceName)) as DeviceType;
+  const mode = router.params.mode === "reconfigure" ? "reconfigure" : "bind";
 
   const [ssid, setSsid] = useState("");
   const [password, setPassword] = useState("");
@@ -198,6 +210,7 @@ export default function WifiConfig() {
   const [bleHint, setBleHint] = useState("等待下发 WiFi 信息");
   const [wifiState, setWifiState] = useState<WifiState>("loading");
   const [wifiHint, setWifiHint] = useState("正在读取当前连接的 WiFi…");
+  const [reconfigureSuccess, setReconfigureSuccess] = useState<ReconfigureSuccess | null>(null);
 
   const deviceImage = useMemo(
     () =>
@@ -548,6 +561,16 @@ export default function WifiConfig() {
       const chipId = await sendWifiConfigByBle();
       const device = await ensureDeviceRecord(chipId);
 
+      if (mode === "reconfigure") {
+        setReconfigureSuccess({
+          deviceName: displayDeviceName,
+          deviceIdentity: getShortDeviceIdentity(device.chipId || device.macAddress || device.id),
+          ssid: ssid.trim(),
+          signalText: "良好",
+        });
+        return;
+      }
+
       Taro.navigateTo({
         url: `/pages/bind-pet/index?deviceType=${deviceType}&deviceId=${encodeURIComponent(device.id)}&deviceName=${encodeURIComponent(
           displayDeviceName
@@ -573,7 +596,7 @@ export default function WifiConfig() {
         >
           <Text className="device-wifi-back-text">‹</Text>
         </View>
-        <Text className="device-wifi-title">WiFi 配置</Text>
+        <Text className="device-wifi-title">{mode === "reconfigure" ? "重新配网" : "WiFi 配置"}</Text>
       </View>
 
       <View className="device-wifi-content">
@@ -584,7 +607,7 @@ export default function WifiConfig() {
           <Text className="device-wifi-device-name">{displayDeviceName}</Text>
           <View className="device-wifi-device-status">
             <Text className="device-wifi-device-status-dot">•</Text>
-            <Text className="device-wifi-device-status-text">已连接</Text>
+            <Text className="device-wifi-device-status-text">蓝牙已连接</Text>
           </View>
         </View>
 
@@ -596,6 +619,10 @@ export default function WifiConfig() {
               {wifiState === "ready" ? "已自动识别" : wifiState === "loading" ? "读取中" : "手动填写"}
             </Text>
             <Text className="wifi-status-text">{wifiHint}</Text>
+          </View>
+
+          <View className="wifi-band-tip">
+            <Text className="wifi-band-tip-text">请选择 2.4G 网络进行配网</Text>
           </View>
 
           <View className="wifi-input-box wifi-input-box--highlight">
@@ -627,9 +654,47 @@ export default function WifiConfig() {
         </View>
 
         <View className={`wifi-submit-btn ${loading ? "wifi-submit-btn--disabled" : ""}`} onClick={handleConnectWifi}>
-          <Text className="wifi-submit-btn-text">{loading ? "处理中..." : "连接网络"}</Text>
+          <Text className="wifi-submit-btn-text">{loading ? "处理中..." : mode === "reconfigure" ? "重新连接网络" : "连接网络"}</Text>
         </View>
       </View>
+
+      {reconfigureSuccess ? (
+        <View className="wifi-success-overlay">
+          <View className="wifi-success-modal">
+            <View className="wifi-success-icon">
+              <Text className="wifi-success-icon-text">✓</Text>
+            </View>
+            <Text className="wifi-success-title">配网成功</Text>
+            <Text className="wifi-success-subtitle">设备已重新连接网络</Text>
+
+            <View className="wifi-success-info">
+              <View className="wifi-success-info-row">
+                <Text className="wifi-success-info-label">设备</Text>
+                <Text className="wifi-success-info-value">{reconfigureSuccess.deviceName}</Text>
+              </View>
+              <View className="wifi-success-info-row">
+                <Text className="wifi-success-info-label">设备号</Text>
+                <Text className="wifi-success-info-value">{reconfigureSuccess.deviceIdentity}</Text>
+              </View>
+              <View className="wifi-success-info-row">
+                <Text className="wifi-success-info-label">WiFi</Text>
+                <Text className="wifi-success-info-value">{reconfigureSuccess.ssid}</Text>
+              </View>
+              <View className="wifi-success-info-row">
+                <Text className="wifi-success-info-label">信号强度</Text>
+                <Text className="wifi-success-info-value wifi-success-info-value--ok">{reconfigureSuccess.signalText}</Text>
+              </View>
+            </View>
+
+            <View className="wifi-success-primary" onClick={() => Taro.switchTab({ url: "/pages/index/index" })}>
+              <Text className="wifi-success-primary-text">返回主页</Text>
+            </View>
+            <View className="wifi-success-secondary" onClick={() => Taro.switchTab({ url: "/pages/devices/index" })}>
+              <Text className="wifi-success-secondary-text">查看设备详情</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }

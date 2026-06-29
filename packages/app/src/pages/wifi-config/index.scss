@@ -166,6 +166,21 @@
   color: #555555;
 }
 
+.wifi-band-tip {
+  border-radius: 24rpx;
+  padding: 18rpx 22rpx;
+  margin-bottom: 18rpx;
+  background: #fff3c4;
+  border: 2rpx solid #ffd76d;
+}
+
+.wifi-band-tip-text {
+  font-size: 28rpx;
+  line-height: 1.4;
+  font-weight: 700;
+  color: #7c5b00;
+}
+
 .wifi-input-box {
   border-radius: 28rpx;
   background: #ffd76d;
@@ -256,4 +271,134 @@
   font-size: 36rpx;
   font-weight: 700;
   color: #ffffff;
+}
+
+.wifi-success-overlay {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+  box-sizing: border-box;
+}
+
+.wifi-success-modal {
+  width: 100%;
+  max-width: 560rpx;
+  border-radius: 30rpx;
+  background: #ffffff;
+  padding: 44rpx 36rpx 32rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wifi-success-icon {
+  width: 92rpx;
+  height: 92rpx;
+  border-radius: 50%;
+  background: #e9faee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wifi-success-icon-text {
+  font-size: 48rpx;
+  line-height: 1;
+  font-weight: 700;
+  color: #56c169;
+}
+
+.wifi-success-title {
+  margin-top: 24rpx;
+  font-size: 34rpx;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #202020;
+}
+
+.wifi-success-subtitle {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
+  color: #8a8a8a;
+}
+
+.wifi-success-info {
+  width: 100%;
+  margin-top: 28rpx;
+}
+
+.wifi-success-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  min-height: 46rpx;
+}
+
+.wifi-success-info-row + .wifi-success-info-row {
+  margin-top: 8rpx;
+}
+
+.wifi-success-info-label {
+  font-size: 24rpx;
+  color: #9b9b9b;
+  flex-shrink: 0;
+}
+
+.wifi-success-info-value {
+  font-size: 24rpx;
+  color: #303030;
+  font-weight: 700;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wifi-success-info-value--ok {
+  color: #56c169;
+}
+
+.wifi-success-primary {
+  width: 100%;
+  height: 76rpx;
+  border-radius: 18rpx;
+  background: #ffd76d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 30rpx;
+}
+
+.wifi-success-primary-text {
+  font-size: 28rpx;
+  line-height: 1;
+  font-weight: 700;
+  color: #202020;
+}
+
+.wifi-success-secondary {
+  margin-top: 24rpx;
+  min-height: 40rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wifi-success-secondary-text {
+  font-size: 24rpx;
+  line-height: 1.3;
+  font-weight: 700;
+  color: #3d9bff;
 }

@@ -6,7 +6,7 @@ import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, DeviceSummary, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
 import { fetchPetActivityMode, syncPetModeCache } from "../../utils/petModeApi";
-import { getDeviceDisplayName, getDeviceStatusText, getUsageLabel } from "../../utils/deviceDisplay";
+import { getDeviceDisplayName, getDeviceStatusText, getLastOnlineLabel, getUsageLabel } from "../../utils/deviceDisplay";
 import { getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
 import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petActions";
@@ -399,13 +399,20 @@ export default function Index() {
   const primaryManagedDevice = activeDesktop ?? activeCollar;
   const hasManagedDevices = Boolean(primaryManagedDevice);
   const primaryManagedDeviceName = primaryManagedDevice
-    ? getDeviceDisplayName({
-        petName: currentPet?.name,
-        deviceName: primaryManagedDevice.name,
-        fallbackName: primaryManagedDevice === activeDesktop ? "桌面端" : "项圈",
-      })
+    ? primaryManagedDevice.deviceType === "desktop"
+      ? "桌面摆台"
+      : getDeviceDisplayName({
+          petName: currentPet?.name,
+          deviceName: primaryManagedDevice.name,
+          fallbackName: "项圈",
+        })
     : "未命名设备";
-  const primaryManagedDeviceLabel = primaryManagedDevice ? getUsageLabel(primaryManagedDevice.usageDurationMinutes) : "";
+  const isPrimaryManagedDeviceOffline = primaryManagedDevice?.status === "offline";
+  const primaryManagedDeviceLabel = primaryManagedDevice
+    ? isPrimaryManagedDeviceOffline
+      ? getLastOnlineLabel(primaryManagedDevice.lastOnlineAt)
+      : getUsageLabel(primaryManagedDevice.usageDurationMinutes)
+    : "";
   const primaryManagedDeviceStatus = primaryManagedDevice ? getDeviceStatusText(primaryManagedDevice.status) : "";
   const isCompletelyEmpty = !hasPet && !hasManagedDevices;
   const defaultPetHeroImage = getPetFallbackImage(currentPet?.species);
@@ -677,7 +684,7 @@ export default function Index() {
                     <Text className="managed-device-name">{primaryManagedDeviceName}</Text>
                     <Text className="managed-device-text">{primaryManagedDeviceLabel}</Text>
                   </View>
-                  <View className="managed-device-status">
+                  <View className={`managed-device-status ${isPrimaryManagedDeviceOffline ? "managed-device-status--offline" : ""}`}>
                     <Text className="managed-device-status-text">{primaryManagedDeviceStatus}</Text>
                   </View>
                   <View className="device-manage-btn" onClick={handleManageDevices}>
