@@ -1,6 +1,6 @@
 import { View, Text, Image, Input } from "@tarojs/components";
 import Taro, { useDidHide, useDidShow, useRouter, useUnload } from "@tarojs/taro";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
 import "./index.scss";
@@ -12,6 +12,11 @@ type ReconfigureSuccess = {
   deviceIdentity: string;
   ssid: string;
   signalText: string;
+};
+type DeviceOwnershipCheck = {
+  canBind: boolean;
+  claimStatus: "unknown" | "owned" | "available" | "occupied";
+  message?: string | null;
 };
 
 const BLE_SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
@@ -197,6 +202,15 @@ function removeBleListenersQuietly() {
   } catch {}
 }
 
+function showDeviceOccupiedModal(message = "该设备已被其他账号绑定，无法再次绑定") {
+  Taro.showModal({
+    title: "设备已绑定",
+    content: message,
+    showCancel: false,
+    confirmText: "知道了",
+  });
+}
+
 export default function WifiConfig() {
   const router = useRouter();
   const bleDeviceId = decodeURIComponent(router.params.bleDeviceId || "");
@@ -211,6 +225,9 @@ export default function WifiConfig() {
   const [wifiState, setWifiState] = useState<WifiState>("loading");
   const [wifiHint, setWifiHint] = useState("正在读取当前连接的 WiFi…");
   const [reconfigureSuccess, setReconfigureSuccess] = useState<ReconfigureSuccess | null>(null);
+  const [preflightChipId, setPreflightChipId] = useState("");
+  const [deviceOccupiedMessage, setDeviceOccupiedMessage] = useState("");
+  const ownershipCheckedRef = useRef(false);
 
   const deviceImage = useMemo(
     () =>
@@ -224,6 +241,7 @@ export default function WifiConfig() {
 
   useDidShow(() => {
     void initializeWifi();
+    void checkDeviceOwnershipOnEntry();
   });
 
   const cleanupBleLifecycle = () => {
@@ -255,6 +273,39 @@ export default function WifiConfig() {
     } catch (error) {
       setWifiState("manual");
       setWifiHint(getWifiErrorText(error));
+    }
+  };
+
+  const checkDeviceOwnershipOnEntry = async () => {
+    if (ownershipCheckedRef.current || !bleDeviceId) return;
+    ownershipCheckedRef.current = true;
+
+    try {
+      await ensureBleConnection();
+      const ids = await findBleCharacteristics();
+      const chipId = await readChipIdByBle(ids);
+      setPreflightChipId(chipId);
+
+      const ownership = await request<DeviceOwnershipCheck>({
+        url: "/api/devices/ownership/check",
+        method: "POST",
+        data: {
+          deviceType,
+          macAddress: bleDeviceId,
+          chipId,
+        },
+      });
+
+      if (!ownership.canBind) {
+        const message = ownership.message || deviceTypeNameFromText(deviceType);
+        setDeviceOccupiedMessage(message);
+        setBleHint(message);
+        showDeviceOccupiedModal(message);
+      }
+    } catch (error) {
+      console.warn("[wifi-config] ownership preflight skipped", {
+        message: error instanceof Error ? error.message : getBleErrorText(error),
+      });
     }
   };
 
@@ -537,13 +588,18 @@ export default function WifiConfig() {
 
     await ensureBleConnection();
     const ids = await findBleCharacteristics();
-    const chipId = await readChipIdByBle(ids);
+    const chipId = preflightChipId || (await readChipIdByBle(ids));
     await writeWifiConfigByBle(ids);
     return chipId;
   };
 
   const handleConnectWifi = async () => {
     if (loading) return;
+
+    if (deviceOccupiedMessage) {
+      showDeviceOccupiedModal(deviceOccupiedMessage);
+      return;
+    }
 
     if (!ssid.trim()) {
       Taro.showToast({ title: "请输入 WiFi 名称", icon: "none" });
@@ -653,8 +709,10 @@ export default function WifiConfig() {
           <Text className="wifi-ble-status">{bleHint}</Text>
         </View>
 
-        <View className={`wifi-submit-btn ${loading ? "wifi-submit-btn--disabled" : ""}`} onClick={handleConnectWifi}>
-          <Text className="wifi-submit-btn-text">{loading ? "处理中..." : mode === "reconfigure" ? "重新连接网络" : "连接网络"}</Text>
+        <View className={`wifi-submit-btn ${loading || deviceOccupiedMessage ? "wifi-submit-btn--disabled" : ""}`} onClick={handleConnectWifi}>
+          <Text className="wifi-submit-btn-text">
+            {loading ? "处理中..." : deviceOccupiedMessage ? "设备已绑定" : mode === "reconfigure" ? "重新连接网络" : "连接网络"}
+          </Text>
         </View>
       </View>
 
