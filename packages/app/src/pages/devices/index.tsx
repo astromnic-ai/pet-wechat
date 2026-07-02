@@ -347,7 +347,7 @@ export default function Devices() {
               const isOffline = !isOnline;
               const hasBinding = Boolean(item.petId);
               const displayName = getCardDisplayName(item);
-              const deviceIdentity = `设备号 ${getShortDeviceIdentity(item)}`;
+              const deviceIdentity = item.deviceType === "desktop" ? "桌面摆台" : `设备号 ${getShortDeviceIdentity(item)}`;
               const bindingLabel = hasBinding
                 ? `已绑定 ${item.petName || "未命名宠物"}`
                 : "待绑定宠物";

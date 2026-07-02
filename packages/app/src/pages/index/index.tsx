@@ -669,11 +669,11 @@ export default function Index() {
 
         {hasPet && (
           <>
-            <View className="device-card managed-device-card">
+            <View className={`device-card managed-device-card ${isPrimaryManagedDeviceOffline ? "managed-device-card--offline" : ""}`}>
               <Text className="device-card-title visible">设备管理</Text>
               {hasManagedDevices ? (
                 <View className="managed-device-row">
-                  <View className="device-icon-wrap managed">
+                  <View className={`device-icon-wrap managed ${isPrimaryManagedDeviceOffline ? "device-icon-wrap--offline" : ""}`}>
                     <Image
                       className="device-icon"
                       src={activeDesktop ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}

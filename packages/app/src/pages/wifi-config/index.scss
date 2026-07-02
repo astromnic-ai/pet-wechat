@@ -1,21 +1,25 @@
 .device-wifi-page {
-  min-height: 100vh;
+  height: 100vh;
   background: #fff8ef;
   box-sizing: border-box;
-  padding-bottom: calc(env(safe-area-inset-bottom) + 40rpx);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .device-wifi-top-strip {
   width: 100%;
-  height: calc(env(safe-area-inset-top) + 102rpx);
+  height: calc(env(safe-area-inset-top) + 86rpx);
   background: #ffd86f;
+  flex-shrink: 0;
 }
 
 .device-wifi-header {
   display: flex;
   align-items: center;
   gap: 20rpx;
-  padding: 26rpx 32rpx 14rpx;
+  padding: 20rpx 32rpx 10rpx;
+  flex-shrink: 0;
 }
 
 .device-wifi-back {
@@ -36,13 +40,18 @@
 }
 
 .device-wifi-title {
-  font-size: 42rpx;
+  font-size: 40rpx;
   font-weight: 700;
   color: #202020;
 }
 
 .device-wifi-content {
-  padding: 34rpx 38rpx 0;
+  flex: 1;
+  min-height: 0;
+  padding: 18rpx 38rpx calc(env(safe-area-inset-bottom) + 14rpx);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
 .device-wifi-device-card,
@@ -57,13 +66,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 34rpx 30rpx;
+  padding: 24rpx 30rpx;
+  flex-shrink: 0;
 }
 
 .device-wifi-device-icon-wrap {
-  width: 160rpx;
-  height: 120rpx;
-  border-radius: 30rpx;
+  width: 138rpx;
+  height: 100rpx;
+  border-radius: 26rpx;
   background: #4aa4ff;
   display: flex;
   align-items: center;
@@ -71,23 +81,23 @@
 }
 
 .device-wifi-device-icon {
-  width: 112rpx;
-  height: 112rpx;
+  width: 90rpx;
+  height: 90rpx;
 }
 
 .device-wifi-device-name {
-  margin-top: 28rpx;
-  font-size: 40rpx;
+  margin-top: 18rpx;
+  font-size: 34rpx;
   font-weight: 700;
   color: #202020;
   text-align: center;
 }
 
 .device-wifi-device-status {
-  margin-top: 18rpx;
-  min-width: 150rpx;
-  height: 58rpx;
-  padding: 0 24rpx;
+  margin-top: 12rpx;
+  min-width: 136rpx;
+  height: 46rpx;
+  padding: 0 20rpx;
   border-radius: 30rpx;
   border: 2rpx solid #56c169;
   background: #effcf2;
@@ -99,7 +109,7 @@
 
 .device-wifi-device-status-dot,
 .device-wifi-device-status-text {
-  font-size: 26rpx;
+  font-size: 24rpx;
   font-weight: 700;
   color: #56c169;
 }
@@ -112,23 +122,24 @@
 }
 
 .wifi-panel {
-  padding: 28rpx;
-  margin-top: 26rpx;
+  padding: 22rpx 28rpx 24rpx;
+  margin-top: 18rpx;
+  flex-shrink: 0;
 }
 
 .wifi-panel-title {
   display: block;
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 700;
   color: #202020;
-  margin-bottom: 22rpx;
+  margin-bottom: 16rpx;
 }
 
 .wifi-status-card {
   background: #f6f7fb;
-  border-radius: 24rpx;
-  padding: 20rpx 22rpx;
-  margin-bottom: 18rpx;
+  border-radius: 22rpx;
+  padding: 14rpx 20rpx;
+  margin-bottom: 14rpx;
 }
 
 .wifi-status-tag {
@@ -136,10 +147,10 @@
   align-items: center;
   justify-content: center;
   min-width: 132rpx;
-  height: 48rpx;
+  height: 42rpx;
   padding: 0 18rpx;
   border-radius: 999rpx;
-  font-size: 24rpx;
+  font-size: 22rpx;
   font-weight: 700;
 }
 
@@ -160,9 +171,9 @@
 
 .wifi-status-text {
   display: block;
-  margin-top: 14rpx;
-  font-size: 26rpx;
-  line-height: 1.5;
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.35;
   color: #555555;
 }
 
@@ -182,10 +193,10 @@
 }
 
 .wifi-input-box {
-  border-radius: 28rpx;
+  border-radius: 26rpx;
   background: #ffd76d;
-  padding: 20rpx 24rpx;
-  margin-top: 16rpx;
+  padding: 16rpx 24rpx;
+  margin-top: 14rpx;
 }
 
 .wifi-input-box--highlight {
@@ -194,13 +205,13 @@
 
 .wifi-input-label {
   display: block;
-  font-size: 26rpx;
+  font-size: 24rpx;
   color: #8b6b00;
 }
 
 .wifi-input-value {
-  margin-top: 12rpx;
-  font-size: 38rpx;
+  margin-top: 8rpx;
+  font-size: 34rpx;
   font-weight: 600;
   color: #202020;
 }
@@ -223,44 +234,46 @@
 }
 
 .wifi-hint-panel {
-  margin-top: 24rpx;
-  padding: 22rpx 26rpx;
+  margin-top: 18rpx;
+  padding: 18rpx 24rpx;
   border-left: 6rpx solid #ffd76d;
   background: #f5f7fb;
+  flex-shrink: 0;
 }
 
 .wifi-hint-title {
   display: block;
-  font-size: 30rpx;
+  font-size: 28rpx;
   font-weight: 700;
   color: #444444;
 }
 
 .wifi-hint-text {
   display: block;
-  margin-top: 10rpx;
-  font-size: 28rpx;
+  margin-top: 8rpx;
+  font-size: 25rpx;
   color: #555555;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .wifi-ble-status {
   display: block;
-  margin-top: 14rpx;
-  font-size: 26rpx;
+  margin-top: 8rpx;
+  font-size: 24rpx;
   font-weight: 700;
   color: #3d9bff;
-  line-height: 1.5;
+  line-height: 1.3;
 }
 
 .wifi-submit-btn {
-  height: 92rpx;
+  height: 86rpx;
   border-radius: 24rpx;
   background: #3d9bff;
-  margin-top: 28rpx;
+  margin-top: auto;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .wifi-submit-btn--disabled {
@@ -268,7 +281,7 @@
 }
 
 .wifi-submit-btn-text {
-  font-size: 36rpx;
+  font-size: 34rpx;
   font-weight: 700;
   color: #ffffff;
 }

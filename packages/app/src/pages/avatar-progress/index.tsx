@@ -12,17 +12,15 @@ import type {
 import PageBack from "../../components/PageBack";
 import "./index.scss";
 
-const DEFAULT_PET_IMAGE = require("@/assets/images/black-cat.png");
-
 function getDisplayPetName(pet?: Pet | null) {
   return pet?.name?.trim() || "宠物";
 }
 
 function getProgress(status: AvatarStatus) {
   if (status === "done") return 100;
-  if (status === "processing") return 72;
-  if (status === "failed") return 72;
-  return 28;
+  if (status === "processing") return 65;
+  if (status === "failed") return 65;
+  return 35;
 }
 
 function getStatusText(status: AvatarStatus) {
@@ -167,13 +165,12 @@ export default function AvatarProgress() {
   const previewAction = actions[0] ?? null;
   const progress = getProgress(status);
   const ringStyle = {
-    background: `conic-gradient(${isFailed ? "#ff7a7a" : "#58a9ff"} ${progress * 3.6}deg, #e5eef8 0deg)`,
+    background: `conic-gradient(${isFailed ? "#ff7a7a" : "#ffd66d"} ${progress * 3.6}deg, #f5efe5 0deg)`,
   };
   const statusIcon = isFailed
     ? require("@/assets/images/fail-icon.png")
     : require("@/assets/images/success-icon.png");
 
-  const ringColor = isFailed ? "#ff4d4f" : "#07c160";
   const handleGoHome = () => {
     Taro.switchTab({ url: "/pages/index/index" });
   };
@@ -314,21 +311,22 @@ export default function AvatarProgress() {
         </View>
       ) : (
         <View className="progress-shell">
-          <View className="preview-stage-card">
-            <View className="preview-stage-card-inner">
-              <View className="preview-stage-dot" />
+          <View className="waiting-orbit-wrap">
+            <View className="waiting-spark waiting-spark--top">◆</View>
+            <View className="waiting-spark waiting-spark--left">•</View>
+            <View className="waiting-spark waiting-spark--right">◆</View>
+            <View className="waiting-spark waiting-spark--bottom">◆</View>
+            <View className="waiting-orbit" style={ringStyle}>
+              <View className="waiting-orbit-inner">
+                <Image className="waiting-paw-icon" src={require("@/assets/images/paw.png")} mode="aspectFit" />
+                <Text className="waiting-ai-text">AI 生成中</Text>
+              </View>
             </View>
           </View>
 
           <Text className="progress-title">正在生成您的宠物定制形象</Text>
-          <Text className="progress-subtitle">{getStatusText(status)}</Text>
 
           <View className="progress-panel">
-            <View className="progress-ring" style={ringStyle}>
-              <View className="progress-ring-inner">
-                <Text className="progress-ring-value">{progress}%</Text>
-              </View>
-            </View>
             <View className="progress-meta">
               <Text className="progress-meta-label">处理进度</Text>
               <Text className="progress-meta-value">{progress}%</Text>

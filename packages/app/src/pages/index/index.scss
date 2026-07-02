@@ -429,6 +429,10 @@
   gap: 18rpx;
 }
 
+.managed-device-card--offline {
+  background: #fffaf3;
+}
+
 .device-empty-title {
   font-size: 34rpx;
   line-height: 1.2;
@@ -488,6 +492,10 @@
   margin-bottom: 0;
 }
 
+.device-icon-wrap--offline {
+  background: #fff1d3;
+}
+
 .managed-device-main {
   flex: 1;
   min-width: 0;
@@ -510,6 +518,10 @@
   color: #6b655d;
 }
 
+.managed-device-card--offline .managed-device-text {
+  color: #ff6f63;
+}
+
 .managed-device-status {
   min-width: 100rpx;
   height: 52rpx;
@@ -524,7 +536,7 @@
 }
 
 .managed-device-status--offline {
-  background: #5f6670;
+  background: #ff6f63;
 }
 
 .managed-device-status-text {
