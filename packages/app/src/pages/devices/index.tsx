@@ -71,12 +71,10 @@ function getShortDeviceIdentity(item: Pick<DeviceCard, "chipId" | "deviceId">) {
 }
 
 function getCardDisplayName(item: DeviceCard) {
-  if (item.deviceType === "desktop") return "桌面摆台";
-
   return getDeviceDisplayName({
     petName: item.petName,
     deviceName: item.name,
-    fallbackName: "项圈",
+    fallbackName: item.deviceType === "desktop" ? "桌面摆台" : "项圈",
   });
 }
 
