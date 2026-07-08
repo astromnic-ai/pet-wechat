@@ -4,7 +4,7 @@ import { db } from "../db";
 import { desktopDevices } from "../db/schema";
 import { normalizeMac } from "./mac";
 
-export const DEVICE_ONLINE_TIMEOUT_MS = 10 * 60 * 1000;
+export const DEVICE_ONLINE_TIMEOUT_MS = 60 * 1000;
 
 export function getUsageDurationIncrementMinutes(
   previousLastOnlineAt: Date | string | null | undefined,

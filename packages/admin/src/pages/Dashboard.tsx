@@ -372,7 +372,7 @@ export default function Dashboard() {
     {
       key: "newDeviceOnline",
       title: "新设备上线",
-      description: "一小时内新增上线设备",
+      description: "1 分钟内在线设备",
       item: stats.realtimeDynamics.newDeviceOnline,
       color: "#1677ff",
     },

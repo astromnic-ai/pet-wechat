@@ -337,7 +337,7 @@ describe("Device Report Routes", () => {
         fakeCollar({
           macAddress: "AABBCCDDEEFF",
           status: "online",
-          lastOnlineAt: new Date(Date.now() - 3 * 60 * 1000),
+          lastOnlineAt: new Date(Date.now() - 30 * 1000),
         }),
       ]];
       mockDb._results.update = [[fakeCollar({ macAddress: "AABBCCDDEEFF", status: "online", lastOnlineAt: new Date() })]];
@@ -362,7 +362,7 @@ describe("Device Report Routes", () => {
         fakeDesktop({
           macAddress: "112233445566",
           status: "online",
-          lastOnlineAt: new Date(Date.now() - 11 * 60 * 1000),
+          lastOnlineAt: new Date(Date.now() - 61 * 1000),
         }),
       ]];
       mockDb._results.update = [[fakeDesktop({ macAddress: "112233445566", status: "online", lastOnlineAt: new Date() })]];
