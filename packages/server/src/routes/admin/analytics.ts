@@ -10,10 +10,12 @@ import {
   pets,
   users,
 } from "../../db/schema";
+import { DEVICE_ONLINE_TIMEOUT_MS } from "../../utils/device-status";
 
 const analyticsRoute = new Hono();
 const ADMIN_TIME_ZONE = "Asia/Shanghai";
 const MODE_ORDER = ["free", "custom", "real"] as const;
+const ONLINE_TIMEOUT_MS = DEVICE_ONLINE_TIMEOUT_MS;
 
 type ModeKey = (typeof MODE_ORDER)[number];
 
@@ -69,13 +71,13 @@ analyticsRoute.get("/analytics", async (c) => {
       FROM (
         SELECT ${collarDevices.id} AS device_id
         FROM ${collarDevices}
-        WHERE ${collarDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'
+        WHERE EXTRACT(EPOCH FROM (NOW() - ${collarDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
 
         UNION ALL
 
         SELECT ${desktopDevices.id} AS device_id
         FROM ${desktopDevices}
-        WHERE ${desktopDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'
+        WHERE EXTRACT(EPOCH FROM (NOW() - ${desktopDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
       ) AS online_devices
     `),
     db.execute<{ count: number }>(sql`
@@ -83,15 +85,15 @@ analyticsRoute.get("/analytics", async (c) => {
       FROM (
         SELECT ${collarDevices.id} AS device_id
         FROM ${collarDevices}
-        WHERE ${collarDevices.lastOnlineAt} > NOW() - INTERVAL '25 hours'
-          AND ${collarDevices.lastOnlineAt} <= NOW() - INTERVAL '24 hours'
+        WHERE EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${collarDevices.lastOnlineAt})) * 1000 >= 0
+          AND EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${collarDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
 
         UNION ALL
 
         SELECT ${desktopDevices.id} AS device_id
         FROM ${desktopDevices}
-        WHERE ${desktopDevices.lastOnlineAt} > NOW() - INTERVAL '25 hours'
-          AND ${desktopDevices.lastOnlineAt} <= NOW() - INTERVAL '24 hours'
+        WHERE EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${desktopDevices.lastOnlineAt})) * 1000 >= 0
+          AND EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${desktopDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
       ) AS yesterday_online_devices
     `),
     db.execute<{ count: number }>(sql`
@@ -100,14 +102,14 @@ analyticsRoute.get("/analytics", async (c) => {
         SELECT ${collarDevices.userId} AS user_id
         FROM ${collarDevices}
         WHERE ${collarDevices.userId} IS NOT NULL
-          AND ${collarDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'
+          AND EXTRACT(EPOCH FROM (NOW() - ${collarDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
 
         UNION
 
         SELECT ${desktopDevices.userId} AS user_id
         FROM ${desktopDevices}
         WHERE ${desktopDevices.userId} IS NOT NULL
-          AND ${desktopDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'
+          AND EXTRACT(EPOCH FROM (NOW() - ${desktopDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
       ) AS online_users
     `),
     db.execute<{ count: number }>(sql`
@@ -116,16 +118,16 @@ analyticsRoute.get("/analytics", async (c) => {
         SELECT ${collarDevices.userId} AS user_id
         FROM ${collarDevices}
         WHERE ${collarDevices.userId} IS NOT NULL
-          AND ${collarDevices.lastOnlineAt} > NOW() - INTERVAL '25 hours'
-          AND ${collarDevices.lastOnlineAt} <= NOW() - INTERVAL '24 hours'
+          AND EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${collarDevices.lastOnlineAt})) * 1000 >= 0
+          AND EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${collarDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
 
         UNION
 
         SELECT ${desktopDevices.userId} AS user_id
         FROM ${desktopDevices}
         WHERE ${desktopDevices.userId} IS NOT NULL
-          AND ${desktopDevices.lastOnlineAt} > NOW() - INTERVAL '25 hours'
-          AND ${desktopDevices.lastOnlineAt} <= NOW() - INTERVAL '24 hours'
+          AND EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${desktopDevices.lastOnlineAt})) * 1000 >= 0
+          AND EXTRACT(EPOCH FROM ((NOW() - INTERVAL '24 hours') - ${desktopDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
       ) AS online_users
     `),
     db.execute<{ count: number }>(sql`

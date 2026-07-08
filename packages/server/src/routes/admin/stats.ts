@@ -12,9 +12,11 @@ import {
   pets,
   users,
 } from "../../db/schema";
+import { DEVICE_ONLINE_TIMEOUT_MS } from "../../utils/device-status";
 
 const statsRoute = new Hono();
 const ADMIN_TIME_ZONE = "Asia/Shanghai";
+const ONLINE_TIMEOUT_MS = DEVICE_ONLINE_TIMEOUT_MS;
 
 function formatDateInTimeZone(date: Date, timeZone: string): string {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -344,18 +346,18 @@ statsRoute.get("/stats/enhanced", async (c) => {
           (
             SELECT COUNT(*)::int
             FROM ${collarDevices}
-            WHERE ${collarDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'
+            WHERE EXTRACT(EPOCH FROM (NOW() - ${collarDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
           ) + (
             SELECT COUNT(*)::int
             FROM ${desktopDevices}
-            WHERE ${desktopDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'
+            WHERE EXTRACT(EPOCH FROM (NOW() - ${desktopDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}
           )
         )::int AS count
     `),
     db.execute<{ latestUpdatedAt: string | null }>(sql`
       SELECT GREATEST(
-        COALESCE((SELECT MAX(${collarDevices.lastOnlineAt}) FROM ${collarDevices} WHERE ${collarDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'), to_timestamp(0)),
-        COALESCE((SELECT MAX(${desktopDevices.lastOnlineAt}) FROM ${desktopDevices} WHERE ${desktopDevices.lastOnlineAt} > NOW() - INTERVAL '1 hour'), to_timestamp(0))
+        COALESCE((SELECT MAX(${collarDevices.lastOnlineAt}) FROM ${collarDevices} WHERE EXTRACT(EPOCH FROM (NOW() - ${collarDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}), to_timestamp(0)),
+        COALESCE((SELECT MAX(${desktopDevices.lastOnlineAt}) FROM ${desktopDevices} WHERE EXTRACT(EPOCH FROM (NOW() - ${desktopDevices.lastOnlineAt})) * 1000 <= ${ONLINE_TIMEOUT_MS}), to_timestamp(0))
       )::text AS "latestUpdatedAt"
     `),
     db.execute<{ count: number }>(sql`

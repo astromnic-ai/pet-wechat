@@ -164,7 +164,7 @@ describe("Admin Device Routes", () => {
           pet_avatar_url: null,
           battery: null,
           signal: null,
-          last_online_at: new Date(Date.now() - 11 * 60 * 1000),
+          last_online_at: new Date(Date.now() - 61 * 1000),
           created_at: "2026-04-19T08:00:00.000Z",
           has_uploaded_avatar: false,
           avatar_uploaded: 0,

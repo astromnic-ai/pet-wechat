@@ -259,12 +259,12 @@ describe("Device Routes", () => {
       ]);
     });
 
-    it("returns stale online desktops as offline after 10 minutes without heartbeat", async () => {
+    it("returns stale online desktops as offline after 1 minute without heartbeat", async () => {
       mockDb._results.select = [[
         {
           desktop: fakeDesktop({
             status: "online",
-            lastOnlineAt: new Date(Date.now() - 11 * 60 * 1000),
+            lastOnlineAt: new Date(Date.now() - 61 * 1000),
           }),
           bindingId: null,
           bindingPetId: null,
@@ -392,14 +392,14 @@ describe("Device Routes", () => {
       expect(json.devices.find((device: any) => device.deviceType === "desktop").interactionCount).toBe(5);
     });
 
-    it("derives desktop offline state from a 10 minute heartbeat timeout", async () => {
+    it("derives desktop offline state from a 1 minute heartbeat timeout", async () => {
       mockDb._results.select = [
         [],
         [
           {
             desktop: fakeDesktop({
               status: "online",
-              lastOnlineAt: new Date(Date.now() - 11 * 60 * 1000),
+              lastOnlineAt: new Date(Date.now() - 61 * 1000),
             }),
             bindingId: null,
             bindingPetId: null,
