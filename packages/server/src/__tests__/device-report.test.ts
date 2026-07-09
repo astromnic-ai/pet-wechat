@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
 import { ALL_ACTIONS } from "shared";
+import { DEVICE_ONLINE_TIMEOUT_MS } from "../utils/device-status";
 import { mockDb } from "./setup";
 import {
   createApp,
@@ -362,7 +363,7 @@ describe("Device Report Routes", () => {
         fakeDesktop({
           macAddress: "112233445566",
           status: "online",
-          lastOnlineAt: new Date(Date.now() - 61 * 1000),
+          lastOnlineAt: new Date(Date.now() - DEVICE_ONLINE_TIMEOUT_MS - 1000),
         }),
       ]];
       mockDb._results.update = [[fakeDesktop({ macAddress: "112233445566", status: "online", lastOnlineAt: new Date() })]];

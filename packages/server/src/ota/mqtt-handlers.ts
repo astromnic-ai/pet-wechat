@@ -9,7 +9,11 @@ import {
   otaProgress,
 } from "../db/schema";
 import { dispatchPetAction } from "../pet-mode/scheduler";
-import { markDesktopOnlineByChipId, normalizeDeviceChipId } from "../utils/device-status";
+import {
+  markDesktopOfflineByChipId,
+  markDesktopOnlineByChipId,
+  normalizeDeviceChipId,
+} from "../utils/device-status";
 import { clearRetainedOtaCommand } from "./mqtt-client";
 import { handleRollback } from "./rollback-handler";
 
@@ -116,25 +120,28 @@ async function handleStatus(chipId: string, payload: Buffer) {
       },
     });
 
-  if (status.online) {
-    const desktop = await markDesktopOnlineByChipId(chipId, { firmwareVersion: status.fw, now });
+  if (!status.online) {
+    await markDesktopOfflineByChipId(chipId, { now });
+    return;
+  }
 
-    if (!desktop) return;
-    const [binding] = await db
-      .select({ petId: desktopPetBindings.petId })
-      .from(desktopPetBindings)
-      .where(
-        and(
-          eq(desktopPetBindings.desktopDeviceId, desktop.id),
-          isNull(desktopPetBindings.unboundAt),
-        ),
-      )
-      .orderBy(desc(desktopPetBindings.createdAt))
-      .limit(1);
+  const desktop = await markDesktopOnlineByChipId(chipId, { firmwareVersion: status.fw, now });
 
-    if (binding) {
-      await dispatchPetAction(binding.petId, { force: true });
-    }
+  if (!desktop) return;
+  const [binding] = await db
+    .select({ petId: desktopPetBindings.petId })
+    .from(desktopPetBindings)
+    .where(
+      and(
+        eq(desktopPetBindings.desktopDeviceId, desktop.id),
+        isNull(desktopPetBindings.unboundAt),
+      ),
+    )
+    .orderBy(desc(desktopPetBindings.createdAt))
+    .limit(1);
+
+  if (binding) {
+    await dispatchPetAction(binding.petId, { force: true });
   }
 }
 

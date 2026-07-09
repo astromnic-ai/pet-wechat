@@ -89,6 +89,29 @@ describe("OTA MQTT status handler", () => {
     });
     expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeInstanceOf(Date);
   });
+
+  it("marks the matching desktop device offline when an LWT status packet arrives", async () => {
+    mockDb._results.insert = [[]];
+    mockDb._results.update = [[]];
+
+    await handleOtaMqttMessage(
+      "pet/30f45ac5e658/status",
+      Buffer.from(JSON.stringify({ online: false })),
+    );
+
+    expect(mockDb._calls.insert).toHaveLength(1);
+    expect((mockDb._calls.insert[0] as any).values).toMatchObject({
+      chipId: "30f45ac5e658",
+      online: false,
+    });
+    expect(mockDb._calls.update).toHaveLength(1);
+    expect((mockDb._calls.update[0] as any).set).toMatchObject({
+      status: "offline",
+    });
+    expect((mockDb._calls.update[0] as any).set.updatedAt).toBeInstanceOf(Date);
+    expect((mockDb._calls.update[0] as any).set.lastOnlineAt).toBeUndefined();
+    expect(mockDb._calls.select).toHaveLength(0);
+  });
 });
 
 describe("OTA MQTT event handler", () => {

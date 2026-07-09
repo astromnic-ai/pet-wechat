@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import devicesRoute from "../routes/admin/devices";
+import { DEVICE_ONLINE_TIMEOUT_MS } from "../utils/device-status";
 import { jsonReq } from "./helpers";
 import { mockDb } from "./setup";
 
@@ -164,7 +165,7 @@ describe("Admin Device Routes", () => {
           pet_avatar_url: null,
           battery: null,
           signal: null,
-          last_online_at: new Date(Date.now() - 61 * 1000),
+          last_online_at: new Date(Date.now() - DEVICE_ONLINE_TIMEOUT_MS - 1000),
           created_at: "2026-04-19T08:00:00.000Z",
           has_uploaded_avatar: false,
           avatar_uploaded: 0,
