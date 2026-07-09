@@ -4,7 +4,7 @@ import { db } from "../db";
 import { desktopDevices } from "../db/schema";
 import { normalizeMac } from "./mac";
 
-export const DEVICE_ONLINE_TIMEOUT_MS = 60 * 1000;
+export const DEVICE_ONLINE_TIMEOUT_MS = 10 * 60 * 1000;
 
 export function getUsageDurationIncrementMinutes(
   previousLastOnlineAt: Date | string | null | undefined,
@@ -79,6 +79,31 @@ export async function markDesktopOnlineByChipId(
   const [desktop] = await db
     .update(desktopDevices)
     .set(updatePayload)
+    .where(
+      eq(
+        sql<string>`UPPER(REPLACE(${desktopDevices.chipId}, ':', ''))`,
+        normalizedChipId,
+      ),
+    )
+    .returning();
+
+  return desktop ?? null;
+}
+
+export async function markDesktopOfflineByChipId(
+  chipId: string | null | undefined,
+  options: { now?: Date } = {},
+) {
+  const normalizedChipId = normalizeMac(normalizeDeviceChipId(chipId));
+  if (!normalizedChipId) return null;
+
+  const now = options.now ?? new Date();
+  const [desktop] = await db
+    .update(desktopDevices)
+    .set({
+      status: "offline",
+      updatedAt: now,
+    })
     .where(
       eq(
         sql<string>`UPPER(REPLACE(${desktopDevices.chipId}, ':', ''))`,
