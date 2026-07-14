@@ -399,13 +399,11 @@ export default function Index() {
   const primaryManagedDevice = activeDesktop ?? activeCollar;
   const hasManagedDevices = Boolean(primaryManagedDevice);
   const primaryManagedDeviceName = primaryManagedDevice
-    ? primaryManagedDevice.deviceType === "desktop"
-      ? "桌面摆台"
-      : getDeviceDisplayName({
-          petName: currentPet?.name,
-          deviceName: primaryManagedDevice.name,
-          fallbackName: "项圈",
-        })
+    ? getDeviceDisplayName({
+        petName: currentPet?.name,
+        deviceName: primaryManagedDevice.name,
+        fallbackName: primaryManagedDevice.deviceType === "desktop" ? "桌面摆台" : "项圈",
+      })
     : "未命名设备";
   const isPrimaryManagedDeviceOffline = primaryManagedDevice?.status === "offline";
   const primaryManagedDeviceLabel = primaryManagedDevice
