@@ -677,6 +677,10 @@ export default function WifiConfig() {
             <Text className="wifi-status-text">{wifiHint}</Text>
           </View>
 
+          <View className="wifi-band-tip">
+            <Text className="wifi-band-tip-text">请选择 2.4G 网络进行配网</Text>
+          </View>
+
           <View className="wifi-input-box wifi-input-box--highlight">
             <Text className="wifi-input-label">WiFi 名称</Text>
             <Input

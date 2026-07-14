@@ -179,6 +179,7 @@ describe("完整端到端用户旅程", () => {
     let page = await waitForPath("pages/wifi-config/index");
     const wifiText = await getPageText(page);
     expect(wifiText).toContain(WIFI_SSID);
+    expect(wifiText).toContain("请选择 2.4G 网络进行配网");
 
     const inputs = await page.$$(".wifi-input-value");
     expect(inputs.length).toBeGreaterThanOrEqual(2);
