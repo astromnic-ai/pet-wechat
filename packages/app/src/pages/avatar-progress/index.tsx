@@ -20,7 +20,7 @@ function getProgress(status: AvatarStatus) {
   if (status === "done") return 100;
   if (status === "processing") return 65;
   if (status === "failed") return 65;
-  return 35;
+  return 20;
 }
 
 function getStatusText(status: AvatarStatus) {
@@ -40,6 +40,7 @@ export default function AvatarProgress() {
   const [avatar, setAvatar] = useState<PetAvatar | null>(null);
   const [actions, setActions] = useState<PetAvatarAction[]>([]);
   const [status, setStatus] = useState<AvatarStatus>("pending");
+  const [pendingProgress, setPendingProgress] = useState(0);
   const [loadError, setLoadError] = useState("");
   const petRequestIdRef = useRef<string | null>(null);
 
@@ -78,6 +79,18 @@ export default function AvatarProgress() {
       setPet(null);
     }
   };
+
+  useEffect(() => {
+    if (status !== "pending") {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setPendingProgress((current) => Math.min(current + 1, 20));
+    }, 350);
+
+    return () => clearInterval(timer);
+  }, [status]);
 
   useEffect(() => {
     if (!avatarId) {
@@ -163,7 +176,7 @@ export default function AvatarProgress() {
   const isFailed = hasLoadError || status === "failed";
   const isCustomActionFlow = source === "custom-action";
   const previewAction = actions[0] ?? null;
-  const progress = getProgress(status);
+  const progress = status === "pending" ? pendingProgress : getProgress(status);
   const ringStyle = {
     background: `conic-gradient(${isFailed ? "#ff7a7a" : "#ffd66d"} ${progress * 3.6}deg, #f5efe5 0deg)`,
   };

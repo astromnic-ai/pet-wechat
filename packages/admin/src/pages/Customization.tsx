@@ -718,7 +718,7 @@ export default function Customization() {
   const handleOpenActionUploadModal = (actionType: ActionType) => {
     setUploadMode("action");
     setUploadActionType(actionType);
-    setUploadImageUrl("");
+    setUploadImageUrl(actionMap[actionType]?.videoUrl || actionMap[actionType]?.imageUrl || "");
     setUploadFile(null);
     setUploadModalOpen(true);
   };
@@ -791,7 +791,17 @@ export default function Customization() {
     setSubmittingAction(true);
 
     try {
+      const existingAction = actionMap[uploadActionType];
       let imageUrl = uploadImageUrl.trim();
+
+      if (uploadFile && existingAction) {
+        await api.uploadAvatarActionVideo(selectedAvatarDetail.id, existingAction.id, uploadFile);
+        messageApi.success("动作素材已替换");
+        handleCloseUploadModal();
+        await refreshCurrentAvatar(selectedAvatarDetail.id);
+        setPreviewActionType(uploadActionType);
+        return;
+      }
 
       if (!imageUrl && uploadFile) {
         if (!isMjpegFile(uploadFile)) {

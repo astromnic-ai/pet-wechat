@@ -6,7 +6,7 @@ import { subscribe } from "../../utils/ws";
 import type { AvatarStatus, DeviceSummary, Pet, PetAvatar, PetAvatarAction } from "@pet-wechat/shared";
 import { getPetActivityMode, getPetModePlans } from "../../utils/storage";
 import { fetchPetActivityMode, syncPetModeCache } from "../../utils/petModeApi";
-import { getDeviceDisplayName, getDeviceStatusText, getLastOnlineLabel, getUsageLabel } from "../../utils/deviceDisplay";
+import { getDeviceDisplayName, getDeviceStatusText, getLastOnlineLabel, getUsageLabel, selectPrimaryDevice } from "../../utils/deviceDisplay";
 import { getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
 import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petActions";
@@ -386,17 +386,10 @@ export default function Index() {
     }
   };
 
-  const activeCollar = useMemo(() => {
-    if (!currentPet) return null;
-    return devices.find((item) => item.deviceType === "collar" && item.petId === currentPet.id) ?? null;
-  }, [currentPet, devices]);
-  const activeDesktop = useMemo(() => {
-    if (!currentPet) return null;
-    return (
-      devices.find((item) => item.deviceType === "desktop" && item.bindings?.some((binding) => binding.petId === currentPet.id)) ?? null
-    );
-  }, [currentPet, devices]);
-  const primaryManagedDevice = activeDesktop ?? activeCollar;
+  const primaryManagedDevice = useMemo(
+    () => selectPrimaryDevice(devices, currentPet?.id),
+    [currentPet?.id, devices],
+  );
   const hasManagedDevices = Boolean(primaryManagedDevice);
   const primaryManagedDeviceName = primaryManagedDevice
     ? getDeviceDisplayName({
@@ -674,7 +667,7 @@ export default function Index() {
                   <View className={`device-icon-wrap managed ${isPrimaryManagedDeviceOffline ? "device-icon-wrap--offline" : ""}`}>
                     <Image
                       className="device-icon"
-                      src={activeDesktop ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}
+                      src={primaryManagedDevice?.deviceType === "desktop" ? require("@/assets/images/desktop-icon.png") : require("@/assets/images/collar-icon.png")}
                       mode="aspectFit"
                     />
                   </View>
