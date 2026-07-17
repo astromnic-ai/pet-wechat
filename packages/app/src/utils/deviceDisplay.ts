@@ -1,4 +1,36 @@
-import type { DeviceStatus } from "@pet-wechat/shared";
+import type { DeviceStatus, DeviceSummary } from "@pet-wechat/shared";
+
+function isDeviceBoundToPet(device: DeviceSummary, petId: string) {
+  if (device.deviceType === "collar") {
+    return device.petId === petId;
+  }
+
+  return device.bindings?.some((binding) => binding.petId === petId) ?? false;
+}
+
+function getStatusPriority(status: DeviceStatus) {
+  if (status === "online") return 0;
+  if (status === "pairing") return 1;
+  return 2;
+}
+
+export function selectPrimaryDevice(devices: DeviceSummary[], petId?: string | null) {
+  if (!petId) return null;
+
+  return (
+    devices
+      .filter((device) => isDeviceBoundToPet(device, petId))
+      .sort((left, right) => {
+        const statusDiff = getStatusPriority(left.status) - getStatusPriority(right.status);
+        if (statusDiff !== 0) return statusDiff;
+
+        const lastOnlineDiff = new Date(right.lastOnlineAt ?? 0).getTime() - new Date(left.lastOnlineAt ?? 0).getTime();
+        if (lastOnlineDiff !== 0) return lastOnlineDiff;
+
+        return left.deviceType === "desktop" ? -1 : 1;
+      })[0] ?? null
+  );
+}
 
 export function getDeviceStatusText(status: DeviceStatus) {
   if (status === "online") return "在线";
