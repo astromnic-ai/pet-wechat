@@ -91,7 +91,7 @@ function buildDisplayEmail(user: Pick<UserRecord, "email" | "phone" | "nickname"
   }
 
   if (user.phone) {
-    return `${user.phone}@yehey.pet`;
+    return `${user.phone}@wispnook.pet`;
   }
 
   const slug = user.nickname.replace(/\s+/g, "").toLowerCase() || user.id.slice(0, 6);

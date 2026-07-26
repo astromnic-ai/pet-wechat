@@ -32,7 +32,7 @@ export function createApp(): InstanceType<typeof Hono> {
   const app = new Hono();
   app.use("*", cors());
 
-  app.get("/", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
+  app.get("/", (c) => c.json({ name: "wispnook Pet API", version: "0.1.0" }));
   app.get("/health", (c) => c.json({ status: "ok" }));
 
   // Public routes

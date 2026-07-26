@@ -196,7 +196,7 @@ export function createApp() {
   app.route("/api/device-report", deviceReportRoute);
   app.route("/api/content", contentRoute);
   app.route("/firmware", otaPublicRoute);
-  app.get("/api", (c) => c.json({ name: "YEHEY Pet API", version: "0.1.0" }));
+  app.get("/api", (c) => c.json({ name: "wispnook Pet API", version: "0.1.0" }));
 
   // OTA admin routes must be registered before the global /api/admin/* middleware.
   app.use("/api/admin/firmware/*", otaAdminMiddleware);

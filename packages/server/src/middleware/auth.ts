@@ -5,7 +5,7 @@ import { users } from "../db/schema";
 import { eq } from "drizzle-orm";
 
 // TODO: 生产环境必须通过环境变量设置 JWT_SECRET，当前回退值仅用于开发
-const JWT_SECRET = process.env.JWT_SECRET ?? "yehey-dev-secret-change-in-prod";
+const JWT_SECRET = process.env.JWT_SECRET ?? "wispnook-dev-secret-change-in-prod";
 
 export interface JwtPayload {
   userId: string;

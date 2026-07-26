@@ -3,7 +3,7 @@ import { authenticateOtaBearer } from "./ota-bearer";
 import { fail } from "../ota/errors";
 import { timingSafeEqual } from "../ota/tokens";
 
-const ADMIN_KEY = process.env.ADMIN_KEY ?? "yehey-admin-dev";
+const ADMIN_KEY = process.env.ADMIN_KEY ?? "wispnook-admin-dev";
 
 export const otaAdminMiddleware = createMiddleware(async (c, next) => {
   const key = c.req.header("X-Admin-Key");

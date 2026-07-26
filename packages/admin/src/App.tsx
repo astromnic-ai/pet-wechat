@@ -179,7 +179,7 @@ export default function App() {
           padding: 24,
         }}
       >
-        <Card title="YEHEY 管理后台" style={{ width: "100%", maxWidth: 400 }}>
+        <Card title="wispnook 管理后台" style={{ width: "100%", maxWidth: 400 }}>
           <Space direction="vertical" size={16} style={{ width: "100%" }}>
             <Input.Password
               value={loginKeyInput}
@@ -202,7 +202,7 @@ export default function App() {
       <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed}>
         <div style={{ height: 32, margin: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <Typography.Text strong style={{ color: "#fff", fontSize: collapsed ? 14 : 16 }}>
-            {collapsed ? "YH" : "YEHEY 管理后台"}
+            {collapsed ? "WN" : "wispnook 管理后台"}
           </Typography.Text>
         </div>
         <Menu
@@ -217,7 +217,7 @@ export default function App() {
       <Layout>
         <Header style={{ background: "#fff", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Typography.Title level={4} style={{ margin: 0 }}>
-            YEHEY 宠物"在场" - 管理后台
+            wispnook 宠物"在场" - 管理后台
           </Typography.Title>
           <Space>
             <Button

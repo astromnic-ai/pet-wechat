@@ -6,7 +6,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 
 const INVITE_SECRET =
-  process.env.INVITE_SECRET ?? "yehey-invite-secret-dev";
+  process.env.INVITE_SECRET ?? "wispnook-invite-secret-dev";
 
 const INVITE_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000; // 7 天过期
 
