@@ -111,6 +111,51 @@
   padding: 6rpx 22rpx 0;
 }
 
+.pet-info-page--detail {
+  .detail-avatar-tip {
+    font-size: 30rpx;
+  }
+
+  .detail-pill-text {
+    font-size: 28rpx;
+  }
+
+  .detail-edit-label {
+    font-size: 24rpx;
+  }
+
+  .detail-actions-title {
+    font-size: 32rpx;
+  }
+
+  .detail-action-placeholder-text {
+    font-size: 22rpx;
+  }
+
+  .detail-action-label {
+    font-size: 26rpx;
+  }
+
+  .avatar-panel-tip {
+    font-size: 26rpx;
+  }
+
+  .avatar-progress-text {
+    font-size: 46rpx;
+  }
+
+  .detail-field-label,
+  .detail-field-input,
+  .detail-field-value {
+    font-size: 28rpx;
+  }
+
+  .device-prefix,
+  .device-value {
+    font-size: 28rpx;
+  }
+}
+
 .page-title {
   display: block;
   text-align: center;
@@ -478,7 +523,7 @@
 .species-tip {
   display: block;
   text-align: left;
-  font-size: 22rpx;
+  font-size: 24rpx;
   color: #999999;
   line-height: 1.45;
   margin: 16rpx 0 24rpx;

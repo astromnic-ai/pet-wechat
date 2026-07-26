@@ -7,6 +7,7 @@ import "./index.scss";
 interface PageBackProps {
   fallbackUrl?: string;
   inline?: boolean;
+  statusBarScale?: number;
 }
 
 const TABBAR_PAGES = new Set([
@@ -16,7 +17,11 @@ const TABBAR_PAGES = new Set([
   "/pages/profile/index",
 ]);
 
-export default function PageBack({ fallbackUrl = "/pages/index/index", inline = false }: PageBackProps) {
+export default function PageBack({
+  fallbackUrl = "/pages/index/index",
+  inline = false,
+  statusBarScale = 1,
+}: PageBackProps) {
   const { statusBarHeight } = useSafeArea();
 
   const handleBack = () => {
@@ -37,7 +42,11 @@ export default function PageBack({ fallbackUrl = "/pages/index/index", inline = 
   return (
     <View
       className={`page-back ${inline ? "page-back--inline" : ""}`}
-      style={inline ? undefined : { top: `${statusBarHeight + 12}px` }}
+      style={
+        inline
+          ? undefined
+          : { top: `${Math.round(statusBarHeight * statusBarScale) + 12}px` }
+      }
       onClick={handleBack}
     >
       <Image className="page-back-icon" src={ICON_ARROW_LEFT} mode="aspectFit" />

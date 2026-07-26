@@ -17,7 +17,7 @@ function getStatusBarHeight() {
 }
 
 export default function StatusBar({ className = "" }: StatusBarProps) {
-  const statusBarHeight = getStatusBarHeight();
+  const statusBarHeight = Math.round(getStatusBarHeight() * 1.4);
 
   return (
     <View
