@@ -14,7 +14,7 @@ schedulesRoute.get("/current", async (c) => {
   const species = c.req.query("species");
 
   if (!species || !VALID_SPECIES.has(species)) {
-    return c.json({ error: "species 必须是 cat、dog 或 other" }, 400);
+    return c.json({ error: "species 必须是 cat、dog 或 bird" }, 400);
   }
 
   const effectiveTypes = getBeijingEffectiveTypes(new Date());

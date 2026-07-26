@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { AvatarStatus, CollarDevice, Gender, Pet, PetAvatar, PetAvatarAction, Species } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { getPetFallbackImage } from "../../utils/petVisual";
 import { normalizePetActionLabel, SYSTEM_PRESET_ACTION_KEYS } from "../../utils/petActions";
 import "./index.scss";
@@ -29,6 +30,11 @@ const DOG_SYSTEM_ACTION_FALLBACKS = [
   { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[6]), image: require("./images/dog-action-sit.png") },
   { label: normalizePetActionLabel(SYSTEM_PRESET_ACTION_KEYS[7]), image: require("./images/dog-action-run.png") },
 ];
+
+const BIRD_SYSTEM_ACTION_FALLBACKS = SYSTEM_PRESET_ACTION_KEYS.slice(0, 8).map((action) => ({
+  label: normalizePetActionLabel(action),
+  image: require("@/assets/images/pet-type-bird-budgie.png"),
+}));
 
 const AVATAR_PROGRESS_BASE = 12;
 const AVATAR_PROGRESS_TARGET = 90;
@@ -77,7 +83,7 @@ export default function PetInfo() {
   const isAvatarDraftConfirmMode = Boolean(petId && router.params.avatarDraft === "1");
   const isEditFormMode = Boolean(petId && (router.params.edit === "1" || isAvatarDraftConfirmMode));
 
-  const [species, setSpecies] = useState<Species>("cat");
+  const [species, setSpecies] = useState<Species>("dog");
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [birthday, setBirthday] = useState("");
@@ -284,7 +290,12 @@ export default function PetInfo() {
   const avatarCardImage = selectedPreviewUrl || petAvatarImageUrl || avatarPreviewUrl || fallbackPetImage;
   const ageLabel = calculateAgeLabel(birthday);
   const systemActions = avatarActions.slice(0, 8);
-  const systemActionFallbacks = species === "dog" ? DOG_SYSTEM_ACTION_FALLBACKS : CAT_SYSTEM_ACTION_FALLBACKS;
+  const systemActionFallbacks =
+    species === "dog"
+      ? DOG_SYSTEM_ACTION_FALLBACKS
+      : species === "bird"
+        ? BIRD_SYSTEM_ACTION_FALLBACKS
+        : CAT_SYSTEM_ACTION_FALLBACKS;
   const displaySystemActions = systemActionFallbacks.map((fallback, index) => {
     const action = systemActions[index];
     return {
@@ -307,7 +318,9 @@ export default function PetInfo() {
   const breedOptions =
     species === "dog"
       ? ["金毛", "柯基", "哈士奇", "柴犬", "其他（自定义）"]
-      : ["英短", "布偶", "橘猫", "狸花", "其他（自定义）"];
+      : species === "bird"
+        ? ["虎皮鹦鹉", "玄凤鹦鹉", "牡丹鹦鹉", "文鸟", "其他（自定义）"]
+        : ["英短", "布偶", "橘猫", "狸花", "其他（自定义）"];
   const isCustomBreed = breed.length > 0 && !breedOptions.slice(0, -1).includes(breed);
   const birthYears = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -500,7 +513,7 @@ export default function PetInfo() {
     <View className={`pet-info-page ${isDetailMode ? "pet-info-page--detail" : "pet-info-page--create"}`}>
       {isDetailMode ? (
         <View className="detail-header-shell">
-          <View className="detail-top-strip" />
+          <StatusBar className="detail-top-strip" />
           <View className="detail-header">
             <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
               <Text className="create-header-back-icon">←</Text>
@@ -509,12 +522,15 @@ export default function PetInfo() {
           </View>
         </View>
       ) : (
-        <View className="create-header">
-          <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
-            <Text className="create-header-back-icon">←</Text>
+        <>
+          <StatusBar className="detail-top-strip" />
+          <View className="create-header">
+            <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
+              <Text className="create-header-back-icon">←</Text>
+            </View>
+            <Text className="create-header-title">{isEditFormMode ? "编辑宠物" : "添加宠物"}</Text>
           </View>
-          <Text className="create-header-title">{isEditFormMode ? "编辑宠物" : "添加宠物"}</Text>
-        </View>
+        </>
       )}
 
       <View className="main-card">
@@ -614,6 +630,17 @@ export default function PetInfo() {
             {renderAddModeSectionTitle("宠物类型")}
             <View className="species-showcase">
               <View
+                className={`species-face ${species === "dog" ? "active" : ""}`}
+                onClick={() => setSpecies("dog")}
+              >
+                <Image
+                  className="species-avatar"
+                  src={require("@/assets/images/pet-type-dog-corgi.png")}
+                  mode="aspectFit"
+                />
+                <Text className="species-face-label">狗</Text>
+              </View>
+              <View
                 className={`species-face ${species === "cat" ? "active" : ""}`}
                 onClick={() => setSpecies("cat")}
               >
@@ -625,18 +652,15 @@ export default function PetInfo() {
                 <Text className="species-face-label">猫</Text>
               </View>
               <View
-                className={`species-face ${species === "dog" ? "active" : ""}`}
-                onClick={() => setSpecies("dog")}
+                className={`species-face ${species === "bird" ? "active" : ""}`}
+                onClick={() => setSpecies("bird")}
               >
                 <Image
-                  className="species-avatar"
-                  src={require("@/assets/images/pet-type-dog-corgi.png")}
+                  className="species-avatar species-avatar--bird"
+                  src={require("@/assets/images/pet-type-bird-budgie.png")}
                   mode="aspectFit"
                 />
-                <Text className="species-face-label">狗</Text>
-              </View>
-              <View className="species-face species-face--disabled">
-                <Text className="species-other-label">其他</Text>
+                <Text className="species-face-label">鸟</Text>
               </View>
             </View>
 

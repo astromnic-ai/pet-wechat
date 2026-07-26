@@ -9,7 +9,8 @@
 
 .device-wifi-top-strip {
   width: 100%;
-  height: calc(env(safe-area-inset-top) + 86rpx);
+  height: calc(env(safe-area-inset-top) + 16rpx);
+  min-height: 104rpx;
   background: #ffd86f;
   flex-shrink: 0;
 }
@@ -23,10 +24,11 @@
 }
 
 .device-wifi-back {
-  width: 56rpx;
-  height: 56rpx;
-  border-radius: 16rpx;
-  background: #ffd76d;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: #eceef1;
+  box-shadow: 0 6rpx 16rpx rgba(56, 60, 67, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -36,7 +38,7 @@
 .device-wifi-back-text {
   font-size: 42rpx;
   line-height: 1;
-  color: #ffffff;
+  color: #5f6368;
 }
 
 .device-wifi-title {
@@ -185,10 +187,19 @@
   border: 2rpx solid #ffd76d;
 }
 
-.wifi-band-tip-text {
+.wifi-band-tip-title {
+  display: block;
   font-size: 28rpx;
   line-height: 1.4;
   font-weight: 700;
+  color: #7c5b00;
+}
+
+.wifi-band-tip-text {
+  display: block;
+  margin-top: 6rpx;
+  font-size: 24rpx;
+  line-height: 1.4;
   color: #7c5b00;
 }
 

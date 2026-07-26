@@ -2,6 +2,7 @@ import { View, Text } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useMemo, useRef, useState } from "react";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { getPetActivityMode, setPetActivityMode, type PetActivityMode } from "../../utils/storage";
 import { request } from "../../utils/request";
 import { fetchPetActivityMode, syncPetModeCache, updatePetActivityMode } from "../../utils/petModeApi";
@@ -186,7 +187,7 @@ export default function PetModePage() {
 
   return (
     <View className="pet-mode-page">
-      <View className="pet-mode-top-strip" />
+      <StatusBar className="pet-mode-top-strip" />
       <View className="pet-mode-header">
         <PageBack inline />
         <Text className="pet-mode-title">宠物活动模式</Text>

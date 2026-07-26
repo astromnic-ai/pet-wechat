@@ -3,6 +3,7 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import type { Pet, PetAvatar, User } from "@pet-wechat/shared";
 import { request, uploadFile } from "../../utils/request";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 const PHOTO_PLACEHOLDER_IMAGE = require("./images/upload-icon.png");
@@ -299,6 +300,7 @@ export default function PetAvatar() {
 
   return (
     <View className="pet-avatar-page">
+      <StatusBar className="pet-avatar-top-strip" />
       <View className="upload-page-header">
         <View className="upload-page-title-row">
           <View className="upload-page-back" onClick={handleBack}>

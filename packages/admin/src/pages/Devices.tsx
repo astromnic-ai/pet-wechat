@@ -22,7 +22,7 @@ import type { AdminDeviceDetail, AdminDeviceListItem, DeviceType } from "shared"
 import { api } from "../api/client";
 
 const { Text, Title } = Typography;
-type PetSpeciesValue = "cat" | "dog" | "other";
+type PetSpeciesValue = "cat" | "dog" | "bird" | "other";
 
 type SelectedDeviceRef = {
   id: string;
@@ -49,6 +49,7 @@ const STATUS_COLORS: Record<AdminDeviceListItem["status"], string> = {
 const SPECIES_LABELS: Record<PetSpeciesValue, string> = {
   cat: "猫",
   dog: "狗",
+  bird: "鸟",
   other: "其他",
 };
 
@@ -119,7 +120,7 @@ function getSignalColor(signalLabel: string) {
 }
 
 function normalizeSpecies(value?: string | null): PetSpeciesValue {
-  if (value === "cat" || value === "dog") {
+  if (value === "cat" || value === "dog" || value === "bird") {
     return value;
   }
 

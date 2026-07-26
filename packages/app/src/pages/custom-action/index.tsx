@@ -2,6 +2,7 @@ import { View, Text, Image, Input, Video } from "@tarojs/components";
 import Taro, { useRouter } from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { addPetCustomActionLabel } from "../../utils/storage";
 import { uploadFile } from "../../utils/request";
 import "./index.scss";
@@ -73,7 +74,7 @@ export default function CustomAction() {
 
   return (
     <View className="custom-action-page">
-      <View className="custom-action-top-strip" />
+      <StatusBar className="custom-action-top-strip" />
       <View className="custom-action-header">
         <PageBack inline />
         <Text className="custom-action-title">添加自定义动作</Text>

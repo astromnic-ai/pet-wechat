@@ -57,12 +57,13 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const SPECIES_LABELS: Record<Species, string> = {
   cat: "猫",
   dog: "狗",
+  bird: "鸟",
 };
 const VALID_DEVICE_TYPES = new Set<DeviceType>(["collar", "desktop"]);
 const VALID_STATUS_FILTERS = new Set(["all", "online", "offline", "pairing"]);
 const VALID_BINDING_FILTERS = new Set(["all", "bound", "unbound"]);
 const VALID_IMAGE_STATUS_FILTERS = new Set(["all", "uploaded", "pending"]);
-const VALID_SPECIES_FILTERS = new Set(["all", "cat", "dog", "other"]);
+const VALID_SPECIES_FILTERS = new Set(["all", "cat", "dog", "bird", "other"]);
 const VALID_SORT_FIELDS = new Set(["createdAt", "lastOnlineAt"]);
 const VALID_SORT_ORDERS = new Set(["asc", "desc"]);
 
@@ -511,7 +512,7 @@ function buildDeviceListWhereClause(filters: DeviceListFilters) {
             INNER JOIN pets p ON p.id = b.pet_id
             WHERE b.desktop_device_id = merged_devices.id
               AND b.unbound_at IS NULL
-              AND p.species IN ('cat', 'dog')
+              AND p.species IN ('cat', 'dog', 'bird')
           )
         )
       )
@@ -712,7 +713,7 @@ devicesRoute.get("/collars", async (c) => {
     filters.push(isNull(collarDevices.userId));
   }
 
-  if (species === "cat" || species === "dog") {
+  if (species === "cat" || species === "dog" || species === "bird") {
     filters.push(eq(pets.species, species));
   }
 

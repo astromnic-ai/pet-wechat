@@ -7,7 +7,7 @@
 
 .pet-info-page--create {
   background: #fffaf1;
-  padding-top: calc(env(safe-area-inset-top) + 120rpx);
+  padding-top: 0;
   padding-bottom: calc(env(safe-area-inset-bottom) + 60rpx);
 }
 
@@ -33,7 +33,8 @@
 
 .detail-top-strip {
   width: 100%;
-  height: calc(env(safe-area-inset-top) + 78rpx);
+  height: calc(env(safe-area-inset-top) + 16rpx);
+  min-height: 104rpx;
   background: #ffd86f;
 }
 
@@ -55,15 +56,15 @@
   display: flex;
   align-items: center;
   gap: 24rpx;
-  padding: 0 32rpx 56rpx;
+  padding: 18rpx 32rpx 56rpx;
 }
 
 .create-header-back {
   width: 72rpx;
   height: 72rpx;
   border-radius: 36rpx;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.08);
+  background: #eceef1;
+  box-shadow: 0 6rpx 16rpx rgba(56, 60, 67, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -72,7 +73,7 @@
 
 .create-header-back-icon {
   font-size: 42rpx;
-  color: #222222;
+  color: #5f6368;
   line-height: 1;
 }
 
@@ -461,23 +462,17 @@
   height: 110rpx;
 }
 
-.species-face-label,
-.species-other-label {
+.species-avatar--bird {
+  width: 104rpx;
+  height: 104rpx;
+}
+
+.species-face-label {
   margin-top: 8rpx;
   font-size: 24rpx;
   font-weight: 600;
   color: #444444;
   line-height: 1.2;
-}
-
-.species-face--disabled {
-  justify-content: center;
-}
-
-.species-other-label {
-  margin-top: 0;
-  font-size: 34rpx;
-  color: #666666;
 }
 
 .species-tip {

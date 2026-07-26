@@ -6,7 +6,8 @@
 
 .data-top-strip {
   width: 100%;
-  height: calc(env(safe-area-inset-top) + 78rpx);
+  height: calc(env(safe-area-inset-top) + 16rpx);
+  min-height: 104rpx;
   background: #ffd86f;
 }
 

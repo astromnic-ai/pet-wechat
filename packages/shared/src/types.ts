@@ -8,7 +8,7 @@ import type { PetActivityMode } from "./ota";
 
 // ===== 枚举 =====
 
-export type Species = "cat" | "dog";
+export type Species = "cat" | "dog" | "bird";
 export type Gender = "male" | "female" | "unknown";
 export type DeviceStatus = "online" | "offline" | "pairing";
 export type AvatarStatus =

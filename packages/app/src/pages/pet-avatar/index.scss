@@ -6,9 +6,21 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.pet-avatar-top-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: calc(env(safe-area-inset-top) + 16rpx);
+  min-height: 104rpx;
+  background: #ffd86f;
 }
 
 .upload-page-header {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -22,11 +34,11 @@
 }
 
 .upload-page-back {
-  width: 64rpx;
-  height: 64rpx;
-  border-radius: 32rpx;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 8rpx 20rpx rgba(0, 0, 0, 0.08);
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 36rpx;
+  background: #eceef1;
+  box-shadow: 0 6rpx 16rpx rgba(56, 60, 67, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -35,7 +47,7 @@
 
 .upload-page-back-icon {
   font-size: 38rpx;
-  color: #222222;
+  color: #5f6368;
   line-height: 1;
 }
 

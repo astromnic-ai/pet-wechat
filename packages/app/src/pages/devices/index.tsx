@@ -8,6 +8,7 @@ import type {
   Pet,
 } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
 import { getDeviceDisplayName, getDeviceStatusText, getLastOnlineLabel, getUsageLabel } from "../../utils/deviceDisplay";
 import "./index.scss";
@@ -324,7 +325,7 @@ export default function Devices() {
 
   return (
     <View className="devices-page">
-      <View className="devices-top-strip" />
+      <StatusBar className="devices-top-strip" />
       <View className="header">
         <PageBack inline />
         <Text className="page-title">设备管理</Text>

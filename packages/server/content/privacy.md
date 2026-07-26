@@ -20,4 +20,4 @@
 
 ## 联系我们
 
-如对本隐私政策有任何疑问，请通过 support@yehey.com 与我们联系。
+如对本隐私政策有任何疑问，请通过 support@wispnook.com 与我们联系。

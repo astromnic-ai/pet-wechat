@@ -2,6 +2,7 @@ import { View, Text, ScrollView } from "@tarojs/components";
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useRef, useState } from "react";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import {
   getPersistedPetModePlans,
   setPetActivityMode,
@@ -123,7 +124,7 @@ export default function PetModeCustomOverviewPage() {
 
   return (
     <View className="custom-overview-page">
-      <View className="pet-mode-top-strip" />
+      <StatusBar className="pet-mode-top-strip" />
       <View className="pet-mode-header">
         <PageBack inline fallbackUrl={`/pages/pet-mode/index?petId=${petId}`} />
         <Text className="pet-mode-title">个性自定义</Text>

@@ -3,6 +3,8 @@ import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { DesktopDevice, Pet } from "@pet-wechat/shared";
+import { getPetDisplayImage } from "../../utils/petVisual";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 type DesktopWithBindings = DesktopDevice & {
@@ -126,7 +128,7 @@ export default function BindPet() {
 
   return (
     <View className="bind-pet-page">
-      <View className="bind-pet-top-strip" />
+      <StatusBar className="bind-pet-top-strip" />
 
       <View className="bind-pet-header">
         <View className="bind-pet-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
@@ -162,12 +164,7 @@ export default function BindPet() {
                   <View className={`pet-option-avatar ${active ? "pet-option-avatar--active" : ""}`}>
                     <Image
                       className="pet-option-image"
-                      src={
-                        pet.avatarImageUrl ||
-                        (pet.species === "dog"
-                          ? require("@/assets/images/dog.png")
-                          : require("@/assets/images/black cat 3.png"))
-                      }
+                      src={getPetDisplayImage(pet)}
                       mode="aspectFit"
                     />
                   </View>

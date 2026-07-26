@@ -2,6 +2,7 @@ import { View, Text, Picker, PickerView, PickerViewColumn, ScrollView } from "@t
 import Taro, { useDidShow, useRouter } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import {
   addPetCustomActionLabel,
   getCurrentWeekDateByDay,
@@ -341,7 +342,7 @@ export default function PetModeSchedulePage() {
 
   return (
     <View className="custom-schedule-page">
-      <View className="pet-mode-top-strip" />
+      <StatusBar className="pet-mode-top-strip" />
       <View className="pet-mode-header">
         <PageBack inline fallbackUrl={`/pages/pet-mode/custom?petId=${petId}`} />
         <Text className="pet-mode-title">编辑日程</Text>

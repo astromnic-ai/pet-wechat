@@ -2,6 +2,7 @@ import { View, Text, Input, Button } from "@tarojs/components";
 import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request, setToken } from "../../utils/request";
 import { setUserInfo } from "../../utils/storage";
 import { connectWs } from "../../utils/ws";
@@ -172,14 +173,14 @@ export default function Register() {
 
   return (
     <View className="register-page">
-      <View className="register-top-strip" />
+      <StatusBar className="register-top-strip" />
 
       <View className="register-shell">
         <View className="register-header">
           <PageBack inline fallbackUrl="/pages/login/index" />
           <Text className="register-top-title">注册账号</Text>
         </View>
-        <Text className="register-title">加入 YEHEY</Text>
+        <Text className="register-title">加入 wispnook</Text>
         <Text className="register-subtitle">开始你的数字宠物之旅</Text>
 
         <Text className="field-label">手机号</Text>

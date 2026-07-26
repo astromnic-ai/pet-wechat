@@ -4,10 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { request } from "../../utils/request";
 import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
+import { getPetDisplayImage } from "../../utils/petVisual";
 import "./index.scss";
 
 const DEFAULT_SHARE_MESSAGE = {
-  title: "YEHEY",
+  title: "wispnook",
   path: "/pages/index/index",
 };
 
@@ -168,7 +170,7 @@ export default function Invite() {
 
     return (
       <View className="invite-accept-page">
-        <View className="invite-top-strip" />
+        <StatusBar className="invite-top-strip" />
         <View className="invite-header">
           <PageBack inline />
           <Text className="invite-title">接受授权</Text>
@@ -212,7 +214,7 @@ export default function Invite() {
 
   return (
     <View className="invite-share-page">
-      <View className="invite-top-strip" />
+      <StatusBar className="invite-top-strip" />
       <View className="invite-header">
         <PageBack inline />
         <Text className="invite-title">分享授权</Text>
@@ -223,7 +225,7 @@ export default function Invite() {
           <View className="pet-avatar-wrap">
             <Image
               className="pet-avatar"
-              src={pet?.avatarImageUrl || (pet?.species === "dog" ? require("@/assets/images/dog.png") : require("@/assets/images/black cat 3.png"))}
+              src={getPetDisplayImage(pet)}
               mode="aspectFit"
             />
           </View>

@@ -11,7 +11,8 @@
 .register-top-strip {
   width: calc(100% + 48rpx);
   margin-left: -24rpx;
-  height: calc(env(safe-area-inset-top) + 96rpx);
+  height: calc(env(safe-area-inset-top) + 16rpx);
+  min-height: 104rpx;
   background: #ffd86f;
   flex-shrink: 0;
 }
@@ -38,12 +39,12 @@
   top: auto !important;
   inset: auto !important;
   transform: none !important;
-  flex: 0 0 64rpx;
-  width: 64rpx;
-  height: 64rpx;
+  flex: 0 0 72rpx;
+  width: 72rpx;
+  height: 72rpx;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: none;
+  background: #eceef1;
+  box-shadow: 0 6rpx 16rpx rgba(56, 60, 67, 0.1);
 }
 
 .register-header :global(.page-back-icon) {

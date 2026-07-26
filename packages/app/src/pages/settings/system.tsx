@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { User, UserSettings, UserSettingLanguage } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
 import {
   fetchUserSettings,
@@ -37,7 +38,7 @@ export default function SystemSettings() {
 
   return (
     <View className="settings-subpage">
-      <View className="settings-subpage-top-strip" />
+      <StatusBar className="settings-subpage-top-strip" />
       <View className="settings-subpage-header">
         <PageBack inline />
         <Text className="settings-subpage-title">系统设置</Text>

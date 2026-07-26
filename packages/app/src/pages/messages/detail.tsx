@@ -3,6 +3,7 @@ import Taro, { useRouter } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import type { Message } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
 import { parseMessageContent } from "../../utils/messageAction";
 import "./detail.scss";
@@ -69,7 +70,7 @@ export default function MessageDetail() {
 
   return (
     <View className="message-detail-page">
-      <View className="message-detail-top-strip" />
+      <StatusBar className="message-detail-top-strip" />
       <View className="message-detail-header">
         <PageBack inline />
         <Text className="message-detail-title">消息详情</Text>

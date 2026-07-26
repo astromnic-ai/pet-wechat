@@ -20,7 +20,7 @@ import { createId } from "../utils/id";
 
 // ===== 枚举 =====
 
-export const speciesEnum = pgEnum("species", ["cat", "dog"]);
+export const speciesEnum = pgEnum("species", ["cat", "dog", "bird"]);
 export const genderEnum = pgEnum("gender", ["male", "female", "unknown"]);
 export const deviceStatusEnum = pgEnum("device_status", [
   "online",

@@ -14,8 +14,10 @@ import {
 } from "../../db/schema";
 import { pick } from "./utils";
 import { clearRetainedDesktopConfig } from "../../ota/mqtt-client";
+import type { Species } from "shared";
 
 const petsRoute = new Hono();
+const VALID_PET_SPECIES = new Set<Species>(["cat", "dog", "bird"]);
 
 async function clearDesktopConfigsSafely(chipIds: string[]) {
   await Promise.all(
@@ -46,6 +48,9 @@ petsRoute.get("/pets", async (c) => {
 
 petsRoute.post("/pets", async (c) => {
   const body = await c.req.json();
+  if (!VALID_PET_SPECIES.has(body.species)) {
+    return c.json({ error: "species 必须是 cat、dog 或 bird" }, 400);
+  }
   const [pet] = await db
     .insert(pets)
     .values({
@@ -64,6 +69,9 @@ petsRoute.post("/pets", async (c) => {
 petsRoute.put("/pets/:id", async (c) => {
   const id = c.req.param("id");
   const body = await c.req.json();
+  if (body.species !== undefined && !VALID_PET_SPECIES.has(body.species)) {
+    return c.json({ error: "species 必须是 cat、dog 或 bird" }, 400);
+  }
   const allowed = pick(body, ["name", "species", "breed", "gender", "birthday", "weight", "userId"]);
   const [pet] = await db
     .update(pets)

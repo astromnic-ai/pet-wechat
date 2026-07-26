@@ -3,6 +3,7 @@ import Taro, { useDidHide, useDidShow, useRouter, useUnload } from "@tarojs/taro
 import { useMemo, useRef, useState } from "react";
 import { request } from "../../utils/request";
 import type { CollarDevice, DesktopDevice } from "@pet-wechat/shared";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 type WifiState = "loading" | "ready" | "manual";
@@ -611,6 +612,17 @@ export default function WifiConfig() {
       return;
     }
 
+    const bandConfirmation = await Taro.showModal({
+      title: "请确认 WiFi 频段",
+      content: "设备仅支持 2.4G WiFi，不支持 5G 网络。请确认手机当前连接的是 2.4G WiFi。",
+      confirmText: "确认继续",
+      cancelText: "返回检查",
+    });
+
+    if (!bandConfirmation.confirm) {
+      return;
+    }
+
     setLoading(true);
     setBleHint("准备下发 WiFi 信息…");
     try {
@@ -643,7 +655,7 @@ export default function WifiConfig() {
 
   return (
     <View className="device-wifi-page">
-      <View className="device-wifi-top-strip" />
+      <StatusBar className="device-wifi-top-strip" />
 
       <View className="device-wifi-header">
         <View
@@ -678,7 +690,8 @@ export default function WifiConfig() {
           </View>
 
           <View className="wifi-band-tip">
-            <Text className="wifi-band-tip-text">请选择 2.4G 网络进行配网</Text>
+            <Text className="wifi-band-tip-title">仅支持 2.4G WiFi</Text>
+            <Text className="wifi-band-tip-text">设备不支持 5G 网络，请先将手机连接到 2.4G WiFi 后再配网。</Text>
           </View>
 
           <View className="wifi-input-box wifi-input-box--highlight">

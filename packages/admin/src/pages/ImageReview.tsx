@@ -60,6 +60,7 @@ type ReviewAvatarDetail = ReviewAvatar & {
 const speciesLabels: Record<string, string> = {
   cat: "猫",
   dog: "狗",
+  bird: "鸟",
   other: "其他",
 };
 

@@ -65,7 +65,7 @@ export default function PetsPage() {
       dataIndex: "species",
       key: "species",
       width: 80,
-      render: (v: string) => v === "cat" ? "猫" : "狗",
+      render: (v: string) => ({ cat: "猫", dog: "狗", bird: "鸟" })[v] ?? v,
     },
     {
       title: "性别",
@@ -126,7 +126,7 @@ export default function PetsPage() {
             <Input />
           </Form.Item>
           <Form.Item name="species" label="物种" rules={[{ required: true }]}>
-            <Select options={[{ value: "cat", label: "猫" }, { value: "dog", label: "狗" }]} />
+            <Select options={[{ value: "cat", label: "猫" }, { value: "dog", label: "狗" }, { value: "bird", label: "鸟" }]} />
           </Form.Item>
           <Form.Item name="gender" label="性别">
             <Select options={[{ value: "male", label: "公" }, { value: "female", label: "母" }, { value: "unknown", label: "未知" }]} />

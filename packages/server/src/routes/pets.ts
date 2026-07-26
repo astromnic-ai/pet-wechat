@@ -20,6 +20,7 @@ import {
   type PetLatestBehavior,
   type PetModePlanDTO,
   type PetModeWeekday,
+  type Species,
 } from "shared";
 import { normalizePublicFileUrl } from "../utils/storage";
 import { interactionRangeSchema } from "../validators/user-end";
@@ -30,6 +31,7 @@ const petsRoute = new Hono();
 const PET_ACTIVITY_MODES = ["free", "custom", "real"] as const;
 const PET_MODE_REPEATS = ["once", "weekly"] as const;
 const PET_MODE_WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+const VALID_PET_SPECIES = new Set<Species>(["cat", "dog", "bird"]);
 
 function normalizeBehaviorTimestamp(timestamp: Date | string): string {
   return timestamp instanceof Date ? timestamp.toISOString() : timestamp;
@@ -669,6 +671,9 @@ petsRoute.get("/:id", async (c) => {
 petsRoute.post("/", async (c) => {
   const userId = c.get("userId" as never) as string;
   const body = await c.req.json();
+  if (!VALID_PET_SPECIES.has(body.species)) {
+    return c.json({ error: "species 必须是 cat、dog 或 bird" }, 400);
+  }
 
   const [pet] = await db
     .insert(pets)
@@ -697,6 +702,9 @@ petsRoute.put("/:id", async (c) => {
     .from(pets)
     .where(and(eq(pets.id, petId), eq(pets.userId, userId)));
   if (!existing) return c.json({ error: "Pet not found" }, 404);
+  if (body.species !== undefined && !VALID_PET_SPECIES.has(body.species)) {
+    return c.json({ error: "species 必须是 cat、dog 或 bird" }, 400);
+  }
 
   const [pet] = await db
     .update(pets)

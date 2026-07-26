@@ -5,6 +5,7 @@ import type { Pet, User } from "@pet-wechat/shared";
 import { clearToken, request } from "../../utils/request";
 import { disconnectWs } from "../../utils/ws";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 const DEVICE_LIMIT_TOTAL = 3;
@@ -112,7 +113,7 @@ export default function Profile() {
 
   return (
     <View className="profile-page">
-      <View className="profile-top-strip" />
+      <StatusBar className="profile-top-strip" />
       <View className="profile-header">
         <PageBack inline />
         <Text className="profile-title">用户信息</Text>

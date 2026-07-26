@@ -3,6 +3,7 @@ import { useDidShow } from "@tarojs/taro";
 import { useState, type ReactNode } from "react";
 import type { ContentPage as ContentPageData, ContentSlug } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { parseMarkdown } from "../../utils/markdown";
 import { request } from "../../utils/request";
 import "./subpages.scss";
@@ -12,6 +13,10 @@ interface ContentPageProps {
   fallbackTitle: string;
   children?: ReactNode;
   hideContentBody?: boolean;
+}
+
+function replaceLegacyBrand(value: string) {
+  return value.replace(/YEHEY/gi, "wispnook");
 }
 
 const LOCAL_CONTENT_FALLBACKS: Partial<Record<ContentSlug, ContentPageData>> = {
@@ -51,15 +56,15 @@ A：由于本产品包含高度定制的数字化内容，用户下单即视为�
   },
   about: {
     slug: "about",
-    title: "关于 YEHEY",
+    title: "关于 wispnook",
     body: `
-## YEHEY（耶嘿）
+## wispnook
 
-YEHEY 的诞生源于一份给猫猫的礼物，始于“我”与陪伴七年的猫猫平凡日常。不仅仅是一个品牌，它源于一个关于爱、快乐和陪伴的故事。
+wispnook 的诞生源于一份给猫猫的礼物，始于“我”与陪伴七年的猫猫平凡日常。不仅仅是一个品牌，它源于一个关于爱、快乐和陪伴的故事。
 
 ## 品牌理念：时刻陪伴，时刻雀跃
 
-YEHEY 宠物桌面动态展示设备，是我们品牌理念的数字化延伸。我们深知，宠物对你而言不仅是生活的点缀，更是时刻活跃在心尖的牵挂。
+wispnook 宠物桌面动态展示设备，是我们品牌理念的数字化延伸。我们深知，宠物对你而言不仅是生活的点缀，更是时刻活跃在心尖的牵挂。
 
 打破空间的界限：我们尝试打破物理空间的厚重隔阂，通过数字动态技术让你无法陪伴在宠物身边时，感受到在忙碌与静谧的交替间，它为你筑起的一座微缩陪伴磁场。
 
@@ -93,7 +98,7 @@ YEHEY 宠物桌面动态展示设备，是我们品牌理念的数字化延伸�
 不得利用小程序漏洞进行刷单或恶意攻击。
 
 ## 4. 知识产权声明
-小程序的所有 UI 设计、品牌标识及摆件的原创设计模版归 YEHEY 所有。
+小程序的所有 UI 设计、品牌标识及摆件的原创设计模版归 wispnook 所有。
 用户对其上传的宠物照片保留原始著作权，但授予本平台在展示该用户个人相册及制作相应产品时所必须的许可使用权。
 
 ## 5. 免责声明
@@ -120,7 +125,7 @@ YEHEY 宠物桌面动态展示设备，是我们品牌理念的数字化延伸�
 您有权访问、更正或删除您的个人信息和宠物信息。如需行使这些权利，请通过设置页面联系我们。
 
 ## 联系我们
-如对本隐私政策有任何疑问，请通过 support@yehey.com 与我们联系。
+如对本隐私政策有任何疑问，请通过 support@wispnook.com 与我们联系。
     `.trim(),
     version: "local-fallback-2026-05-09",
     updatedAt: "2026-05-09T00:00:00.000Z",
@@ -158,14 +163,15 @@ export default function ContentPage(props: ContentPageProps) {
   });
 
   const resolvedContent = content ?? LOCAL_CONTENT_FALLBACKS[slug] ?? null;
-  const blocks = parseMarkdown(resolvedContent?.body ?? "");
+  const resolvedTitle = replaceLegacyBrand(resolvedContent?.title || fallbackTitle);
+  const blocks = parseMarkdown(replaceLegacyBrand(resolvedContent?.body ?? ""));
 
   return (
     <View className="settings-subpage">
-      <View className="settings-subpage-top-strip" />
+      <StatusBar className="settings-subpage-top-strip" />
       <View className="settings-subpage-header">
         <PageBack inline />
-        <Text className="settings-subpage-title">{resolvedContent?.title || fallbackTitle}</Text>
+        <Text className="settings-subpage-title">{resolvedTitle}</Text>
       </View>
 
       <View className="settings-subpage-content">

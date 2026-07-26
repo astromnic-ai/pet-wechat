@@ -3,8 +3,9 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { Pet } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
-import { getPetDisplayImage } from "../../utils/petVisual";
+import { getPetDisplayImage, getPetSpeciesLabel } from "../../utils/petVisual";
 import { ICON_DELETE } from "../../assets/icons";
 import "./index.scss";
 const DELETE_ACTION_WIDTH = 168;
@@ -126,7 +127,7 @@ export default function PetsPage() {
 
   return (
     <View className="pets-page">
-      <View className="pets-top-strip" />
+      <StatusBar className="pets-top-strip" />
       <View className="pets-header">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="pets-title">我的宠物</Text>
@@ -181,7 +182,7 @@ export default function PetsPage() {
                           <Text className="pet-list-badge">我的宠物</Text>
                         </View>
                         <Text className="pet-list-meta">
-                          {(pet.breed?.trim() || (pet.species === "dog" ? "狗狗" : "猫咪"))} · {calculateAgeLabel(pet.birthday)}
+                          {(pet.breed?.trim() || getPetSpeciesLabel(pet.species))} · {calculateAgeLabel(pet.birthday)}
                         </Text>
                       </View>
 
@@ -214,7 +215,7 @@ export default function PetsPage() {
                       <Text className="pet-list-badge pet-list-badge--blue">已授权</Text>
                     </View>
                     <Text className="pet-list-meta">
-                      {(pet.breed?.trim() || (pet.species === "dog" ? "狗狗" : "猫咪"))} · {calculateAgeLabel(pet.birthday)}
+                      {(pet.breed?.trim() || getPetSpeciesLabel(pet.species))} · {calculateAgeLabel(pet.birthday)}
                     </Text>
                   </View>
 

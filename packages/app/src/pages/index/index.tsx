@@ -17,6 +17,7 @@ const HOME_CAT_SIT_IMAGE = require("@/assets/images/home-cat-sit-blue.png");
 const HOME_CAT_LIE_IMAGE = require("@/assets/images/home-cat-lie-blue.png");
 const HOME_DOG_SIT_IMAGE = require("@/assets/images/home-dog-sit-corgi.png");
 const HOME_DOG_LIE_IMAGE = require("@/assets/images/home-dog-lie-corgi.png");
+const HOME_BIRD_IMAGE = require("@/assets/images/pet-type-bird-budgie.png");
 const HOME_PET_QUESTION_IMAGE = require("@/assets/images/home-pet-question.png");
 const ACTION_LABELS: Record<string, string> = {
   ...SHARED_ACTION_LABELS,
@@ -81,12 +82,15 @@ function getHomeCustomizingImage(pet?: Pick<Pet, "species"> | null, pose: "sit" 
   if (pet?.species === "dog") {
     return pose === "sit" ? HOME_DOG_SIT_IMAGE : HOME_DOG_LIE_IMAGE;
   }
+  if (pet?.species === "bird") return HOME_BIRD_IMAGE;
 
   return pose === "sit" ? HOME_CAT_SIT_IMAGE : HOME_CAT_LIE_IMAGE;
 }
 
 function getPetThemeClass(pet?: Pick<Pet, "species"> | null) {
-  return pet?.species === "dog" ? "theme-dog" : "theme-cat";
+  if (pet?.species === "dog") return "theme-dog";
+  if (pet?.species === "bird") return "theme-bird";
+  return "theme-cat";
 }
 
 function normalizeActionKeyword(value?: string | null) {
@@ -415,7 +419,7 @@ export default function Index() {
   const bubbleText = !currentPet
     ? "点击开始创建宠物"
     : homeHeroState === "done"
-      ? "在家开水龙头喝水？"
+      ? getBubbleText(currentPet)
       : "";
   const heroOverlayText = homeHeroState === "processing"
     ? "宠物形象定制中..."
@@ -454,7 +458,7 @@ export default function Index() {
 
   const currentFrameImage =
     homeHeroState === "done"
-      ? currentPet?.avatarImageUrl || currentModeFrames[0]?.imageUrl || petHeroImage
+      ? currentModeFrames[0]?.imageUrl || currentPet?.avatarImageUrl || petHeroImage
       : petHeroImage;
 
   const handleOpenPetInfo = () => {
@@ -536,8 +540,6 @@ export default function Index() {
 
   return (
     <View className="home-page">
-      <Text className="home-brand">YEHEY</Text>
-
       <View className="home-content">
         <View className="hero-header">
           <View className="top-card">

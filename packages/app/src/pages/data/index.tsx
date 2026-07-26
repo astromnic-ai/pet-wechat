@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import type { CollarDevice, InteractionStats, Pet, PetBehavior } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
 import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petActions";
 import "./index.scss";
@@ -322,7 +323,7 @@ export default function DataPage() {
 
   return (
     <View className="data-page">
-      <View className="data-top-strip" />
+      <StatusBar className="data-top-strip" />
       <View className="data-header">
         <PageBack inline />
         <Text className="data-title">宠物记录</Text>

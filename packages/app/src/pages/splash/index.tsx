@@ -2,6 +2,7 @@ import { View, Text, Image } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import { isLoggedIn } from "../../utils/storage";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 export default function Splash() {
@@ -35,6 +36,7 @@ export default function Splash() {
 
   return (
     <View className="splash-page">
+      <StatusBar className="splash-top-strip" />
       <View className="splash-content">
         <View className="hero-area">
           <View className="hero-badge">

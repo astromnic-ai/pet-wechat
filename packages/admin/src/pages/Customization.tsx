@@ -97,6 +97,7 @@ const statusMeta: Record<CustomizationStatus, { label: string; color: string }> 
 const speciesLabels: Record<string, string> = {
   cat: "猫",
   dog: "狗",
+  bird: "鸟",
   other: "其他",
 };
 
@@ -356,7 +357,10 @@ function toCustomizationTaskSummary(avatar: CustomizationAvatarDetail): Customiz
     avatarId: avatar.id,
     petId: avatar.petId,
     petName: avatar.pet?.name ?? "未命名宠物",
-    petSpecies: (avatar.pet?.species === "dog" ? "dog" : "cat") as Species,
+    petSpecies:
+      avatar.pet?.species === "dog" || avatar.pet?.species === "bird"
+        ? avatar.pet.species
+        : "cat",
     petBreed: avatar.pet?.breed ?? null,
     petGender: avatar.pet?.gender ?? "unknown",
     petBirthday: avatar.pet?.birthday ?? null,

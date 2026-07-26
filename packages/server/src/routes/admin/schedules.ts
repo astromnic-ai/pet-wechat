@@ -41,7 +41,7 @@ function validateScheduleInput(body: ScheduleInput) {
   }
 
   if (typeof body.species !== "string" || !VALID_SPECIES.has(body.species)) {
-    return "species 必须是 cat、dog 或 other";
+    return "species 必须是 cat、dog 或 bird";
   }
 
   if (

@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useEffect, useState } from "react";
 import { request } from "../../utils/request";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import type { Message } from "@pet-wechat/shared";
 import { subscribe } from "../../utils/ws";
 import { parseMessageContent } from "../../utils/messageAction";
@@ -94,7 +95,7 @@ export default function MessagesPage() {
 
   return (
     <View className="messages-page">
-      <View className="messages-top-strip" />
+      <StatusBar className="messages-top-strip" />
       <View className="messages-header">
         <PageBack inline />
         <Text className="messages-title">消息</Text>

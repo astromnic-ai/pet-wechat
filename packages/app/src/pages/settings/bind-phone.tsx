@@ -2,6 +2,7 @@ import { Input, Text, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { useState } from "react";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
 import "./subpages.scss";
 
@@ -52,7 +53,7 @@ export default function BindPhonePage() {
 
   return (
     <View className="settings-subpage">
-      <View className="settings-subpage-top-strip" />
+      <StatusBar className="settings-subpage-top-strip" />
       <View className="settings-subpage-header">
         <PageBack inline />
         <Text className="settings-subpage-title">绑定手机</Text>

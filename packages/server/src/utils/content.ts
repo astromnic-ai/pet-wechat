@@ -15,7 +15,7 @@ const CONTENT_DIR = path.resolve(import.meta.dir, "../../content");
 
 const CONTENT_TITLES: Record<ContentSlug, string> = {
   help: "帮助中心",
-  about: "关于 YEHEY",
+  about: "关于 wispnook",
   privacy: "隐私政策",
   "user-agreement": "用户协议",
 };

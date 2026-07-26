@@ -52,13 +52,13 @@ type PendingBlockPointerState = {
 const speciesLabels: Record<ScheduleSpecies, string> = {
   cat: "猫",
   dog: "狗",
-  other: "其他",
+  bird: "鸟",
 };
 
 const speciesEnglishLabels: Record<ScheduleSpecies, string> = {
   cat: "Cat",
   dog: "Dog",
-  other: "Other",
+  bird: "Bird",
 };
 
 const effectiveTypeLabels: Record<ScheduleEffectiveType, string> = {

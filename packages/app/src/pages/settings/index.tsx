@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { UserSettings } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import {
   fetchUserSettings,
   getThemeLabel,
@@ -35,7 +36,7 @@ export default function Settings() {
 
   return (
     <View className="settings-page">
-      <View className="settings-top-strip" />
+      <StatusBar className="settings-top-strip" />
 
       <View className="settings-header">
         <PageBack inline />
@@ -89,7 +90,7 @@ export default function Settings() {
         </View>
 
         <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/about")}>
-          <Text className="setting-label">关于 YEHEY</Text>
+          <Text className="setting-label">关于 wispnook</Text>
           <View className="setting-arrow-wrap">
             <Text className="setting-arrow">→</Text>
           </View>

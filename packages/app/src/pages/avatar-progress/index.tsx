@@ -10,6 +10,7 @@ import type {
   PetAvatarAction,
 } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 function getDisplayPetName(pet?: Pet | null) {
@@ -224,6 +225,7 @@ export default function AvatarProgress() {
 
   return (
     <View className="avatar-progress-page">
+      <StatusBar className="avatar-progress-top-strip" />
       <PageBack />
       {isSuccess ? (
         <View className="success-shell">

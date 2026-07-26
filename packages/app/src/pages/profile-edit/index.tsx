@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { User } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request, uploadFile } from "../../utils/request";
 import { setUserInfo, type ProfileGender } from "../../utils/storage";
 import "./index.scss";
@@ -226,7 +227,7 @@ export default function ProfileEdit() {
 
   return (
     <View className="profile-edit-page">
-      <View className="profile-edit-top-strip" />
+      <StatusBar className="profile-edit-top-strip" />
       <View className="profile-edit-header">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="profile-edit-title">编辑资料</Text>

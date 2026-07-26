@@ -136,7 +136,7 @@ export function normalizePetActionType(action: string) {
   return labelToAction.get(value) ?? ACTION_ALIASES[value] ?? value;
 }
 
-export const SCHEDULE_SPECIES = ["cat", "dog", "other"] as const;
+export const SCHEDULE_SPECIES = ["cat", "dog", "bird"] as const;
 
 export const MEMBERSHIP_LEVEL_LABELS = {
   free: "免费版",

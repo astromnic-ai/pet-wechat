@@ -3,6 +3,7 @@ import Taro, { useDidShow } from "@tarojs/taro";
 import { useState } from "react";
 import type { User } from "@pet-wechat/shared";
 import PageBack from "../../components/PageBack";
+import StatusBar from "../../components/StatusBar";
 import { request } from "../../utils/request";
 import "./index.scss";
 
@@ -61,7 +62,7 @@ export default function MemberCenter() {
 
   return (
     <View className="member-center-page">
-      <View className="member-center-top-strip" />
+      <StatusBar className="member-center-top-strip" />
       <View className="member-center-header">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="member-center-title">会员中心</Text>

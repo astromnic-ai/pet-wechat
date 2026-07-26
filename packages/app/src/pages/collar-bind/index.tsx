@@ -2,6 +2,7 @@ import { View, Text, Image, ScrollView } from "@tarojs/components";
 import Taro, { useDidHide, useDidShow, useRouter } from "@tarojs/taro";
 import { useRef, useState } from "react";
 import { request } from "../../utils/request";
+import StatusBar from "../../components/StatusBar";
 import "./index.scss";
 
 type DeviceType = "collar" | "desktop";
@@ -29,6 +30,7 @@ function isTargetBleDevice(device: any) {
   if (!normalized) return false;
 
   return (
+    normalized.includes("wispnook") ||
     normalized.includes("yehey") ||
     normalized.includes("collar") ||
     normalized.includes("table") ||
@@ -39,7 +41,7 @@ function isTargetBleDevice(device: any) {
 function getDevicePriority(device: Pick<BleDevice, "name" | "localName">) {
   const normalized = `${device.name || ""} ${device.localName || ""}`.toLowerCase();
 
-  if (normalized.includes("yehey")) return 0;
+  if (normalized.includes("wispnook") || normalized.includes("yehey")) return 0;
   if (normalized.includes("collar")) return 1;
   if (normalized.includes("table") || normalized.includes("desktop")) return 2;
   return 9;
@@ -193,7 +195,7 @@ export default function CollarBind() {
         if (found.length > 0) {
           mergeDevices(found);
           const hasTarget = found.some((item) => isTargetBleDevice(item));
-          setSearchMessage(hasTarget ? "已搜索到附近 YEHEY 设备，请点击连接" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
+          setSearchMessage(hasTarget ? "已搜索到附近 wispnook 设备，请点击连接" : "暂未识别到 wispnook 设备，可查看全部设备排查");
         }
       };
 
@@ -207,7 +209,7 @@ export default function CollarBind() {
       if (existing.length > 0) {
         mergeDevices(existing);
         const hasTarget = existing.some((item) => isTargetBleDevice(item));
-        setSearchMessage(hasTarget ? "已搜索到附近 YEHEY 设备，请点击连接" : "暂未识别到 YEHEY 设备，可查看全部设备排查");
+        setSearchMessage(hasTarget ? "已搜索到附近 wispnook 设备，请点击连接" : "暂未识别到 wispnook 设备，可查看全部设备排查");
       }
     } catch (error) {
       setSearchMessage(getBluetoothErrorMessage(error));
@@ -280,7 +282,7 @@ export default function CollarBind() {
     if (!device.isTarget) {
       Taro.showModal({
         title: "这是未识别设备",
-        content: "该设备名称不符合 YEHEY 规则，可能不是项圈或桌面端。是否仍继续连接排查？",
+        content: "该设备名称不符合 wispnook 规则，可能不是项圈或桌面端。是否仍继续连接排查？",
         confirmText: "继续连接",
         success: (res) => {
           if (res.confirm) {
@@ -331,7 +333,7 @@ export default function CollarBind() {
 
   return (
     <View className="device-search-page">
-      <View className="device-search-top-strip" />
+      <StatusBar className="device-search-top-strip" />
 
       <View className="device-search-header">
         <View
@@ -374,8 +376,8 @@ export default function CollarBind() {
               <Text className="nearby-device-empty-title">{searching ? "正在搜索…" : "暂未发现设备"}</Text>
               <Text className="nearby-device-empty-text">
                 {hasOnlyNonTargetDevices
-                  ? "已搜索到蓝牙设备，但没有识别出 YEHEY 设备。你可以查看全部设备继续排查。"
-                  : "请确认 YEHEY 桌面端或项圈已上电，并靠近手机后重试"}
+                  ? "已搜索到蓝牙设备，但没有识别出 wispnook 设备。你可以查看全部设备继续排查。"
+                  : "请确认 wispnook 桌面端或项圈已上电，并靠近手机后重试"}
               </Text>
             </View>
           )}
@@ -389,7 +391,7 @@ export default function CollarBind() {
 
         {showAllDevices ? (
           <View className="scan-secondary-btn scan-secondary-btn--light" onClick={() => setShowAllDevices(false)}>
-            <Text className="scan-secondary-btn-text scan-secondary-btn-text--dark">只看 YEHEY 设备</Text>
+            <Text className="scan-secondary-btn-text scan-secondary-btn-text--dark">只看 wispnook 设备</Text>
           </View>
         ) : null}
 
