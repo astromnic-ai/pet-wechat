@@ -38,14 +38,15 @@ describe("Admin Avatar Review Routes", () => {
     });
   });
 
-  it("uploads an action video and stores sha256", async () => {
+  it("uploads an action video to versioned URLs and republishes desktop config", async () => {
     const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "processing" });
     const action = fakeAvatarAction({ id: "action-1", petAvatarId: "avatar-1", actionType: "lay" });
+    const videoHash = "ac39d47c7b92ef8b2393ffff158c34707441867980f143f41f076b3bc8a6a6a1";
     const updatedAction = {
       ...action,
-      imageUrl: "https://test-storage.local/avatars/avatar-1/lay-thumb.jpg",
-      videoUrl: "https://test-storage.local/avatars/avatar-1/lay.mjpeg",
-      videoHash: "ac39d47c7b92ef8b2393ffff158c34707441867980f143f41f076b3bc8a6a6a1",
+      imageUrl: `https://test-storage.local/avatars/avatar-1/lay-${videoHash}-thumb.jpg`,
+      videoUrl: `https://test-storage.local/avatars/avatar-1/lay-${videoHash}.mjpeg`,
+      videoHash,
     };
 
     mockDb._results.select = [
@@ -65,6 +66,13 @@ describe("Admin Avatar Review Routes", () => {
         userPhone: null,
       }],
       [action],
+      [{
+        desktopId: "desktop-1",
+        chipId: "chip-desktop-1",
+        bindingId: "binding-1",
+        bindingType: "owner",
+        petId: "pet-1",
+      }],
     ];
     mockDb._results.update = [[updatedAction]];
 
@@ -81,9 +89,20 @@ describe("Admin Avatar Review Routes", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ action: updatedAction });
     expect((mockDb._calls.update[0] as any).set).toEqual({
-      videoUrl: "https://test-storage.local/avatars/avatar-1/lay.mjpeg",
-      videoHash: "ac39d47c7b92ef8b2393ffff158c34707441867980f143f41f076b3bc8a6a6a1",
-      imageUrl: "https://test-storage.local/avatars/avatar-1/lay-thumb.jpg",
+      videoUrl: `https://test-storage.local/avatars/avatar-1/lay-${videoHash}.mjpeg`,
+      videoHash,
+      imageUrl: `https://test-storage.local/avatars/avatar-1/lay-${videoHash}-thumb.jpg`,
+    });
+    expect((globalThis as any).__mqttPublishes).toContainEqual({
+      type: "config",
+      chipId: "chip-desktop-1",
+      payload: {
+        v: 1,
+        state: "bound",
+        petId: "pet-1",
+        bindingId: "binding-1",
+        bindingType: "owner",
+      },
     });
   });
 

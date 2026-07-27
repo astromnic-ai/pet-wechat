@@ -816,12 +816,12 @@ avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {
 
     const videoHash = createHash("sha256").update(buffer).digest("hex");
     const videoUrl = await uploadFile(
-      `avatars/${avatarId}/${action.actionType}.mjpeg`,
+      `avatars/${avatarId}/${action.actionType}-${videoHash}.mjpeg`,
       buffer,
       contentType,
     );
     const imageUrl = await uploadFile(
-      `avatars/${avatarId}/${action.actionType}-thumb.jpg`,
+      `avatars/${avatarId}/${action.actionType}-${videoHash}-thumb.jpg`,
       thumbnailBuffer,
       "image/jpeg",
     );
@@ -831,6 +831,8 @@ avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {
       .set({ imageUrl, videoUrl, videoHash })
       .where(and(eq(petAvatarActions.id, actionId), eq(petAvatarActions.petAvatarId, avatarId)))
       .returning();
+
+    await republishDesktopConfigsForPet(row.avatar.petId, "avatar-action-video-replace");
 
     return c.json({
       action: toActionResponse({
