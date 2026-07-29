@@ -1,5 +1,10 @@
 import mqtt, { type IClientOptions, type MqttClient } from "mqtt";
-import type { DesktopConfigMqttPayload, OtaCommandPayload, PetActionMqttPayload } from "shared";
+import type {
+  DesktopConfigMqttPayload,
+  DesktopResourceRefreshMqttPayload,
+  OtaCommandPayload,
+  PetActionMqttPayload,
+} from "shared";
 import { handleOtaMqttMessage } from "./mqtt-handlers";
 
 const STATUS_TOPIC = "pet/+/status";
@@ -135,6 +140,22 @@ export async function publishDesktopConfig(
 
   await new Promise<void>((resolve, reject) => {
     activeClient.publish(topic, body, { qos: 1, retain: true }, (error) => {
+      if (error) reject(error);
+      else resolve();
+    });
+  });
+}
+
+export async function publishDesktopResourceRefresh(
+  chipId: string,
+  payload: DesktopResourceRefreshMqttPayload,
+) {
+  const activeClient = requireClient();
+  const topic = `pet/${chipId}/resource`;
+  const body = JSON.stringify(payload);
+
+  await new Promise<void>((resolve, reject) => {
+    activeClient.publish(topic, body, { qos: 1, retain: false }, (error) => {
       if (error) reject(error);
       else resolve();
     });

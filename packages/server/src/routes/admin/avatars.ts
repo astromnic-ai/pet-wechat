@@ -7,7 +7,7 @@ import { desktopDevices, desktopPetBindings, messages, petAvatars, petAvatarActi
 import { extractFirstJpegFrame } from "../../utils/mjpeg";
 import { isManagedStorageUrl, normalizePublicFileUrl, uploadFile } from "../../utils/storage";
 import { broadcast } from "../../ws";
-import { publishDesktopConfig } from "../../ota/mqtt-client";
+import { publishDesktopConfig, publishDesktopResourceRefresh } from "../../ota/mqtt-client";
 
 const avatarsRoute = new Hono();
 
@@ -175,6 +175,33 @@ async function republishDesktopConfigsForPet(petId: string, reason: string) {
             petId,
             desktopId: binding.desktopId,
             chipId: binding.chipId,
+            error,
+          });
+        }),
+      ),
+  );
+}
+
+async function publishDesktopResourceRefreshesForPet(petId: string, rev: string) {
+  const bindings = await db
+    .select({
+      desktopId: desktopDevices.id,
+      chipId: desktopDevices.chipId,
+    })
+    .from(desktopPetBindings)
+    .leftJoin(desktopDevices, eq(desktopDevices.id, desktopPetBindings.desktopDeviceId))
+    .where(and(eq(desktopPetBindings.petId, petId), isNull(desktopPetBindings.unboundAt)));
+
+  await Promise.all(
+    bindings
+      .filter((binding) => Boolean(binding.chipId))
+      .map((binding) =>
+        publishDesktopResourceRefresh(binding.chipId as string, { v: 1, rev }).catch((error) => {
+          console.error("[admin/avatars] failed to publish desktop resource refresh", {
+            petId,
+            desktopId: binding.desktopId,
+            chipId: binding.chipId,
+            rev,
             error,
           });
         }),
@@ -857,6 +884,7 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
   }
 
   if (row.avatar.status === "done") {
+    await publishDesktopResourceRefreshesForPet(row.avatar.petId, row.avatar.id);
     return c.json({ avatar: toAvatarResponse(row) });
   }
 
@@ -911,6 +939,8 @@ avatarsRoute.post("/avatars/:id/sync", async (c) => {
       petName: ownerContext.petName,
     },
   });
+
+  await publishDesktopResourceRefreshesForPet(ownerContext.petId, avatarId);
 
   return c.json({
     avatar: toAvatarResponse({

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { Hono } from "hono";
+import { ALL_ACTIONS } from "shared";
 import avatarsRoute from "../routes/admin/avatars";
 import { fakeAvatar, fakeAvatarAction, fakeBinding, fakeDesktop, jsonReq } from "./helpers";
 import { mockDb } from "./setup";
@@ -295,6 +296,98 @@ describe("Admin Avatar Review Routes", () => {
         bindingType: "owner",
       },
     });
+  });
+
+  it("notifies every bound desktop to refresh resources after avatar sync", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "processing" });
+    const updatedAvatar = { ...avatar, status: "done" };
+    const actions = ALL_ACTIONS.map((actionType, index) =>
+      fakeAvatarAction({
+        id: `action-${index}`,
+        petAvatarId: avatar.id,
+        actionType,
+        sortOrder: index,
+      }),
+    );
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      actions,
+      [
+        { desktopId: "desktop-1", chipId: "chip-desktop-1" },
+        { desktopId: "desktop-2", chipId: "chip-desktop-2" },
+      ],
+    ];
+    mockDb._results.update = [[updatedAvatar]];
+    mockDb._results.insert = [[]];
+
+    const res = await app.request(
+      jsonReq("POST", "/api/admin/avatars/avatar-1/sync"),
+    );
+
+    expect(res.status).toBe(200);
+    expect((globalThis as any).__mqttPublishes).toEqual([
+      {
+        type: "resource",
+        chipId: "chip-desktop-1",
+        payload: { v: 1, rev: "avatar-1" },
+      },
+      {
+        type: "resource",
+        chipId: "chip-desktop-2",
+        payload: { v: 1, rev: "avatar-1" },
+      },
+    ]);
+  });
+
+  it("allows re-syncing a done avatar to retrigger device downloads", async () => {
+    const avatar = fakeAvatar({ id: "avatar-1", petId: "pet-1", status: "done" });
+
+    mockDb._results.select = [
+      [{
+        avatar,
+        petId: "pet-1",
+        petName: "Mimi",
+        petSpecies: "cat",
+        petBreed: null,
+        petGender: "unknown",
+        petBirthday: null,
+        petWeight: null,
+        userId: "user-1",
+        userNickname: "Test User",
+        userAvatarUrl: null,
+        userWechatOpenid: null,
+        userPhone: null,
+      }],
+      [{ desktopId: "desktop-1", chipId: "chip-desktop-1" }],
+    ];
+
+    const res = await app.request(
+      jsonReq("POST", "/api/admin/avatars/avatar-1/sync"),
+    );
+
+    expect(res.status).toBe(200);
+    expect((globalThis as any).__mqttPublishes).toEqual([
+      {
+        type: "resource",
+        chipId: "chip-desktop-1",
+        payload: { v: 1, rev: "avatar-1" },
+      },
+    ]);
   });
 
   it("saves one action category without requiring other categories", async () => {
