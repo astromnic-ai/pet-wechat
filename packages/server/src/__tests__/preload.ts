@@ -93,6 +93,9 @@ const mqttClientMock = {
   publishDesktopConfig: async (chipId: string, payload: unknown) => {
     mqttPublishes.push({ type: "config", chipId, payload });
   },
+  publishDesktopResourceRefresh: async (chipId: string, payload: unknown) => {
+    mqttPublishes.push({ type: "resource", chipId, payload });
+  },
   clearRetainedDesktopConfig: async (chipId: string, reason = "unbind") => {
     mqttPublishes.push({
       type: "clear-config",

@@ -49,6 +49,11 @@ export type PetActionMqttPayload = {
   label?: number;
 };
 
+export type DesktopResourceRefreshMqttPayload = {
+  v: 1;
+  rev: string;
+};
+
 export type DesktopConfigMqttPayload =
   | {
       v: 1;
