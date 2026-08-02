@@ -96,7 +96,7 @@ export default function MessagesPage() {
   return (
     <View className="messages-page">
       <StatusBar className="messages-top-strip" />
-      <View className="messages-header">
+      <View className="messages-header secondary-nav-row">
         <PageBack inline />
         <Text className="messages-title">消息</Text>
       </View>

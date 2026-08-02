@@ -324,7 +324,7 @@ export default function DataPage() {
   return (
     <View className="data-page">
       <StatusBar className="data-top-strip" />
-      <View className="data-header">
+      <View className="data-header secondary-nav-row">
         <PageBack inline />
         <Text className="data-title">宠物记录</Text>
       </View>

@@ -21,7 +21,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: 18rpx;
+  padding-top: 0;
   padding-bottom: 18rpx;
   box-sizing: border-box;
 }
@@ -31,6 +31,10 @@
   align-items: center;
   gap: 20rpx;
   min-height: 72rpx;
+  width: calc(100% + 48rpx);
+  margin-left: -24rpx;
+  padding-left: 24rpx;
+  padding-right: 24rpx;
 }
 
 .register-header :global(.page-back) {

@@ -226,7 +226,9 @@ export default function AvatarProgress() {
   return (
     <View className="avatar-progress-page">
       <StatusBar className="avatar-progress-top-strip" />
-      <PageBack statusBarScale={1.4} />
+      <View className="avatar-progress-nav secondary-nav-row">
+        <PageBack inline />
+      </View>
       {isSuccess ? (
         <View className="success-shell">
           <View className="success-badge">

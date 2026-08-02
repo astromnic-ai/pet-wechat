@@ -326,7 +326,7 @@ export default function Devices() {
   return (
     <View className="devices-page">
       <StatusBar className="devices-top-strip" />
-      <View className="header">
+      <View className="header secondary-nav-row">
         <PageBack inline />
         <Text className="page-title">设备管理</Text>
       </View>

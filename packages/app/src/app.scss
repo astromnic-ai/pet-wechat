@@ -40,3 +40,21 @@ page {
   padding: 40px 0;
   color: $color-text-primary;
 }
+
+/* 二级页面统一顶部导航：紧接设备原生状态栏，不改变系统状态栏高度。 */
+.secondary-nav-row {
+  width: 100%;
+  height: 96rpx !important;
+  min-height: 96rpx !important;
+  margin-top: 0 !important;
+  margin-bottom: 16rpx !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 20;
+  background: #ffd86f !important;
+}

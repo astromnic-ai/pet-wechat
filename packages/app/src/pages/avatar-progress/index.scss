@@ -2,7 +2,7 @@
   height: 100vh;
   background: #ffffff;
   box-sizing: border-box;
-  padding: calc(env(safe-area-inset-top) + 76rpx) 28rpx calc(env(safe-area-inset-bottom) + 18rpx);
+  padding: 0 28rpx calc(env(safe-area-inset-bottom) + 18rpx);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -10,12 +10,17 @@
 }
 
 .avatar-progress-top-strip {
-  position: absolute;
-  inset: 0 0 auto;
-  width: 100%;
-  height: calc(env(safe-area-inset-top) + 16rpx);
-  min-height: 104rpx;
+  width: calc(100% + 56rpx);
+  margin-left: -28rpx;
   background: #ffd86f;
+  flex-shrink: 0;
+}
+
+.avatar-progress-nav {
+  width: calc(100% + 56rpx);
+  margin-left: -28rpx;
+  padding-left: 28rpx;
+  padding-right: 28rpx;
 }
 
 .progress-shell,

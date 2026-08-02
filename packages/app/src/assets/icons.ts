@@ -162,6 +162,14 @@ export const ICON_ARROW_RIGHT = svg(
   `<polyline points="35,20 65,50 35,80" fill="none" stroke="#666" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>`
 );
 
+// 首页设备管理入口：使用带横杆的右向箭头，与顶部返回箭头明确区分。
+export const ICON_DEVICE_ENTRY = svg(
+  `<g fill="none" stroke="#e7b93f" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="24" y1="50" x2="72" y2="50"/>
+    <polyline points="56,32 74,50 56,68"/>
+  </g>`
+);
+
 // 切换箭头 - 对应 image-import-33.png
 export const ICON_SWITCH = svg(
   `<g fill="none" stroke="#666" stroke-width="3" stroke-linecap="round">

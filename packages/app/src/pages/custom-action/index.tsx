@@ -75,7 +75,7 @@ export default function CustomAction() {
   return (
     <View className="custom-action-page">
       <StatusBar className="custom-action-top-strip" />
-      <View className="custom-action-header">
+      <View className="custom-action-header secondary-nav-row">
         <PageBack inline />
         <Text className="custom-action-title">添加自定义动作</Text>
       </View>

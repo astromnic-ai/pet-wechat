@@ -514,7 +514,7 @@ export default function PetInfo() {
       {isDetailMode ? (
         <View className="detail-header-shell">
           <StatusBar className="detail-top-strip" />
-          <View className="detail-header">
+          <View className="detail-header secondary-nav-row">
             <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
               <Text className="create-header-back-icon">←</Text>
             </View>
@@ -524,7 +524,7 @@ export default function PetInfo() {
       ) : (
         <>
           <StatusBar className="detail-top-strip" />
-          <View className="create-header">
+          <View className="create-header secondary-nav-row">
             <View className="create-header-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
               <Text className="create-header-back-icon">←</Text>
             </View>

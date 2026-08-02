@@ -114,7 +114,7 @@ export default function Profile() {
   return (
     <View className="profile-page">
       <StatusBar className="profile-top-strip" />
-      <View className="profile-header">
+      <View className="profile-header secondary-nav-row">
         <PageBack inline />
         <Text className="profile-title">用户信息</Text>
       </View>

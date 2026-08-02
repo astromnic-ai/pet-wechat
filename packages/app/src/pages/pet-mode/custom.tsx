@@ -125,7 +125,7 @@ export default function PetModeCustomOverviewPage() {
   return (
     <View className="custom-overview-page">
       <StatusBar className="pet-mode-top-strip" />
-      <View className="pet-mode-header">
+      <View className="pet-mode-header secondary-nav-row">
         <PageBack inline fallbackUrl={`/pages/pet-mode/index?petId=${petId}`} />
         <Text className="pet-mode-title">个性自定义</Text>
       </View>

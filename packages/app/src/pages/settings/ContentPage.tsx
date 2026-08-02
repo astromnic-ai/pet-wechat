@@ -16,7 +16,7 @@ interface ContentPageProps {
 }
 
 function replaceLegacyBrand(value: string) {
-  return value.replace(/YEHEY/gi, "wispnook");
+  return value.replace(/YEHEY|wispnook/gi, "WISPNOOK");
 }
 
 const LOCAL_CONTENT_FALLBACKS: Partial<Record<ContentSlug, ContentPageData>> = {
@@ -56,15 +56,15 @@ A：由于本产品包含高度定制的数字化内容，用户下单即视为�
   },
   about: {
     slug: "about",
-    title: "关于 wispnook",
+    title: "关于 WISPNOOK",
     body: `
-## wispnook
+## WISPNOOK
 
-wispnook 的诞生源于一份给猫猫的礼物，始于“我”与陪伴七年的猫猫平凡日常。不仅仅是一个品牌，它源于一个关于爱、快乐和陪伴的故事。
+WISPNOOK 的诞生源于一份给猫猫的礼物，始于“我”与陪伴七年的猫猫平凡日常。不仅仅是一个品牌，它源于一个关于爱、快乐和陪伴的故事。
 
 ## 品牌理念：时刻陪伴，时刻雀跃
 
-wispnook 宠物桌面动态展示设备，是我们品牌理念的数字化延伸。我们深知，宠物对你而言不仅是生活的点缀，更是时刻活跃在心尖的牵挂。
+WISPNOOK 宠物桌面动态展示设备，是我们品牌理念的数字化延伸。我们深知，宠物对你而言不仅是生活的点缀，更是时刻活跃在心尖的牵挂。
 
 打破空间的界限：我们尝试打破物理空间的厚重隔阂，通过数字动态技术让你无法陪伴在宠物身边时，感受到在忙碌与静谧的交替间，它为你筑起的一座微缩陪伴磁场。
 
@@ -98,7 +98,7 @@ wispnook 宠物桌面动态展示设备，是我们品牌理念的数字化延�
 不得利用小程序漏洞进行刷单或恶意攻击。
 
 ## 4. 知识产权声明
-小程序的所有 UI 设计、品牌标识及摆件的原创设计模版归 wispnook 所有。
+小程序的所有 UI 设计、品牌标识及摆件的原创设计模版归 WISPNOOK 所有。
 用户对其上传的宠物照片保留原始著作权，但授予本平台在展示该用户个人相册及制作相应产品时所必须的许可使用权。
 
 ## 5. 免责声明
@@ -169,7 +169,7 @@ export default function ContentPage(props: ContentPageProps) {
   return (
     <View className="settings-subpage">
       <StatusBar className="settings-subpage-top-strip" />
-      <View className="settings-subpage-header">
+      <View className="settings-subpage-header secondary-nav-row">
         <PageBack inline />
         <Text className="settings-subpage-title">{resolvedTitle}</Text>
       </View>

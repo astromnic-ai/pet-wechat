@@ -228,7 +228,7 @@ export default function ProfileEdit() {
   return (
     <View className="profile-edit-page">
       <StatusBar className="profile-edit-top-strip" />
-      <View className="profile-edit-header">
+      <View className="profile-edit-header secondary-nav-row">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="profile-edit-title">编辑资料</Text>
       </View>

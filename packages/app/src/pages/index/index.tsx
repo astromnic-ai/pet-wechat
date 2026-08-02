@@ -9,6 +9,7 @@ import { fetchPetActivityMode, syncPetModeCache } from "../../utils/petModeApi";
 import { getDeviceDisplayName, getDeviceStatusText, getLastOnlineLabel, getUsageLabel, selectPrimaryDevice } from "../../utils/deviceDisplay";
 import { getPetFallbackImage } from "../../utils/petVisual";
 import QuickNav from "../../components/QuickNav";
+import { ICON_DEVICE_ENTRY } from "../../assets/icons";
 import { PET_ACTION_LABELS as SHARED_ACTION_LABELS } from "../../utils/petActions";
 import "./index.scss";
 
@@ -681,7 +682,7 @@ export default function Index() {
                     <Text className="managed-device-status-text">{primaryManagedDeviceStatus}</Text>
                   </View>
                   <View className="device-manage-btn" onClick={handleManageDevices}>
-                    <Text className="device-manage-text">›</Text>
+                    <Image className="device-manage-icon" src={ICON_DEVICE_ENTRY} mode="aspectFit" />
                   </View>
                 </View>
               ) : (

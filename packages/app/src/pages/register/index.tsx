@@ -176,11 +176,11 @@ export default function Register() {
       <StatusBar className="register-top-strip" />
 
       <View className="register-shell">
-        <View className="register-header">
+        <View className="register-header secondary-nav-row">
           <PageBack inline fallbackUrl="/pages/login/index" />
           <Text className="register-top-title">注册账号</Text>
         </View>
-        <Text className="register-title">加入 wispnook</Text>
+        <Text className="register-title">加入 WISPNOOK</Text>
         <Text className="register-subtitle">开始你的数字宠物之旅</Text>
 
         <Text className="field-label">手机号</Text>

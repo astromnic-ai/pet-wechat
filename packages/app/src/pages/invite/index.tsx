@@ -9,7 +9,7 @@ import { getPetDisplayImage } from "../../utils/petVisual";
 import "./index.scss";
 
 const DEFAULT_SHARE_MESSAGE = {
-  title: "wispnook",
+  title: "WISPNOOK",
   path: "/pages/index/index",
 };
 
@@ -171,7 +171,7 @@ export default function Invite() {
     return (
       <View className="invite-accept-page">
         <StatusBar className="invite-top-strip" />
-        <View className="invite-header">
+        <View className="invite-header secondary-nav-row">
           <PageBack inline />
           <Text className="invite-title">接受授权</Text>
         </View>
@@ -215,7 +215,7 @@ export default function Invite() {
   return (
     <View className="invite-share-page">
       <StatusBar className="invite-top-strip" />
-      <View className="invite-header">
+      <View className="invite-header secondary-nav-row">
         <PageBack inline />
         <Text className="invite-title">分享授权</Text>
       </View>

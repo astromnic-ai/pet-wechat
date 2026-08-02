@@ -35,23 +35,28 @@
   justify-content: center;
 }
 
-.hero-badge {
-  width: 360rpx;
-  height: 360rpx;
+.splash-logo-group {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
 }
 
-.hero-image {
-  width: 360rpx;
-  height: 360rpx;
+.splash-logo-mark {
+  width: 260rpx;
+  height: 260rpx;
+}
+
+.splash-logo-wordmark {
+  width: 300rpx;
+  height: 56rpx;
+  margin-top: 24rpx;
 }
 
 .progress-bar {
   width: 300rpx;
   height: 10rpx;
-  margin-top: 44rpx;
+  margin-top: 112rpx;
   border-radius: 999rpx;
   background: #eaeaea;
   overflow: hidden;

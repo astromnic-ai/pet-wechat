@@ -302,7 +302,7 @@ export default function PetAvatar() {
     <View className="pet-avatar-page">
       <StatusBar className="pet-avatar-top-strip" />
       <View className="upload-page-header">
-        <View className="upload-page-title-row">
+        <View className="upload-page-title-row secondary-nav-row">
           <View className="upload-page-back" onClick={handleBack}>
             <Text className="upload-page-back-icon">←</Text>
           </View>

@@ -63,7 +63,7 @@ export default function MemberCenter() {
   return (
     <View className="member-center-page">
       <StatusBar className="member-center-top-strip" />
-      <View className="member-center-header">
+      <View className="member-center-header secondary-nav-row">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="member-center-title">会员中心</Text>
         <View className="member-center-order-btn" onClick={handleOrderHistory}>

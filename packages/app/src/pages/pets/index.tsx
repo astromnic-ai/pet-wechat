@@ -128,7 +128,7 @@ export default function PetsPage() {
   return (
     <View className="pets-page">
       <StatusBar className="pets-top-strip" />
-      <View className="pets-header">
+      <View className="pets-header secondary-nav-row">
         <PageBack inline fallbackUrl="/pages/profile/index" />
         <Text className="pets-title">我的宠物</Text>
       </View>

@@ -130,7 +130,7 @@ export default function BindPet() {
     <View className="bind-pet-page">
       <StatusBar className="bind-pet-top-strip" />
 
-      <View className="bind-pet-header">
+      <View className="bind-pet-header secondary-nav-row">
         <View className="bind-pet-back" onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}>
           <Text className="bind-pet-back-text">‹</Text>
         </View>

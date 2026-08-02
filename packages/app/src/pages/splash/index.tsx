@@ -39,8 +39,17 @@ export default function Splash() {
       <StatusBar className="splash-top-strip" />
       <View className="splash-content">
         <View className="hero-area">
-          <View className="hero-badge">
-            <Image className="hero-image" src={require("@/assets/images/logo.png")} mode="aspectFit" />
+          <View className="splash-logo-group">
+            <Image
+              className="splash-logo-mark"
+              src={require("@/assets/images/wispnook-logo-mark.png")}
+              mode="aspectFit"
+            />
+            <Image
+              className="splash-logo-wordmark"
+              src={require("@/assets/images/wispnook-wordmark.png")}
+              mode="aspectFit"
+            />
           </View>
           <View className="progress-bar">
             <View className="progress-fill" style={{ width: `${Math.min(progress, 100)}%` }} />

@@ -343,7 +343,7 @@ export default function PetModeSchedulePage() {
   return (
     <View className="custom-schedule-page">
       <StatusBar className="pet-mode-top-strip" />
-      <View className="pet-mode-header">
+      <View className="pet-mode-header secondary-nav-row">
         <PageBack inline fallbackUrl={`/pages/pet-mode/custom?petId=${petId}`} />
         <Text className="pet-mode-title">编辑日程</Text>
       </View>

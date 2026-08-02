@@ -657,7 +657,7 @@ export default function WifiConfig() {
     <View className="device-wifi-page">
       <StatusBar className="device-wifi-top-strip" />
 
-      <View className="device-wifi-header">
+      <View className="device-wifi-header secondary-nav-row">
         <View
           className="device-wifi-back"
           onClick={() => Taro.navigateBack({ fail: () => Taro.switchTab({ url: "/pages/index/index" }) })}

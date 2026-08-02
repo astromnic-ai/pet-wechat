@@ -41,7 +41,7 @@ export default defineAppConfig({
   window: {
     backgroundTextStyle: "light",
     navigationBarBackgroundColor: "#fff",
-    navigationBarTitleText: "wispnook",
+    navigationBarTitleText: "WISPNOOK",
     navigationBarTextStyle: "black",
     navigationStyle: "custom",
   },

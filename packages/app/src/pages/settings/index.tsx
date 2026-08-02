@@ -38,7 +38,7 @@ export default function Settings() {
     <View className="settings-page">
       <StatusBar className="settings-top-strip" />
 
-      <View className="settings-header">
+      <View className="settings-header secondary-nav-row">
         <PageBack inline />
         <Text className="settings-title">设置</Text>
       </View>
@@ -90,7 +90,7 @@ export default function Settings() {
         </View>
 
         <View className="setting-card setting-card--arrow" onClick={() => openPage("/pages/settings/about")}>
-          <Text className="setting-label">关于 wispnook</Text>
+          <Text className="setting-label">关于 WISPNOOK</Text>
           <View className="setting-arrow-wrap">
             <Text className="setting-arrow">→</Text>
           </View>

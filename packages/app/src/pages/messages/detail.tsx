@@ -71,7 +71,7 @@ export default function MessageDetail() {
   return (
     <View className="message-detail-page">
       <StatusBar className="message-detail-top-strip" />
-      <View className="message-detail-header">
+      <View className="message-detail-header secondary-nav-row">
         <PageBack inline />
         <Text className="message-detail-title">消息详情</Text>
       </View>

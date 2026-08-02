@@ -54,7 +54,7 @@ export default function BindEmailPage() {
   return (
     <View className="settings-subpage">
       <StatusBar className="settings-subpage-top-strip" />
-      <View className="settings-subpage-header">
+      <View className="settings-subpage-header secondary-nav-row">
         <PageBack inline />
         <Text className="settings-subpage-title">绑定邮箱</Text>
       </View>
