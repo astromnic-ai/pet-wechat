@@ -860,6 +860,7 @@ avatarsRoute.post("/avatars/:id/actions/:actionId/video", async (c) => {
       .returning();
 
     await republishDesktopConfigsForPet(row.avatar.petId, "avatar-action-video-replace");
+    await publishDesktopResourceRefreshesForPet(row.avatar.petId, videoHash);
 
     return c.json({
       action: toActionResponse({

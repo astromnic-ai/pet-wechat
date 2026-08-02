@@ -74,6 +74,10 @@ describe("Admin Avatar Review Routes", () => {
         bindingType: "owner",
         petId: "pet-1",
       }],
+      [{
+        desktopId: "desktop-1",
+        chipId: "chip-desktop-1",
+      }],
     ];
     mockDb._results.update = [[updatedAction]];
 
@@ -103,6 +107,14 @@ describe("Admin Avatar Review Routes", () => {
         petId: "pet-1",
         bindingId: "binding-1",
         bindingType: "owner",
+      },
+    });
+    expect((globalThis as any).__mqttPublishes).toContainEqual({
+      type: "resource",
+      chipId: "chip-desktop-1",
+      payload: {
+        v: 1,
+        rev: videoHash,
       },
     });
   });

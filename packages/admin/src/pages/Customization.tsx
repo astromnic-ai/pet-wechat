@@ -42,6 +42,7 @@ import { api } from "../api/client";
 
 const { Text, Title } = Typography;
 const CUSTOMIZATION_VIDEO_ACCEPT = ".mjpeg,.mjpg,video/mjpeg,video/x-motion-jpeg";
+const MAX_ACTION_VIDEO_SIZE = 50 * 1024 * 1024;
 const HOMEPAGE_IMAGE_ACCEPT = ".png,image/png";
 
 type CustomizationStatus = "approved" | "processing" | "done";
@@ -684,8 +685,7 @@ export default function Customization() {
   const canReplaceCompletedActions = selectedAvatarDetail?.status === "done";
   const canSync =
     !!selectedAvatarDetail &&
-    uploadedProgress.completed >= totalActionCount &&
-    selectedAvatarDetail.status !== "done";
+    uploadedProgress.completed >= totalActionCount;
 
   const previewAction = previewActionType ? actionMap[previewActionType] : undefined;
   const homepageImageUrl = selectedAvatarDetail?.homepageImageUrl ?? selectedAvatarSummary?.homepageImageUrl ?? "";
@@ -798,6 +798,16 @@ export default function Customization() {
       const existingAction = actionMap[uploadActionType];
       let imageUrl = uploadImageUrl.trim();
 
+      if (uploadFile && !isMjpegFile(uploadFile)) {
+        messageApi.warning("仅支持 MJPEG 视频文件（.mjpeg / .mjpg），不支持 JPG、PNG 或 MP4");
+        return;
+      }
+
+      if (uploadFile && uploadFile.size > MAX_ACTION_VIDEO_SIZE) {
+        messageApi.warning("文件过大，请上传 50MB 以内的 MJPEG 视频");
+        return;
+      }
+
       if (uploadFile && existingAction) {
         await api.uploadAvatarActionVideo(selectedAvatarDetail.id, existingAction.id, uploadFile);
         messageApi.success("动作素材已替换");
@@ -808,11 +818,6 @@ export default function Customization() {
       }
 
       if (!imageUrl && uploadFile) {
-        if (!isMjpegFile(uploadFile)) {
-          messageApi.warning("仅支持 MJPEG 视频文件（.mjpeg / .mjpg）");
-          return;
-        }
-
         const contentType = resolveMjpegContentType(uploadFile);
         const uploadResult = await api.uploadAdminMedia(uploadFile, contentType);
         imageUrl = uploadResult.url;
@@ -897,8 +902,9 @@ export default function Customization() {
     setSyncing(true);
 
     try {
+      const isResync = selectedAvatarDetail.status === "done";
       await api.syncAvatar(selectedAvatarDetail.id);
-      messageApi.success("已同步到手机端");
+      messageApi.success(isResync ? "已通知设备重新拉取最新素材" : "已同步到手机端");
       await refreshCurrentAvatar(selectedAvatarDetail.id);
     } catch (error) {
       messageApi.error(error instanceof Error ? error.message : "同步失败");
@@ -1291,7 +1297,7 @@ export default function Customization() {
                           style={{ background: "#49aa7a", borderColor: "#49aa7a", height: 56 }}
                           onClick={() => void handleSyncAvatar()}
                         >
-                          {selectedAvatarDetail?.status === "done" ? "已同步到手机端" : "一键同步到手机"}
+                          {selectedAvatarDetail?.status === "done" ? "重新同步到设备" : "一键同步到手机"}
                         </Button>
                       </div>
                     </div>
@@ -1378,7 +1384,9 @@ export default function Customization() {
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Text type="secondary">
-              {uploadMode === "homepage" ? "上传 PNG 图片文件" : "上传 MJPEG 视频文件"}
+              {uploadMode === "homepage"
+                ? "上传 PNG 图片文件"
+                : "仅支持 .mjpeg / .mjpg，最大 50MB；不支持 JPG、PNG 或 MP4"}
             </Text>
             <input
               type="file"
