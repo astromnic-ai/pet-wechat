@@ -1,11 +1,7 @@
 import type { DeviceStatus, DeviceSummary } from "@pet-wechat/shared";
 
 function isDeviceBoundToPet(device: DeviceSummary, petId: string) {
-  if (device.deviceType === "collar") {
-    return device.petId === petId;
-  }
-
-  return device.bindings?.some((binding) => binding.petId === petId) ?? false;
+  return device.petId === petId || (device.bindings?.some((binding) => binding.petId === petId) ?? false);
 }
 
 function getStatusPriority(status: DeviceStatus) {

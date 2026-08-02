@@ -49,4 +49,19 @@ describe("selectPrimaryDevice", () => {
 
     expect(selectPrimaryDevice([offlineDesktop, onlineCollar], "pet-1")?.id).toBe("collar");
   });
+
+  it("recognizes the current-pet binding regardless of the device binding field", () => {
+    const onlineCollarFromBindings = device({
+      id: "collar-from-bindings",
+      deviceType: "collar",
+      status: "online",
+      bindings: [{ petId: "pet-1" }] as DeviceSummary["bindings"],
+    });
+    const offlineDesktop = device({
+      id: "desktop",
+      bindings: [{ petId: "pet-1" }] as DeviceSummary["bindings"],
+    });
+
+    expect(selectPrimaryDevice([offlineDesktop, onlineCollarFromBindings], "pet-1")?.id).toBe("collar-from-bindings");
+  });
 });
