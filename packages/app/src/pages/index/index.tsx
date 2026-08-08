@@ -457,10 +457,11 @@ export default function Index() {
     return currentPetActions.slice(0, Math.min(currentPetActions.length, 4));
   }, [currentPet, currentPetActions, petMode, homeHeroState]);
 
-  const currentFrameImage =
-    homeHeroState === "done"
-      ? currentModeFrames[0]?.imageUrl || currentPet?.avatarImageUrl || petHeroImage
-      : petHeroImage;
+  // avatarImageUrl 由服务端优先映射后台配置的“主页图”。首页主视觉必须保持该优先级，
+  // 动作图只用于动作/模式数据，不能再次覆盖主页图。
+  const currentFrameImage = homeHeroState === "done"
+    ? currentPet?.avatarImageUrl || currentModeFrames[0]?.imageUrl || petHeroImage
+    : petHeroImage;
 
   const handleOpenPetInfo = () => {
     if (currentPet?.id) {

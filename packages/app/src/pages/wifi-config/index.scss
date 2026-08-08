@@ -297,6 +297,109 @@
   color: #ffffff;
 }
 
+.wifi-band-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: rgba(31, 27, 19, 0.48);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48rpx;
+  box-sizing: border-box;
+}
+
+.wifi-band-confirm-modal {
+  width: 100%;
+  max-width: 600rpx;
+  border-radius: 32rpx;
+  background: #ffffff;
+  padding: 42rpx 36rpx 34rpx;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 20rpx 54rpx rgba(61, 48, 20, 0.18);
+}
+
+.wifi-band-confirm-icon {
+  min-width: 112rpx;
+  height: 76rpx;
+  padding: 0 18rpx;
+  border-radius: 38rpx;
+  background: #fff5d8;
+  border: 2rpx solid #ffd76d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.wifi-band-confirm-icon-text {
+  font-size: 28rpx;
+  line-height: 1;
+  font-weight: 700;
+  color: #d49c16;
+}
+
+.wifi-band-confirm-title {
+  margin-top: 24rpx;
+  font-size: 34rpx;
+  line-height: 1.25;
+  font-weight: 700;
+  color: #202020;
+}
+
+.wifi-band-confirm-content {
+  margin-top: 18rpx;
+  font-size: 26rpx;
+  line-height: 1.65;
+  color: #77736b;
+  text-align: center;
+}
+
+.wifi-band-confirm-actions {
+  width: 100%;
+  margin-top: 34rpx;
+  display: flex;
+  gap: 18rpx;
+}
+
+.wifi-band-confirm-primary,
+.wifi-band-confirm-secondary {
+  flex: 1;
+  height: 78rpx;
+  border-radius: 20rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.wifi-band-confirm-primary {
+  background: #ffd76d;
+}
+
+.wifi-band-confirm-secondary {
+  background: #f6f6f6;
+  border: 2rpx solid #e7e4dc;
+}
+
+.wifi-band-confirm-primary-text,
+.wifi-band-confirm-secondary-text {
+  font-size: 27rpx;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.wifi-band-confirm-primary-text {
+  color: #202020;
+}
+
+.wifi-band-confirm-secondary-text {
+  color: #74716b;
+}
+
 .wifi-success-overlay {
   position: fixed;
   left: 0;

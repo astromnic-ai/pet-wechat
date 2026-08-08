@@ -87,8 +87,7 @@ async function getLatestAvatarImageMap(petIds: string[]) {
   const latestAvatarImageMap = new Map<string, string>();
   if (petIds.length === 0) return latestAvatarImageMap;
 
-  // 对每个 petId 取最新一条 done avatar（使用 SQL 子查询避免全量扫描）
-  // Drizzle 不支持 DISTINCT ON，改用应用层去重但限制查询量
+  // 按创建时间倒序后在应用层为每只宠物保留第一条，避免多只宠物或多版形象时截断错配。
   const doneAvatars = await db
     .select({
       id: petAvatars.id,
@@ -102,8 +101,7 @@ async function getLatestAvatarImageMap(petIds: string[]) {
         eq(petAvatars.status, "done"),
       )
     )
-    .orderBy(desc(petAvatars.createdAt))
-    .limit(petIds.length); // 最多只取 petIds.length 条，每个宠物最多 1 条
+    .orderBy(desc(petAvatars.createdAt));
 
   const latestAvatarByPetId = new Map<string, string>();
   const homepageImageByPetId = new Map<string, string>();

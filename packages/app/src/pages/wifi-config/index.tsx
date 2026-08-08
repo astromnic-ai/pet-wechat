@@ -14,6 +14,15 @@ type ReconfigureSuccess = {
   ssid: string;
   signalText: string;
 };
+type WifiProvisionResult =
+  | { status: "cloud_ok"; ip: string; rssi: number | null }
+  | { status: "pending" };
+type WifiStatusResponse = {
+  state: number;
+  reason: number;
+  ip: string;
+  rssi: number | null;
+};
 type DeviceOwnershipCheck = {
   canBind: boolean;
   claimStatus: "unknown" | "owned" | "available" | "occupied";
@@ -26,18 +35,38 @@ const BLE_NOTIFY_UUID = "2a9b473a-4493-4536-8b2b-9d4133488257";
 const BLE_FRAME_HEAD = 0xaa;
 const BLE_CMD_WIFI_CONFIG = 0x01;
 const BLE_CMD_DEVICE_INFO = 0x02;
+const BLE_CMD_WIFI_STATUS = 0x03;
 const BLE_RESP_FAIL = 0x00;
 const BLE_RESP_SUCCESS = 0x01;
-const BLE_WIFI_CONNECT_TIMEOUT_MS = 45000;
+const BLE_RESP_STATUS = 0x02;
+const BLE_WIFI_CONNECT_TIMEOUT_MS = 60000;
 const BLE_WIFI_RESULT_GRACE_MS = 8000;
+const BLE_WIFI_STATUS_POLL_MS = 1000;
 const BLE_DEVICE_INFO_TIMEOUT_MS = 15000;
 const BLE_DEVICE_INFO_RETRY_DELAYS_MS = [0, 3000, 8000];
+const BLE_WIFI_SESSION_SEQ_STORAGE_KEY = "ble_wifi_session_seq";
+let wifiSessionSeqFallback = Date.now() & 0xff;
 
 const BLE_ERROR_TEXT: Record<number, string> = {
   1: "WiFi 名称不能为空",
   2: "设备拒绝了配网参数",
   3: "设备连接 WiFi 失败，请检查密码",
   4: "配网数据校验失败，请重试",
+};
+
+const BLE_WIFI_FAILURE_TEXT: Record<number, string> = {
+  1: "WiFi 密码错误，请重新输入",
+  2: "找不到该 WiFi，请确认是 2.4G 频段",
+  3: "已连上路由器但获取地址失败，请重启路由器后重试",
+  4: "已连上路由器，但无法访问服务器（该网络可能需要网页认证或没有外网）",
+  5: "配网超时，请靠近设备重试",
+  6: "设备连上了其它已保存的 WiFi，请重试",
+};
+
+const BLE_WIFI_PROGRESS_TEXT: Record<number, string> = {
+  1: "正在连接 WiFi…",
+  2: "已连接 WiFi，正在获取网络地址…",
+  3: "已连上路由器，正在连接服务器…",
 };
 
 function getWifiErrorText(error?: unknown) {
@@ -129,12 +158,54 @@ function buildBleFrame(cmd: number, data: number[]) {
   return new Uint8Array(bytes).buffer;
 }
 
-function buildWifiConfigFrame(ssid: string, password: string) {
+function buildWifiConfigFrame(ssid: string, password: string, sessionSeq: number) {
   const ssidBytes = encodeUtf8(ssid);
   const passwordBytes = encodeUtf8(password);
   if (ssidBytes.length === 0 || ssidBytes.length > 32) throw new Error("WiFi 名称需为 1-32 字节");
   if (passwordBytes.length > 64) throw new Error("WiFi 密码不能超过 64 字节");
-  return buildBleFrame(BLE_CMD_WIFI_CONFIG, [ssidBytes.length, ...ssidBytes, passwordBytes.length, ...passwordBytes]);
+  return buildBleFrame(BLE_CMD_WIFI_CONFIG, [
+    ssidBytes.length,
+    ...ssidBytes,
+    passwordBytes.length,
+    ...passwordBytes,
+    sessionSeq,
+  ]);
+}
+
+function parseWifiStatusResponse(buffer: ArrayBuffer, expectedSeq: number): WifiStatusResponse | null {
+  const bytes = Array.from(new Uint8Array(buffer));
+  if (bytes.length !== 14 || bytes[0] !== BLE_FRAME_HEAD) return null;
+  const payloadLen = (bytes[1] << 8) | bytes[2];
+  if (payloadLen !== 10 || bytes.length !== payloadLen + 4) return null;
+  if (xor(bytes.slice(0, -1)) !== bytes[bytes.length - 1]) return null;
+  if (bytes[3] !== BLE_RESP_STATUS || bytes[4] !== BLE_CMD_WIFI_STATUS || bytes[5] !== expectedSeq) return null;
+
+  const state = bytes[6];
+  const reason = bytes[7];
+  const ip = state >= 0x02 ? bytes.slice(8, 12).join(".") : "";
+  const rawRssi = bytes[12];
+  const rssi = state >= 0x02 ? (rawRssi >= 0x80 ? rawRssi - 0x100 : rawRssi) : null;
+  return { state, reason, ip, rssi };
+}
+
+function getWifiStatusHint(status: WifiStatusResponse) {
+  if (status.state === 0x02) return "已连上路由器，正在连接服务器…";
+  if (status.state === 0x01) return BLE_WIFI_PROGRESS_TEXT[status.reason] || "设备正在连接…";
+  return "WiFi 信息已下发，等待设备联网…";
+}
+
+function getNextWifiSessionSeq() {
+  try {
+    const stored = Number(Taro.getStorageSync(BLE_WIFI_SESSION_SEQ_STORAGE_KEY));
+    const current = Number.isInteger(stored) && stored >= 0 && stored <= 0xff ? stored : wifiSessionSeqFallback;
+    const next = ((current + 1) & 0xff) || 1;
+    Taro.setStorageSync(BLE_WIFI_SESSION_SEQ_STORAGE_KEY, next);
+    wifiSessionSeqFallback = next;
+    return next;
+  } catch {
+    wifiSessionSeqFallback = ((wifiSessionSeqFallback + 1) & 0xff) || 1;
+    return wifiSessionSeqFallback;
+  }
 }
 
 function parseBleResponse(buffer: ArrayBuffer) {
@@ -225,7 +296,9 @@ export default function WifiConfig() {
   const [bleHint, setBleHint] = useState("等待下发 WiFi 信息");
   const [wifiState, setWifiState] = useState<WifiState>("loading");
   const [wifiHint, setWifiHint] = useState("正在读取当前连接的 WiFi…");
+  const [showBandConfirmation, setShowBandConfirmation] = useState(false);
   const [reconfigureSuccess, setReconfigureSuccess] = useState<ReconfigureSuccess | null>(null);
+  const [provisionPending, setProvisionPending] = useState(false);
   const [preflightChipId, setPreflightChipId] = useState("");
   const [deviceOccupiedMessage, setDeviceOccupiedMessage] = useState("");
   const ownershipCheckedRef = useRef(false);
@@ -496,33 +569,35 @@ export default function WifiConfig() {
     });
   };
 
-  const writeWifiConfigByBle = async (ids: { serviceId: string; controlId: string; notifyId: string }) => {
-    const frame = buildWifiConfigFrame(ssid.trim(), password);
+  const writeWifiConfigByBle = async (
+    ids: { serviceId: string; controlId: string; notifyId: string },
+    sessionSeq: number,
+  ) => {
+    const frame = buildWifiConfigFrame(ssid.trim(), password, sessionSeq);
     setBleHint("正在订阅设备配网结果…");
 
-    await new Promise<void>((resolve, reject) => {
+    return await new Promise<WifiProvisionResult>((resolve, reject) => {
       let settled = false;
-      let writeStarted = false;
       let timeout: ReturnType<typeof setTimeout> | undefined;
       let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
+      let pollTimer: ReturnType<typeof setInterval> | undefined;
+      let pollInFlight = false;
 
       const cleanup = () => {
         if (timeout) clearTimeout(timeout);
         if (fallbackTimer) clearTimeout(fallbackTimer);
+        if (pollTimer) clearInterval(pollTimer);
         if (typeof (Taro as any).offBLECharacteristicValueChange === "function") {
           (Taro as any).offBLECharacteristicValueChange(onNotify);
         }
-        if (typeof (Taro as any).offBLEConnectionStateChange === "function") {
-          (Taro as any).offBLEConnectionStateChange(onConnectionChange);
-        }
       };
 
-      const finish = (error?: Error) => {
+      const finish = (result?: WifiProvisionResult, error?: Error) => {
         if (settled) return;
         settled = true;
         cleanup();
         if (error) reject(error);
-        else resolve();
+        else resolve(result || { status: "pending" });
       };
 
       const onNotify = (res: any) => {
@@ -530,28 +605,58 @@ export default function WifiConfig() {
         const characteristicId = String(res?.characteristicId || "").toLowerCase();
         if (characteristicId && characteristicId !== String(ids.notifyId).toLowerCase()) return;
 
+        const wifiStatus = parseWifiStatusResponse(res?.value, sessionSeq);
+        if (wifiStatus) {
+          console.log("[wifi-config] provision status", wifiStatus);
+          if (wifiStatus.state === 0x03) {
+            setBleHint("设备已连接服务器");
+            finish({ status: "cloud_ok", ip: wifiStatus.ip, rssi: wifiStatus.rssi });
+            return;
+          }
+          if (wifiStatus.state === 0x80) {
+            finish(undefined, new Error(BLE_WIFI_FAILURE_TEXT[wifiStatus.reason] || `设备配网失败（错误码 ${wifiStatus.reason}）`));
+            return;
+          }
+          setBleHint(getWifiStatusHint(wifiStatus));
+          return;
+        }
+
         const parsed = parseBleResponse(res?.value);
         if (!parsed) return;
         if (parsed.ok) {
-          setBleHint(parsed.message ? `设备已联网：${parsed.message}` : "设备已联网");
-          finish();
+          setBleHint("设备已接收配网信息，等待联网确认…");
           return;
         }
-        finish(new Error(parsed.message));
+        finish(undefined, new Error(parsed.message));
       };
 
-      const onConnectionChange = (res: any) => {
-        if (res?.deviceId !== bleDeviceId || res?.connected || !writeStarted) return;
-        // 当前设备固件在 WiFi 连接成功后会释放 BLE；失败路径会保留连接并 notify 错误。
-        setBleHint("设备已接收 WiFi 信息并断开蓝牙");
-        finish();
+      const pollWifiStatus = async () => {
+        if (settled || pollInFlight) return;
+        pollInFlight = true;
+        try {
+          await (Taro as any).writeBLECharacteristicValue({
+            deviceId: bleDeviceId,
+            serviceId: ids.serviceId,
+            characteristicId: ids.controlId,
+            value: buildBleFrame(BLE_CMD_WIFI_STATUS, []),
+          });
+        } catch (error) {
+          console.warn("[wifi-config] provision status poll failed", {
+            message: getBleErrorText(error),
+          });
+          if (isBleDisconnectedError(error)) {
+            setBleHint("蓝牙连接已断开，尚未确认设备联网状态…");
+          }
+        } finally {
+          pollInFlight = false;
+        }
       };
 
       (Taro as any).onBLECharacteristicValueChange(onNotify);
-      (Taro as any).onBLEConnectionStateChange(onConnectionChange);
 
       timeout = setTimeout(() => {
-        finish(new Error("等待设备联网超时，请确认 WiFi 密码和设备距离"));
+        setBleHint("设备已收到 WiFi 信息，正在联网，稍后可在设备列表查看");
+        finish({ status: "pending" });
       }, BLE_WIFI_CONNECT_TIMEOUT_MS);
 
       (Taro as any)
@@ -563,7 +668,6 @@ export default function WifiConfig() {
         })
         .then(() => {
           setBleHint("正在下发 WiFi 信息到设备…");
-          writeStarted = true;
           return (Taro as any).writeBLECharacteristicValue({
             deviceId: bleDeviceId,
             serviceId: ids.serviceId,
@@ -574,12 +678,15 @@ export default function WifiConfig() {
         .then(() => {
           setBleHint("WiFi 信息已下发，等待设备联网…");
           fallbackTimer = setTimeout(() => {
-            setBleHint("WiFi 信息已下发，继续完成设备绑定");
-            finish();
+            if (!settled) setBleHint("仍在等待设备联网…");
           }, BLE_WIFI_RESULT_GRACE_MS);
+          pollTimer = setInterval(() => {
+            void pollWifiStatus();
+          }, BLE_WIFI_STATUS_POLL_MS);
+          void pollWifiStatus();
         })
         .catch((error: unknown) => {
-          finish(new Error(getBleErrorText(error)));
+          finish(undefined, new Error(getBleErrorText(error)));
         });
     });
   };
@@ -590,8 +697,8 @@ export default function WifiConfig() {
     await ensureBleConnection();
     const ids = await findBleCharacteristics();
     const chipId = preflightChipId || (await readChipIdByBle(ids));
-    await writeWifiConfigByBle(ids);
-    return chipId;
+    const provision = await writeWifiConfigByBle(ids, getNextWifiSessionSeq());
+    return { chipId, provision };
   };
 
   const handleConnectWifi = async () => {
@@ -612,21 +719,30 @@ export default function WifiConfig() {
       return;
     }
 
-    const bandConfirmation = await Taro.showModal({
-      title: "请确认 WiFi 频段",
-      content: "设备仅支持 2.4G WiFi，不支持 5G 网络。请确认手机当前连接的是 2.4G WiFi。",
-      confirmText: "确认继续",
-      cancelText: "返回检查",
-    });
+    setShowBandConfirmation(true);
+  };
 
-    if (!bandConfirmation.confirm) {
-      return;
-    }
+  const confirmConnectWifi = async () => {
+    if (loading) return;
 
+    setShowBandConfirmation(false);
     setLoading(true);
     setBleHint("准备下发 WiFi 信息…");
     try {
-      const chipId = await sendWifiConfigByBle();
+      const { chipId, provision } = await sendWifiConfigByBle();
+
+      if (provision.status === "pending") {
+        try {
+          await ensureDeviceRecord(chipId);
+        } catch (error) {
+          console.warn("[wifi-config] register pending device skipped", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+        setProvisionPending(true);
+        return;
+      }
+
       const device = await ensureDeviceRecord(chipId);
 
       if (mode === "reconfigure") {
@@ -634,7 +750,7 @@ export default function WifiConfig() {
           deviceName: displayDeviceName,
           deviceIdentity: getShortDeviceIdentity(device.chipId || device.macAddress || device.id),
           ssid: ssid.trim(),
-          signalText: "良好",
+          signalText: provision.rssi === null ? "设备未上报" : `${provision.rssi} dBm`,
         });
         return;
       }
@@ -728,6 +844,58 @@ export default function WifiConfig() {
           </Text>
         </View>
       </View>
+
+      {showBandConfirmation ? (
+        <View className="wifi-band-confirm-overlay">
+          <View className="wifi-band-confirm-modal">
+            <View className="wifi-band-confirm-icon">
+              <Text className="wifi-band-confirm-icon-text">2.4G</Text>
+            </View>
+            <Text className="wifi-band-confirm-title">确认 WiFi 频段</Text>
+            <Text className="wifi-band-confirm-content">
+              设备仅支持 2.4G WiFi，不支持 5G 网络。请确认手机当前连接的是 2.4G WiFi。
+            </Text>
+            <View className="wifi-band-confirm-actions">
+              <View className="wifi-band-confirm-secondary" onClick={() => setShowBandConfirmation(false)}>
+                <Text className="wifi-band-confirm-secondary-text">返回检查</Text>
+              </View>
+              <View className="wifi-band-confirm-primary" onClick={confirmConnectWifi}>
+                <Text className="wifi-band-confirm-primary-text">确认继续</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : null}
+
+      {provisionPending ? (
+        <View className="wifi-success-overlay">
+          <View className="wifi-success-modal">
+            <View className="wifi-band-confirm-icon">
+              <Text className="wifi-band-confirm-icon-text">···</Text>
+            </View>
+            <Text className="wifi-success-title">设备仍在联网</Text>
+            <Text className="wifi-success-subtitle">设备已收到 WiFi 信息，但尚未确认连接服务器。稍后可在设备列表查看。</Text>
+            <View
+              className="wifi-success-primary"
+              onClick={() => {
+                setProvisionPending(false);
+                void confirmConnectWifi();
+              }}
+            >
+              <Text className="wifi-success-primary-text">重试配网</Text>
+            </View>
+            <View
+              className="wifi-success-secondary"
+              onClick={() => {
+                setProvisionPending(false);
+                setBleHint("请修改 WiFi 名称或密码后重试");
+              }}
+            >
+              <Text className="wifi-success-secondary-text">更换网络</Text>
+            </View>
+          </View>
+        </View>
+      ) : null}
 
       {reconfigureSuccess ? (
         <View className="wifi-success-overlay">

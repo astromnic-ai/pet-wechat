@@ -187,6 +187,9 @@ describe("完整端到端用户旅程", () => {
     await sleep(500);
 
     await tap(page, ".wifi-submit-btn");
+    await sleep(300);
+    expect(await getPageText(page)).toContain("确认 WiFi 频段");
+    await tap(page, ".wifi-band-confirm-primary");
     await sleep(2000);
 
     page = await waitForPath("pages/bind-pet/index");
