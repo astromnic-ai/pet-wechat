@@ -11,9 +11,9 @@ export type InternalReadinessDevice = {
 };
 
 export type InternalReadinessResult =
-  | { ok: true; checkedChipIds: string[]; devices: InternalReadinessDevice[] }
+  | { ready: true; checkedChipIds: string[]; devices: InternalReadinessDevice[] }
   | {
-      ok: false;
+      ready: false;
       checkedChipIds: string[];
       missingVerified: string[];
       recentFailures: string[];
@@ -46,7 +46,7 @@ export async function checkInternalReadyForRelease(
 
   if (checkedChipIds.length === 0) {
     return {
-      ok: false,
+      ready: false,
       checkedChipIds,
       missingVerified: [],
       recentFailures: [],
@@ -88,7 +88,7 @@ export async function checkInternalReadyForRelease(
 
   if (missingVerified.length > 0 || recentFailures.length > 0) {
     return {
-      ok: false,
+      ready: false,
       checkedChipIds,
       missingVerified,
       recentFailures,
@@ -96,5 +96,5 @@ export async function checkInternalReadyForRelease(
     };
   }
 
-  return { ok: true, checkedChipIds, devices };
+  return { ready: true, checkedChipIds, devices };
 }

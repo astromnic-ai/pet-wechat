@@ -78,7 +78,7 @@ export async function transitionTo(
 
   if (currentState === "internal" && newState === "released") {
     const readiness = await checkInternalReadyForRelease(current.version);
-    if (!readiness.ok) {
+    if (!readiness.ready) {
       throw new FirmwareStateTransitionError(
         "internal_release_not_ready",
         readiness,

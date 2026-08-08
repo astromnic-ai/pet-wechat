@@ -145,7 +145,10 @@ export default function OtaDispatchPage() {
                 .map((item) => ({ label: item.version, value: item.version }))}
             />
           </Form.Item>
-          <Popconfirm title="确认向所有在线且可升级设备下发？" onConfirm={() => void dispatchAll()}>
+          <Popconfirm
+            title="确认向所有已登记且可升级设备下发？离线设备将在重新上线后接收。"
+            onConfirm={() => void dispatchAll()}
+          >
             <Button type="primary" loading={dispatching}>
               确认下发
             </Button>

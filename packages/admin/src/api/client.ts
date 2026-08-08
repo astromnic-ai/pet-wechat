@@ -89,7 +89,7 @@ export type OtaReleaseReadinessDevice = {
 };
 
 export type OtaReleaseReadiness = {
-  ok: boolean;
+  ready: boolean;
   checkedChipIds: string[];
   missingVerified?: string[];
   recentFailures?: string[];
@@ -177,7 +177,9 @@ async function otaRequest<T>(path: string, options?: RequestInit): Promise<T> {
   const payload = (await res.json().catch(() => null)) as OtaOkResponse<T> | OtaErrorResponse | null;
   if (!res.ok || payload?.ok === false) {
     const otaError = payload?.ok === false ? payload : null;
-    const error = new Error(otaError?.message || res.statusText) as OtaError;
+    const error = new Error(
+      otaError?.message || res.statusText || `OTA 请求失败（HTTP ${res.status}）`,
+    ) as OtaError;
     error.code = otaError?.code;
     error.details = otaError?.details;
     throw error;

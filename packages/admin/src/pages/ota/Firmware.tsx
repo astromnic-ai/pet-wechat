@@ -107,7 +107,7 @@ export default function OtaFirmwarePage() {
   };
 
   const releaseFirmware = async () => {
-    if (!readinessVersion || !readiness?.ok) return;
+    if (!readinessVersion || !readiness?.ready) return;
     setReleasing(true);
     try {
       await api.updateOtaFirmwareState(readinessVersion.id, "released");
@@ -221,7 +221,7 @@ export default function OtaFirmwarePage() {
         width={760}
         confirmLoading={releasing}
         okText="确认转为全量"
-        okButtonProps={{ disabled: !readiness?.ok || readinessLoading }}
+        okButtonProps={{ disabled: !readiness?.ready || readinessLoading }}
         onOk={() => void releaseFirmware()}
         onCancel={() => setReadinessOpen(false)}
       >
@@ -230,11 +230,11 @@ export default function OtaFirmwarePage() {
         ) : readiness ? (
           <Space direction="vertical" size="middle" style={{ width: "100%" }}>
             <Alert
-              type={readiness.ok ? "success" : "warning"}
+              type={readiness.ready ? "success" : "warning"}
               showIcon
-              message={readiness.ok ? "已满足全量发布条件" : "暂不满足全量发布条件"}
+              message={readiness.ready ? "已满足全量发布条件" : "暂不满足全量发布条件"}
               description={
-                readiness.ok
+                readiness.ready
                   ? `共 ${readiness.checkedChipIds.length} 台内测设备已验证通过。`
                   : `未验证 ${readiness.missingVerified?.length ?? 0} 台，近期失败或回滚 ${readiness.recentFailures?.length ?? 0} 台。`
               }

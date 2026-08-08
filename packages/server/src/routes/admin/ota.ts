@@ -9,6 +9,7 @@ import {
   otaProgress,
 } from "../../db/schema";
 import { dispatchVersion } from "../../ota/dispatch";
+import { selectFullDispatchChipIds } from "../../ota/dispatch-targets";
 import { ok, fail } from "../../ota/errors";
 import { checkInternalReadyForRelease } from "../../ota/internal-readiness";
 import { compare } from "../../ota/version-cmp";
@@ -102,11 +103,10 @@ otaAdminRoute.post("/dispatch-all", async (c) => {
 
   const rows = await db
     .select({ chipId: deviceRegistry.chipId, fw: deviceRegistry.fw })
-    .from(deviceRegistry)
-    .where(eq(deviceRegistry.online, true));
-  const chipIds = rows
-    .filter((row) => !row.fw || compare(version, row.fw) > 0)
-    .map((row) => row.chipId);
+    .from(deviceRegistry);
+  // 对全部已登记且版本落后的设备发布 retained 命令：在线设备立即收到，
+  // 离线设备在下次连接 MQTT 时收到；/firmware/check 仍作为主动拉取兜底。
+  const chipIds = selectFullDispatchChipIds(version, rows);
 
   const result = await dispatchVersion({
     chipIds,

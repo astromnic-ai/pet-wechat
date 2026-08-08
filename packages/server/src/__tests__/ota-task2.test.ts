@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { handleOtaMqttMessage } from "../ota/mqtt-handlers";
 import { handleRollback } from "../ota/rollback-handler";
 import { checkInternalReadyForRelease } from "../ota/internal-readiness";
+import { selectFullDispatchChipIds } from "../ota/dispatch-targets";
 import { compare, isValid } from "../ota/version-cmp";
 import { fakeBinding, fakeDesktop } from "./helpers";
 import { mockDb } from "./setup";
@@ -20,6 +21,28 @@ describe("OTA version compare", () => {
     expect(compare("v2.0.0", "v1.99.99")).toBe(1);
     expect(compare("v1.2.3", "v1.2.3")).toBe(0);
     expect(() => compare("bad", "v1.0.0")).toThrow("Invalid semantic version");
+  });
+});
+
+describe("OTA full dispatch targets", () => {
+  it("includes offline registry devices when their firmware is older", () => {
+    const targets = selectFullDispatchChipIds("v1.2.3", [
+      { chipId: "online-old", fw: "v1.2.2" },
+      { chipId: "offline-old", fw: "v1.0.0" },
+      { chipId: "unknown-version", fw: null },
+      { chipId: "already-current", fw: "v1.2.3" },
+      { chipId: "newer", fw: "v1.3.0" },
+    ]);
+
+    expect(targets).toEqual(["online-old", "offline-old", "unknown-version"]);
+  });
+
+  it("keeps an invalid reported firmware from blocking the release batch", () => {
+    expect(
+      selectFullDispatchChipIds("v1.2.3", [
+        { chipId: "legacy-format", fw: "1.0" },
+      ]),
+    ).toEqual(["legacy-format"]);
   });
 });
 
@@ -42,7 +65,7 @@ describe("OTA internal release readiness", () => {
     ];
 
     const readiness = await checkInternalReadyForRelease("v0.9.243");
-    expect(readiness.ok).toBe(true);
+    expect(readiness.ready).toBe(true);
     expect(readiness.checkedChipIds).toEqual(["chip-pull"]);
   });
 
@@ -71,7 +94,7 @@ describe("OTA internal release readiness", () => {
     ];
 
     const readiness = await checkInternalReadyForRelease("v0.9.243");
-    expect(readiness.ok).toBe(true);
+    expect(readiness.ready).toBe(true);
     expect(readiness.devices[0]?.latestStage).toBe("verified");
   });
 
@@ -89,8 +112,8 @@ describe("OTA internal release readiness", () => {
     ];
 
     const readiness = await checkInternalReadyForRelease("v0.9.243");
-    expect(readiness.ok).toBe(false);
-    if (readiness.ok) throw new Error("expected readiness to be blocked");
+    expect(readiness.ready).toBe(false);
+    if (readiness.ready) throw new Error("expected readiness to be blocked");
     expect(readiness.missingVerified).toEqual(["chip-failed"]);
     expect(readiness.recentFailures).toEqual(["chip-failed"]);
     expect(readiness.devices[0]).toMatchObject({
