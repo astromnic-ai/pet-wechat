@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { handleOtaMqttMessage } from "../ota/mqtt-handlers";
 import { handleRollback } from "../ota/rollback-handler";
+import { checkInternalReadyForRelease } from "../ota/internal-readiness";
 import { compare, isValid } from "../ota/version-cmp";
 import { fakeBinding, fakeDesktop } from "./helpers";
 import { mockDb } from "./setup";
@@ -19,6 +20,85 @@ describe("OTA version compare", () => {
     expect(compare("v2.0.0", "v1.99.99")).toBe(1);
     expect(compare("v1.2.3", "v1.2.3")).toBe(0);
     expect(() => compare("bad", "v1.0.0")).toThrow("Invalid semantic version");
+  });
+});
+
+describe("OTA internal release readiness", () => {
+  beforeEach(() => {
+    mockDb._reset();
+  });
+
+  it("accepts a whitelist pull upgrade without a dispatch job when it reports verified", async () => {
+    mockDb._results.select = [
+      [],
+      [{
+        chipId: "chip-pull",
+        version: "v0.9.243",
+        stage: "verified",
+        code: null,
+        reason: null,
+        receivedAt: new Date(),
+      }],
+    ];
+
+    const readiness = await checkInternalReadyForRelease("v0.9.243");
+    expect(readiness.ok).toBe(true);
+    expect(readiness.checkedChipIds).toEqual(["chip-pull"]);
+  });
+
+  it("uses the latest terminal state so a successful retry clears an older failure", async () => {
+    const now = Date.now();
+    mockDb._results.select = [
+      [{ chipIds: ["chip-retry"] }],
+      [
+        {
+          chipId: "chip-retry",
+          version: "v0.9.243",
+          stage: "failed",
+          code: "download_failed",
+          reason: "network",
+          receivedAt: new Date(now - 60_000),
+        },
+        {
+          chipId: "chip-retry",
+          version: "v0.9.243",
+          stage: "verified",
+          code: null,
+          reason: null,
+          receivedAt: new Date(now),
+        },
+      ],
+    ];
+
+    const readiness = await checkInternalReadyForRelease("v0.9.243");
+    expect(readiness.ok).toBe(true);
+    expect(readiness.devices[0]?.latestStage).toBe("verified");
+  });
+
+  it("returns blocking device details when the latest terminal state failed", async () => {
+    mockDb._results.select = [
+      [{ chipIds: ["chip-failed"] }],
+      [{
+        chipId: "chip-failed",
+        version: "v0.9.243",
+        stage: "failed",
+        code: "verify_failed",
+        reason: "sha mismatch",
+        receivedAt: new Date(),
+      }],
+    ];
+
+    const readiness = await checkInternalReadyForRelease("v0.9.243");
+    expect(readiness.ok).toBe(false);
+    if (readiness.ok) throw new Error("expected readiness to be blocked");
+    expect(readiness.missingVerified).toEqual(["chip-failed"]);
+    expect(readiness.recentFailures).toEqual(["chip-failed"]);
+    expect(readiness.devices[0]).toMatchObject({
+      chipId: "chip-failed",
+      latestStage: "failed",
+      code: "verify_failed",
+      reason: "sha mismatch",
+    });
   });
 });
 

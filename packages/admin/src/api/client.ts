@@ -24,10 +24,12 @@ type OtaErrorResponse = {
   ok: false;
   code: string;
   message: string;
+  details?: unknown;
 };
 
 export type OtaError = Error & {
   code?: string;
+  details?: unknown;
 };
 
 export type OtaFirmwareVersion = {
@@ -76,6 +78,22 @@ export type OtaDispatchJob = {
   throttledCount: number;
   createdBy: string | null;
   progress: Record<string, number>;
+};
+
+export type OtaReleaseReadinessDevice = {
+  chipId: string;
+  latestStage: string | null;
+  receivedAt: string | null;
+  code: string | null;
+  reason: string | null;
+};
+
+export type OtaReleaseReadiness = {
+  ok: boolean;
+  checkedChipIds: string[];
+  missingVerified?: string[];
+  recentFailures?: string[];
+  devices: OtaReleaseReadinessDevice[];
 };
 
 export type OtaToken = {
@@ -161,6 +179,7 @@ async function otaRequest<T>(path: string, options?: RequestInit): Promise<T> {
     const otaError = payload?.ok === false ? payload : null;
     const error = new Error(otaError?.message || res.statusText) as OtaError;
     error.code = otaError?.code;
+    error.details = otaError?.details;
     throw error;
   }
 
@@ -408,11 +427,18 @@ export const api = {
     const qs = params ? `?${new URLSearchParams(params).toString()}` : "";
     return otaRequest<{ items: OtaDispatchJob[] }>(`/ota/dispatch-jobs${qs}`);
   },
+  dispatchInternalOta: (version: string, chipIds: string[]) =>
+    otaRequest<{ version: string; dispatched: number; immediate: number; throttled: number; skipped: string[] }>("/ota/dispatch", {
+      method: "POST",
+      body: JSON.stringify({ version, chipIds }),
+    }),
   dispatchAllOta: (version: string) =>
     otaRequest<{ version: string; dispatched: number; immediate: number; throttled: number }>("/ota/dispatch-all", {
       method: "POST",
       body: JSON.stringify({ version }),
     }),
+  getOtaReleaseReadiness: (version: string) =>
+    otaRequest<OtaReleaseReadiness>(`/ota/release-readiness?version=${encodeURIComponent(version)}`),
   getOtaTokens: () => otaRequest<{ items: OtaToken[] }>("/ota/tokens"),
   createOtaToken: (name: string) =>
     otaRequest<{ token: string; item: OtaToken }>("/ota/tokens", {

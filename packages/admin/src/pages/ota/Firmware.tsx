@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Upload, message } from "antd";
+import { Alert, Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, Upload, message } from "antd";
 import type { TableProps, UploadProps } from "antd";
 import { ReloadOutlined, UploadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import type { FirmwareState } from "shared";
-import { api, type OtaFirmwareVersion } from "../../api/client";
+import { api, type OtaFirmwareVersion, type OtaReleaseReadiness } from "../../api/client";
 
 const stateMeta: Record<FirmwareState, { label: string; color: string }> = {
   draft: { label: "草稿", color: "default" },
@@ -19,7 +19,7 @@ function formatTime(value?: string | null) {
 
 function nextStates(state: FirmwareState): FirmwareState[] {
   if (state === "draft") return ["internal", "quarantine"];
-  if (state === "internal") return ["released", "quarantine"];
+  if (state === "internal") return ["quarantine"];
   if (state === "quarantine") return ["released"];
   return ["quarantine"];
 }
@@ -30,6 +30,11 @@ export default function OtaFirmwarePage() {
   const [loading, setLoading] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [readinessOpen, setReadinessOpen] = useState(false);
+  const [readinessLoading, setReadinessLoading] = useState(false);
+  const [releasing, setReleasing] = useState(false);
+  const [readinessVersion, setReadinessVersion] = useState<OtaFirmwareVersion | null>(null);
+  const [readiness, setReadiness] = useState<OtaReleaseReadiness | null>(null);
   const [form] = Form.useForm<{ version: string; releaseNote?: string }>();
 
   const loadItems = async () => {
@@ -87,6 +92,37 @@ export default function OtaFirmwarePage() {
     }
   };
 
+  const loadReadiness = async (record: OtaFirmwareVersion) => {
+    setReadinessVersion(record);
+    setReadinessOpen(true);
+    setReadinessLoading(true);
+    try {
+      setReadiness(await api.getOtaReleaseReadiness(record.version));
+    } catch (error) {
+      setReadiness(null);
+      messageApi.error(error instanceof Error ? error.message : "发布检查失败");
+    } finally {
+      setReadinessLoading(false);
+    }
+  };
+
+  const releaseFirmware = async () => {
+    if (!readinessVersion || !readiness?.ok) return;
+    setReleasing(true);
+    try {
+      await api.updateOtaFirmwareState(readinessVersion.id, "released");
+      messageApi.success(`${readinessVersion.version} 已转为全量版本`);
+      setReadinessOpen(false);
+      setReadiness(null);
+      void loadItems();
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : "全量发布失败");
+      void loadReadiness(readinessVersion);
+    } finally {
+      setReleasing(false);
+    }
+  };
+
   const columns: TableProps<OtaFirmwareVersion>["columns"] = [
     { title: "版本", dataIndex: "version", width: 140 },
     {
@@ -115,6 +151,11 @@ export default function OtaFirmwarePage() {
       width: 260,
       render: (_, record) => (
         <Space wrap>
+          {record.state === "internal" ? (
+            <Button size="small" type="primary" onClick={() => void loadReadiness(record)}>
+              发布检查
+            </Button>
+          ) : null}
           {nextStates(record.state).map((state) => (
             <Popconfirm
               key={state}
@@ -172,6 +213,59 @@ export default function OtaFirmwarePage() {
             </Button>
           </Upload>
         </Form>
+      </Modal>
+
+      <Modal
+        title={`${readinessVersion?.version ?? ""} 发布检查`}
+        open={readinessOpen}
+        width={760}
+        confirmLoading={releasing}
+        okText="确认转为全量"
+        okButtonProps={{ disabled: !readiness?.ok || readinessLoading }}
+        onOk={() => void releaseFirmware()}
+        onCancel={() => setReadinessOpen(false)}
+      >
+        {readinessLoading ? (
+          <Alert type="info" showIcon message="正在检查内测设备状态…" />
+        ) : readiness ? (
+          <Space direction="vertical" size="middle" style={{ width: "100%" }}>
+            <Alert
+              type={readiness.ok ? "success" : "warning"}
+              showIcon
+              message={readiness.ok ? "已满足全量发布条件" : "暂不满足全量发布条件"}
+              description={
+                readiness.ok
+                  ? `共 ${readiness.checkedChipIds.length} 台内测设备已验证通过。`
+                  : `未验证 ${readiness.missingVerified?.length ?? 0} 台，近期失败或回滚 ${readiness.recentFailures?.length ?? 0} 台。`
+              }
+            />
+            <Table
+              rowKey="chipId"
+              size="small"
+              pagination={false}
+              dataSource={readiness.devices}
+              columns={[
+                { title: "Chip ID", dataIndex: "chipId" },
+                {
+                  title: "最新终态",
+                  dataIndex: "latestStage",
+                  width: 130,
+                  render: (stage: string | null) => (
+                    <Tag color={stage === "verified" ? "green" : stage ? "red" : "default"}>{stage || "未上报"}</Tag>
+                  ),
+                },
+                { title: "错误码", dataIndex: "code", width: 120, render: (value: string | null) => value || "-" },
+                { title: "原因", dataIndex: "reason", render: (value: string | null) => value || "-" },
+                { title: "上报时间", dataIndex: "receivedAt", width: 170, render: formatTime },
+              ]}
+            />
+            <Button onClick={() => readinessVersion && void loadReadiness(readinessVersion)} loading={readinessLoading}>
+              刷新检查
+            </Button>
+          </Space>
+        ) : (
+          <Alert type="error" showIcon message="未能获取发布检查结果" />
+        )}
       </Modal>
     </>
   );

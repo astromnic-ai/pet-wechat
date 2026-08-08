@@ -102,7 +102,7 @@ firmwareAdminRoute.post("/versions/:id/state", async (c) => {
     return ok(c, { item: row });
   } catch (error) {
     if (error instanceof FirmwareStateTransitionError) {
-      return fail(c, 400, error.message, "固件状态流转失败");
+      return fail(c, 400, error.message, "固件状态流转失败", error.details);
     }
     throw error;
   }

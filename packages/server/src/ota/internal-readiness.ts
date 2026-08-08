@@ -1,17 +1,27 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../db";
 import { dispatchJobs, otaProgress } from "../db/schema";
 
+export type InternalReadinessDevice = {
+  chipId: string;
+  latestStage: string | null;
+  receivedAt: string | null;
+  code: string | null;
+  reason: string | null;
+};
+
 export type InternalReadinessResult =
-  | { ok: true; checkedChipIds: string[] }
+  | { ok: true; checkedChipIds: string[]; devices: InternalReadinessDevice[] }
   | {
       ok: false;
       checkedChipIds: string[];
       missingVerified: string[];
       recentFailures: string[];
+      devices: InternalReadinessDevice[];
     };
 
 const BLOCKING_STAGES = ["rolled_back", "failed"] as const;
+const TERMINAL_STAGES = new Set(["verified", ...BLOCKING_STAGES]);
 const RELEASE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export async function checkInternalReadyForRelease(
@@ -22,9 +32,17 @@ export async function checkInternalReadyForRelease(
     .from(dispatchJobs)
     .where(eq(dispatchJobs.version, version));
 
-  const checkedChipIds = Array.from(
-    new Set(jobs.flatMap((job) => job.chipIds ?? [])),
-  ).sort();
+  const progressRows = await db
+    .select()
+    .from(otaProgress)
+    .where(eq(otaProgress.version, version));
+
+  // 内测既支持后台主动下发，也支持白名单设备通过 /firmware/check 主动拉取。
+  // 后者不会创建 dispatch_jobs，因此必须把实际上报过该版本进度的设备纳入发布队列。
+  const checkedChipIds = Array.from(new Set([
+    ...jobs.flatMap((job) => job.chipIds ?? []),
+    ...progressRows.map((row) => row.chipId),
+  ])).sort();
 
   if (checkedChipIds.length === 0) {
     return {
@@ -32,39 +50,41 @@ export async function checkInternalReadyForRelease(
       checkedChipIds,
       missingVerified: [],
       recentFailures: [],
+      devices: [],
     };
   }
 
-  const progressRows = await db
-    .select()
-    .from(otaProgress)
-    .where(
-      and(
-        eq(otaProgress.version, version),
-        inArray(otaProgress.chipId, checkedChipIds),
-      ),
-    );
+  const latestTerminalByChipId = new Map<string, (typeof progressRows)[number]>();
+  for (const row of progressRows) {
+    if (!TERMINAL_STAGES.has(row.stage)) continue;
+    const current = latestTerminalByChipId.get(row.chipId);
+    if (!current || row.receivedAt.getTime() > current.receivedAt.getTime()) {
+      latestTerminalByChipId.set(row.chipId, row);
+    }
+  }
 
-  const verified = new Set(
-    progressRows
-      .filter((row) => row.stage === "verified")
-      .map((row) => row.chipId),
-  );
   const since = Date.now() - RELEASE_WINDOW_MS;
-  const recentFailures = Array.from(
-    new Set(
-      progressRows
-        .filter(
-          (row) =>
-            BLOCKING_STAGES.includes(row.stage as (typeof BLOCKING_STAGES)[number]) &&
-            row.receivedAt.getTime() >= since,
-        )
-        .map((row) => row.chipId),
-    ),
-  ).sort();
+  const recentFailures = checkedChipIds.filter((chipId) => {
+    const latest = latestTerminalByChipId.get(chipId);
+    return Boolean(
+      latest &&
+      BLOCKING_STAGES.includes(latest.stage as (typeof BLOCKING_STAGES)[number]) &&
+      latest.receivedAt.getTime() >= since,
+    );
+  });
   const missingVerified = checkedChipIds
-    .filter((chipId) => !verified.has(chipId))
+    .filter((chipId) => latestTerminalByChipId.get(chipId)?.stage !== "verified")
     .sort();
+  const devices = checkedChipIds.map((chipId) => {
+    const latest = latestTerminalByChipId.get(chipId);
+    return {
+      chipId,
+      latestStage: latest?.stage ?? null,
+      receivedAt: latest?.receivedAt.toISOString() ?? null,
+      code: latest?.code ?? null,
+      reason: latest?.reason ?? null,
+    };
+  });
 
   if (missingVerified.length > 0 || recentFailures.length > 0) {
     return {
@@ -72,8 +92,9 @@ export async function checkInternalReadyForRelease(
       checkedChipIds,
       missingVerified,
       recentFailures,
+      devices,
     };
   }
 
-  return { ok: true, checkedChipIds };
+  return { ok: true, checkedChipIds, devices };
 }

@@ -10,6 +10,7 @@ import {
 } from "../../db/schema";
 import { dispatchVersion } from "../../ota/dispatch";
 import { ok, fail } from "../../ota/errors";
+import { checkInternalReadyForRelease } from "../../ota/internal-readiness";
 import { compare } from "../../ota/version-cmp";
 
 const otaAdminRoute = new Hono();
@@ -150,6 +151,23 @@ otaAdminRoute.get("/dispatch-jobs", async (c) => {
         }, {}),
     })),
   });
+});
+
+otaAdminRoute.get("/release-readiness", async (c) => {
+  const version = c.req.query("version")?.trim() ?? "";
+  if (!version) {
+    return fail(c, 400, "bad_request", "version 不能为空");
+  }
+
+  const firmware = await getFirmware(version);
+  if (!firmware) {
+    return fail(c, 404, "not_found", "固件版本不存在");
+  }
+  if (firmware.state !== "internal") {
+    return fail(c, 400, "bad_request", "仅 internal 版本需要发布检查");
+  }
+
+  return ok(c, await checkInternalReadyForRelease(version));
 });
 
 otaAdminRoute.get("/registry", async (c) => {

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { Button, Card, Form, Input, Modal, Popconfirm, Space, Table, Tag, message } from "antd";
+import { Button, Card, Form, Modal, Popconfirm, Select, Space, Table, Tag, message } from "antd";
 import type { TableProps } from "antd";
 import { CloudUploadOutlined, ReloadOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { api, type OtaDispatchJob } from "../../api/client";
+import { api, type OtaDispatchJob, type OtaFirmwareVersion, type OtaInternalDevice } from "../../api/client";
 
 const stages = ["received", "downloading", "verified", "failed", "rolled_back"] as const;
 const stageLabels: Record<(typeof stages)[number], string> = {
@@ -23,8 +23,12 @@ export default function OtaDispatchPage() {
   const [items, setItems] = useState<OtaDispatchJob[]>([]);
   const [loading, setLoading] = useState(false);
   const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [internalDispatchOpen, setInternalDispatchOpen] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [firmwareVersions, setFirmwareVersions] = useState<OtaFirmwareVersion[]>([]);
+  const [internalDevices, setInternalDevices] = useState<OtaInternalDevice[]>([]);
   const [form] = Form.useForm<{ version: string }>();
+  const [internalForm] = Form.useForm<{ version: string; chipIds: string[] }>();
 
   const loadItems = async () => {
     setLoading(true);
@@ -40,7 +44,32 @@ export default function OtaDispatchPage() {
 
   useEffect(() => {
     void loadItems();
+    void Promise.all([api.getOtaFirmwareVersions(), api.getOtaInternalDevices()])
+      .then(([versions, devices]) => {
+        setFirmwareVersions(versions.items ?? []);
+        setInternalDevices(devices.items ?? []);
+      })
+      .catch((error) => messageApi.error(error instanceof Error ? error.message : "内测下发数据加载失败"));
   }, []);
+
+  const dispatchInternal = async () => {
+    try {
+      setDispatching(true);
+      const values = await internalForm.validateFields();
+      const response = await api.dispatchInternalOta(values.version, values.chipIds);
+      messageApi.success(`已创建内测下发：${response.dispatched} 台`);
+      if (response.skipped.length > 0) {
+        messageApi.warning(`${response.skipped.length} 台设备不在白名单，已跳过`);
+      }
+      setInternalDispatchOpen(false);
+      internalForm.resetFields();
+      void loadItems();
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : "内测下发失败");
+    } finally {
+      setDispatching(false);
+    }
+  };
 
   const dispatchAll = async () => {
     try {
@@ -78,6 +107,9 @@ export default function OtaDispatchPage() {
             <Button icon={<ReloadOutlined />} loading={loading} onClick={() => void loadItems()}>
               刷新
             </Button>
+            <Button onClick={() => setInternalDispatchOpen(true)}>
+              内测下发
+            </Button>
             <Button type="primary" icon={<CloudUploadOutlined />} onClick={() => setDispatchOpen(true)}>
               全量下发
             </Button>
@@ -106,11 +138,43 @@ export default function OtaDispatchPage() {
       <Modal title="全量下发" open={dispatchOpen} footer={null} onCancel={() => setDispatchOpen(false)}>
         <Form form={form} layout="vertical">
           <Form.Item name="version" label="版本号" rules={[{ required: true, message: "请输入版本号" }]}>
-            <Input placeholder="v1.2.3" />
+            <Select
+              placeholder="选择已转为全量的版本"
+              options={firmwareVersions
+                .filter((item) => item.state === "released")
+                .map((item) => ({ label: item.version, value: item.version }))}
+            />
           </Form.Item>
           <Popconfirm title="确认向所有在线且可升级设备下发？" onConfirm={() => void dispatchAll()}>
             <Button type="primary" loading={dispatching}>
               确认下发
+            </Button>
+          </Popconfirm>
+        </Form>
+      </Modal>
+      <Modal title="内测下发" open={internalDispatchOpen} footer={null} onCancel={() => setInternalDispatchOpen(false)}>
+        <Form form={internalForm} layout="vertical">
+          <Form.Item name="version" label="内测版本" rules={[{ required: true, message: "请选择内测版本" }]}>
+            <Select
+              placeholder="选择 internal 版本"
+              options={firmwareVersions
+                .filter((item) => item.state === "internal")
+                .map((item) => ({ label: item.version, value: item.version }))}
+            />
+          </Form.Item>
+          <Form.Item name="chipIds" label="内测设备" rules={[{ required: true, message: "请选择至少一台白名单设备" }]}>
+            <Select
+              mode="multiple"
+              placeholder="从内测白名单选择设备"
+              options={internalDevices.map((item) => ({
+                label: item.note ? `${item.chipId} · ${item.note}` : item.chipId,
+                value: item.chipId,
+              }))}
+            />
+          </Form.Item>
+          <Popconfirm title="确认向所选白名单设备下发该内测版本？" onConfirm={() => void dispatchInternal()}>
+            <Button type="primary" loading={dispatching}>
+              确认内测下发
             </Button>
           </Popconfirm>
         </Form>
